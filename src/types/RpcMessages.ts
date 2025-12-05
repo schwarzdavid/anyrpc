@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { MethodFn, MethodMap } from '@/types/MethodMap'
+
 export interface RpcMessageBase {
     jsonrpc: '2.0'
     id: string
 }
 
-export interface RpcSuccessResponse extends RpcMessageBase {
-    result: any
+export interface RpcSuccessResponse<Fn extends MethodFn> extends RpcMessageBase {
+    result: Awaited<ReturnType<Fn>>
 }
 
 export interface RpcErrorData {
@@ -19,11 +21,18 @@ export interface RpcErrorResponse extends RpcMessageBase {
     error: RpcErrorData
 }
 
-export interface RpcRequest extends RpcMessageBase {
-    method: string
-    params?: any
+export interface RpcRequest<
+    Methods extends MethodMap<Methods>,
+    Name extends keyof Methods = keyof Methods,
+> extends RpcMessageBase {
+    method: Name
+    params: Parameters<Methods[Name]>
 }
 
-export type RpcResponse = RpcSuccessResponse | RpcErrorResponse
+export type RpcResponse<Methods extends MethodMap<Methods>, Name extends keyof Methods = keyof Methods> =
+    | RpcSuccessResponse<Methods[Name]>
+    | RpcErrorResponse
 
-export type RpcMessage = RpcRequest | RpcResponse
+export type RpcMessage<Methods extends MethodMap<Methods>, Name extends keyof Methods = keyof Methods> =
+    | RpcRequest<Methods, Name>
+    | RpcResponse<Methods, Name>

@@ -34,11 +34,11 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
 ) {
     options = Object.assign({ timeout: 3000 }, options)
 
-    const events = new EventEmitter()
+    const events = new EventEmitter<Events>()
     const queue: Queue = {}
 
     adapter.messageHandler = (data) => {
-        const { type, message } = parseRpcMessage(data)
+        const { type, message } = parseRpcMessage<Events, Methods>(data)
 
         if (type === RpcMessageType.RESPONSE) {
             handleResponse(message)
@@ -47,7 +47,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         void handleRequest(message)
     }
 
-    function handleResponse(message: RpcResponse): void {
+    function handleResponse(message: RpcResponse<Methods>): void {
         if (isRpcErrorResponse(message)) {
             queue[message.id]?.reject(new RpcError(message.error))
             return
@@ -55,12 +55,15 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         queue[message.id]?.resolve(message.result)
     }
 
-    async function handleRequest(message: RpcRequest) {
+    async function handleRequest(message: RpcRequest<Events>): Promise<void> {
         const responseBase: RpcMessageBase = { jsonrpc: '2.0', id: message.id }
-        let response: RpcResponse
+        let response: RpcResponse<Methods>
 
         try {
-            const result = await events.dispatchEvent(message.method, message.params as unknown[])
+            const result = await events.dispatchEvent(message.method, message.params)
+            if (!result) {
+                return
+            }
             response = {
                 ...responseBase,
                 result,
@@ -83,9 +86,12 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         void adapter.sendMessage(response)
     }
 
-    function sendRequest(method: string, params: unknown[]): Promise<unknown> {
+    function sendRequest<Method extends keyof Methods>(
+        method: Method,
+        params: Parameters<Methods[Method]>,
+    ): Promise<unknown> {
         const id = uuid()
-        const request: RpcRequest = {
+        const request: RpcRequest<Methods> = {
             id,
             method,
             params,
@@ -93,7 +99,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         }
 
         return new Promise((resolve, reject) => {
-            const timeoutId = setTimeout(() => reject(new RpcError(RpcErrorCode.INVALID_REQUEST)), options.timeout)
+            const timeoutId = setTimeout(() => reject(new RpcError(RpcErrorCode.TIMEOUT_ERROR)), options.timeout)
 
             queue[id] = {
                 resolve: (value) => {
@@ -123,7 +129,8 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             if (PUBLIC_EVENT_METHODS.includes(prop.toString())) {
                 return events[prop as keyof PublicEventEmitter<never>]
             }
-            return (...params: unknown[]) => sendRequest(prop.toString(), params)
+            return (...params: unknown[]) =>
+                sendRequest(prop.toString() as keyof Methods, params as Parameters<Methods[keyof Methods]>)
         },
     })
 }
