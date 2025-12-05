@@ -1,19 +1,19 @@
-import {RpcError} from "@/lib/RpcError";
-import {RpcErrorCode} from "@/constants/JSON_RPC_ERRORS";
-import {RpcErrorData, RpcErrorResponse, RpcRequest, RpcResponse, RpcSuccessResponse} from "@/types/RpcMessages";
+import { RpcError } from '@/lib/RpcError'
+import { RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
+import { RpcErrorData, RpcErrorResponse, RpcRequest, RpcResponse, RpcSuccessResponse } from '@/types/RpcMessages'
 
 export const enum RpcMessageType {
     REQUEST,
-    RESPONSE
+    RESPONSE,
 }
 
 export interface RpcResponseParsingResult {
-    message: RpcResponse,
+    message: RpcResponse
     type: RpcMessageType.RESPONSE
 }
 
 export interface RpcRequestParsingResult {
-    message: RpcRequest,
+    message: RpcRequest
     type: RpcMessageType.REQUEST
 }
 
@@ -21,7 +21,7 @@ export type RpcParsingResult = RpcResponseParsingResult | RpcRequestParsingResul
 
 export function parseRpcMessage(message: string | object): RpcParsingResult {
     let messageObj: Record<string, unknown>
-    if(typeof message === 'string') {
+    if (typeof message === 'string') {
         try {
             messageObj = JSON.parse(message)
         } catch (err) {
@@ -36,27 +36,27 @@ export function parseRpcMessage(message: string | object): RpcParsingResult {
     const isResponse = Object.hasOwn(messageObj, 'method')
     const isRequest = Object.hasOwn(messageObj, 'result') || Object.hasOwn(messageObj, 'error')
 
-    if(isRequest === isResponse) {
+    if (isRequest === isResponse) {
         throw new RpcError(RpcErrorCode.INVALID_REQUEST)
     }
 
-    if(isRequest) {
+    if (isRequest) {
         const requestMessage = messageObj as unknown as RpcRequest
         validateRequestMessage(requestMessage)
 
         return {
             type: RpcMessageType.REQUEST,
-            message: requestMessage
+            message: requestMessage,
         }
     }
 
-    if(isResponse) {
+    if (isResponse) {
         const responseMessage = messageObj as unknown as RpcResponse
         validateResponseMessage(responseMessage)
 
         return {
             type: RpcMessageType.RESPONSE,
-            message: responseMessage
+            message: responseMessage,
         }
     }
 
@@ -64,36 +64,36 @@ export function parseRpcMessage(message: string | object): RpcParsingResult {
 }
 
 function validateBaseMessage(message: Record<string, unknown>): void {
-    if(message.jsonrpc !== '2.0') {
+    if (message.jsonrpc !== '2.0') {
         throw new RpcError(RpcErrorCode.INVALID_REQUEST)
     }
-    if(Object.hasOwn(message, 'id')) {
-        if(!(typeof message.id === 'string' || typeof message.id === 'number' || message.id === null)){
+    if (Object.hasOwn(message, 'id')) {
+        if (!(typeof message.id === 'string' || typeof message.id === 'number' || message.id === null)) {
             throw new RpcError(RpcErrorCode.INVALID_REQUEST)
         }
-        if(typeof message.id === 'number' && !Number.isInteger(message.id)) {
+        if (typeof message.id === 'number' && !Number.isInteger(message.id)) {
             throw new RpcError(RpcErrorCode.INVALID_REQUEST)
         }
     }
 }
 
 function validateRequestMessage(message: RpcRequest): void {
-    if(Object.hasOwn(message, 'params') && typeof message.params !== 'object' && message.params !== null) {
+    if (Object.hasOwn(message, 'params') && typeof message.params !== 'object' && message.params !== null) {
         throw new RpcError(RpcErrorCode.INVALID_REQUEST)
     }
 }
 
 function validateResponseMessage(message: RpcResponse): void {
-    if(isRpcErrorResponse(message)) {
+    if (isRpcErrorResponse(message)) {
         validateResponseError(message.error)
     }
 }
 
 function validateResponseError(error: Record<string, unknown> | RpcErrorData): void {
-    if(!Number.isInteger(error.code)) {
+    if (!Number.isInteger(error.code)) {
         throw new RpcError(RpcErrorCode.INVALID_REQUEST)
     }
-    if(typeof error.message !== 'string') {
+    if (typeof error.message !== 'string') {
         throw new RpcError(RpcErrorCode.INVALID_REQUEST)
     }
 }

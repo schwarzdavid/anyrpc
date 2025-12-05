@@ -4,15 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "format": "prettier -c",
-    "format:fix": "prettier -w",
+    "format": "prettier . -c",
+    "format:fix": "prettier . -w",
     "lint": "eslint",
     "lint:fix": "eslint --fix"
   },
   "keywords": [],
-  "author": "",
+  "author": "David Schwarz <david@ists-wurscht.at>",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",

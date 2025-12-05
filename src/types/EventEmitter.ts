@@ -1,23 +1,23 @@
-import {MethodFn, MethodMap} from "./MethodMap";
-import {Promisable} from "type-fest";
+import { MethodFn, MethodMap } from './MethodMap'
+import { Promisable } from 'type-fest'
 
 export interface EventListenerOptions<Passive extends boolean> {
     passive?: Passive
 }
 
-export type EventListenerCallback<Listener extends MethodFn, Passive extends boolean> = (...args: Parameters<Listener>) => Passive extends true
-    ? any
-    : Promisable<Awaited<ReturnType<Listener>>>
+export type EventListenerCallback<Listener extends MethodFn, Passive extends boolean> = (
+    ...args: Parameters<Listener>
+) => Passive extends true ? any : Promisable<Awaited<ReturnType<Listener>>>
 
 export interface PublicEventEmitter<Events extends MethodMap> {
     addEventListener<Event extends keyof Events, Passive extends boolean = false>(
         type: Event,
         listener: EventListenerCallback<Events[Event], Passive>,
-        options?: EventListenerOptions<Passive>
+        options?: EventListenerOptions<Passive>,
     ): void
 
     removeEventListener<Event extends keyof Events>(
         type: Event,
-        listener: EventListenerCallback<Events[Event], boolean>
+        listener: EventListenerCallback<Events[Event], boolean>,
     ): void
 }

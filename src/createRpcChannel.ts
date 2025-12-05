@@ -1,13 +1,13 @@
-import {AbstractRpcAdapter} from "./lib/AbstractRpcAdapter";
-import {EventEmitter} from "./lib/EventEmitter";
-import {isRpcErrorResponse, parseRpcMessage, RpcMessageType} from "./utils/rpc";
-import {RpcError} from "./lib/RpcError";
-import {uuid} from "./utils/uuid";
-import {RpcMessageBase, RpcRequest, RpcResponse} from "./types/RpcMessages";
-import {RPC_ERROR_NAME_MAP, RpcErrorCode} from "./constants/JSON_RPC_ERRORS";
-import {PublicEventEmitter} from "./types/EventEmitter";
-import {MethodMap} from "./types/MethodMap";
-import {RpcChannel} from "@/types/RpcChannel";
+import { AbstractRpcAdapter } from './lib/AbstractRpcAdapter'
+import { EventEmitter } from './lib/EventEmitter'
+import { isRpcErrorResponse, parseRpcMessage, RpcMessageType } from './utils/rpc'
+import { RpcError } from './lib/RpcError'
+import { uuid } from './utils/uuid'
+import { RpcMessageBase, RpcRequest, RpcResponse } from './types/RpcMessages'
+import { RPC_ERROR_NAME_MAP, RpcErrorCode } from './constants/JSON_RPC_ERRORS'
+import { PublicEventEmitter } from './types/EventEmitter'
+import { MethodMap } from './types/MethodMap'
+import { RpcChannel } from '@/types/RpcChannel'
 
 export interface RPCChannelOptions {
     timeout: number
@@ -16,34 +16,37 @@ export interface RPCChannelOptions {
 type QueueResolveFn = (resolveValue: any) => void
 
 interface QueueEntry {
-    resolve: QueueResolveFn,
-    reject: QueueResolveFn,
+    resolve: QueueResolveFn
+    reject: QueueResolveFn
 }
 
 type Queue = Record<string, QueueEntry>
 
-const PUBLIC_EVENT_METHODS: string[] = ['addEventListener', 'removeEventListener'] satisfies (keyof PublicEventEmitter<any>)[]
+const PUBLIC_EVENT_METHODS: string[] = [
+    'addEventListener',
+    'removeEventListener',
+] satisfies (keyof PublicEventEmitter<any>)[]
 
-export function createRpcChannel<
-    Methods extends MethodMap,
-    Events extends MethodMap
->(adapter: AbstractRpcAdapter<Methods, Events>, options: Partial<RPCChannelOptions> = {}) {
-    options = Object.assign({timeout: 3000}, options)
+export function createRpcChannel<Methods extends MethodMap, Events extends MethodMap>(
+    adapter: AbstractRpcAdapter<Methods, Events>,
+    options: Partial<RPCChannelOptions> = {},
+) {
+    options = Object.assign({ timeout: 3000 }, options)
 
     const events = new EventEmitter()
     const queue: Queue = {}
 
     adapter.messageHandler = (data) => {
-        const {type, message} = parseRpcMessage(data)
+        const { type, message } = parseRpcMessage(data)
 
-        if(type === RpcMessageType.RESPONSE) {
+        if (type === RpcMessageType.RESPONSE) {
             return void handleResponse(message)
         }
         void handleRequest(message)
     }
 
     function handleResponse(message: RpcResponse) {
-        if(isRpcErrorResponse(message)) {
+        if (isRpcErrorResponse(message)) {
             queue[message.id]?.reject(new RpcError(message.error))
             return
         }
@@ -51,14 +54,14 @@ export function createRpcChannel<
     }
 
     async function handleRequest(message: RpcRequest) {
-        const responseBase: RpcMessageBase = {jsonrpc: '2.0', id: message.id}
+        const responseBase: RpcMessageBase = { jsonrpc: '2.0', id: message.id }
         let response: RpcResponse
 
         try {
             const result = await events.dispatchEvent(message.method, message.params)
             response = {
                 ...responseBase,
-                result
+                result,
             }
         } catch (err) {
             const error = new RpcError({
@@ -66,12 +69,12 @@ export function createRpcChannel<
                 message: RPC_ERROR_NAME_MAP[RpcErrorCode.SERVER_ERROR],
 
                 // TODO: improve error serialization & make error details configurable
-                data: err
+                data: err,
             })
 
             response = {
                 ...responseBase,
-                error
+                error,
             }
         }
 
@@ -84,21 +87,21 @@ export function createRpcChannel<
             id,
             method,
             params,
-            jsonrpc: '2.0'
+            jsonrpc: '2.0',
         }
 
         return new Promise((resolve, reject) => {
             const timeoutId = setTimeout(() => reject(new RpcError(RpcErrorCode.INVALID_REQUEST)), options.timeout)
 
             queue[id] = {
-                resolve: value => {
+                resolve: (value) => {
                     clearTimeout(timeoutId)
                     resolve(value)
                 },
-                reject: err => {
+                reject: (err) => {
                     clearTimeout(timeoutId)
                     reject(err)
-                }
+                },
             }
 
             void adapter.sendMessage(request)
@@ -109,16 +112,15 @@ export function createRpcChannel<
 
     return new Proxy<RpcChannel<Methods, Events>>({} as RpcChannel<Methods, Events>, {
         get(target, prop) {
-
             // Keep for builtins
-            if(prop in target) {
+            if (prop in target) {
                 return target[prop as keyof typeof target]
             }
 
-            if(PUBLIC_EVENT_METHODS.includes(prop.toString())) {
+            if (PUBLIC_EVENT_METHODS.includes(prop.toString())) {
                 return events[prop as keyof PublicEventEmitter<any>]
             }
             return (...params: unknown[]) => sendRequest(prop.toString(), params)
-        }
+        },
     })
 }

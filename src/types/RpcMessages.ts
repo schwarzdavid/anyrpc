@@ -1,25 +1,25 @@
 export interface RpcMessageBase {
-    jsonrpc: '2.0',
+    jsonrpc: '2.0'
     id: string
 }
 
-export interface RpcSuccessResponse extends RpcMessageBase{
+export interface RpcSuccessResponse extends RpcMessageBase {
     result: any
 }
 
 export interface RpcErrorData {
-    code: number,
-    message: string,
+    code: number
+    message: string
     data?: any
 }
 
-export interface RpcErrorResponse extends RpcMessageBase{
+export interface RpcErrorResponse extends RpcMessageBase {
     error: RpcErrorData
 }
 
 export interface RpcRequest extends RpcMessageBase {
-    method: string,
-    params?: any,
+    method: string
+    params?: any
 }
 
 export type RpcResponse = RpcSuccessResponse | RpcErrorResponse

@@ -5,7 +5,7 @@ export const enum RpcErrorCode {
     INVALID_PARAMS = -32602,
     INTERNAL_ERROR = -32603,
     SERVER_ERROR = -32000,
-    TIMEOUT_ERROR = -32001
+    TIMEOUT_ERROR = -32001,
 }
 
 export const RPC_ERROR_NAME_MAP: Record<RpcErrorCode, string> = {
@@ -15,15 +15,16 @@ export const RPC_ERROR_NAME_MAP: Record<RpcErrorCode, string> = {
     [RpcErrorCode.INVALID_PARAMS]: 'Invalid method parameter(s).',
     [RpcErrorCode.INTERNAL_ERROR]: 'Internal JSON-RPC error.',
     [RpcErrorCode.SERVER_ERROR]: 'Server error',
-    [RpcErrorCode.TIMEOUT_ERROR]: 'Timeout'
+    [RpcErrorCode.TIMEOUT_ERROR]: 'Timeout',
 }
 
 export const RPC_ERROR_MESSAGE_MAP: Record<RpcErrorCode, string> = {
-    [RpcErrorCode.PARSE_ERROR]: 'Invalid JSON was received by the server. An error occurred on the server while parsing the JSON text.',
+    [RpcErrorCode.PARSE_ERROR]:
+        'Invalid JSON was received by the server. An error occurred on the server while parsing the JSON text.',
     [RpcErrorCode.INVALID_REQUEST]: 'The JSON sent is not a valid Request object.',
     [RpcErrorCode.METHOD_NOT_FOUND]: 'The method does not exist / is not available.',
     [RpcErrorCode.INVALID_PARAMS]: 'Invalid method parameter(s).',
     [RpcErrorCode.INTERNAL_ERROR]: 'Internal JSON-RPC error.',
     [RpcErrorCode.SERVER_ERROR]: '',
-    [RpcErrorCode.TIMEOUT_ERROR]: 'No response within specified timeout.'
+    [RpcErrorCode.TIMEOUT_ERROR]: 'No response within specified timeout.',
 }

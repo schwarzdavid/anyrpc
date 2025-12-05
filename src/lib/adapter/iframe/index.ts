@@ -1,3 +1,3 @@
-export {IFrameAdapterOptions} from './AbstractIFrameAdapter'
+export { IFrameAdapterOptions } from './AbstractIFrameAdapter'
 export * from './IFrameHostAdapter'
 export * from './IFrameClientAdapter'

@@ -1,12 +1,15 @@
-import {AbstractRpcAdapter} from "@/lib/AbstractRpcAdapter";
-import {MethodMap} from "@/types/MethodMap";
-import {RpcMessage} from "@/types/RpcMessages";
+import { AbstractRpcAdapter } from '@/lib/AbstractRpcAdapter'
+import { MethodMap } from '@/types/MethodMap'
+import { RpcMessage } from '@/types/RpcMessages'
 
 export interface IFrameAdapterOptions {
-    origin: string,
+    origin: string
 }
 
-export abstract class AbstractIFrameAdapter<Methods extends MethodMap, Events extends MethodMap> extends AbstractRpcAdapter<Methods, Events> {
+export abstract class AbstractIFrameAdapter<
+    Methods extends MethodMap,
+    Events extends MethodMap,
+> extends AbstractRpcAdapter<Methods, Events> {
     protected static readonly INIT_METHOD_NAME = 'init'
     protected static readonly DEFAULT_NAME = 'anyrpc-iframe-adapter'
 
@@ -14,14 +17,14 @@ export abstract class AbstractIFrameAdapter<Methods extends MethodMap, Events ex
     protected readonly origin: string
 
     constructor(options?: Partial<IFrameAdapterOptions>) {
-        super();
+        super()
 
         this.origin = options?.origin ?? '/'
     }
 
     protected set port(port: MessagePort) {
         this._port = port
-        this._port.addEventListener('message', event => this.onMessage(event.data))
+        this._port.addEventListener('message', (event) => this.onMessage(event.data))
     }
 
     sendMessage(message: RpcMessage): any {

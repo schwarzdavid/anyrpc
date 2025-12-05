@@ -1,5 +1,5 @@
-import {RpcMessage} from "@/types/RpcMessages";
-import {MethodMap} from "@/types/MethodMap";
+import { RpcMessage } from '@/types/RpcMessages'
+import { MethodMap } from '@/types/MethodMap'
 
 export type MessageHandler = (message: string | object) => unknown
 export type ConnectionHandler = () => unknown
