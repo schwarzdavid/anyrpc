@@ -1,7 +1,7 @@
-import {MethodMap} from "../../types/MethodMap";
+import {MethodMap} from "@/types/MethodMap";
 import {AbstractIFrameAdapter, IFrameAdapterOptions} from "./AbstractIFrameAdapter";
-import {RpcRequest} from "../../types/RpcMessages";
-import {uuid} from "../../utils/uuid";
+import {RpcRequest} from "@/types/RpcMessages";
+import {uuid} from "@/utils/uuid";
 
 export interface IFrameClientAdapterOptions extends IFrameAdapterOptions {
     pollingInterval: number

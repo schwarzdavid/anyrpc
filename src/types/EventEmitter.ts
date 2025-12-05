@@ -1,5 +1,5 @@
 import {MethodFn, MethodMap} from "./MethodMap";
-import {MaybePromise} from "./utils";
+import {Promisable} from "type-fest";
 
 export interface EventListenerOptions<Passive extends boolean> {
     passive?: Passive
@@ -7,7 +7,7 @@ export interface EventListenerOptions<Passive extends boolean> {
 
 export type EventListenerCallback<Listener extends MethodFn, Passive extends boolean> = (...args: Parameters<Listener>) => Passive extends true
     ? any
-    : MaybePromise<Awaited<ReturnType<Listener>>>
+    : Promisable<Awaited<ReturnType<Listener>>>
 
 export interface PublicEventEmitter<Events extends MethodMap> {
     addEventListener<Event extends keyof Events, Passive extends boolean = false>(

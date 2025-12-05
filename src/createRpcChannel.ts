@@ -7,6 +7,7 @@ import {RpcMessageBase, RpcRequest, RpcResponse} from "./types/RpcMessages";
 import {RPC_ERROR_NAME_MAP, RpcErrorCode} from "./constants/JSON_RPC_ERRORS";
 import {PublicEventEmitter} from "./types/EventEmitter";
 import {MethodMap} from "./types/MethodMap";
+import {RpcChannel} from "@/types/RpcChannel";
 
 export interface RPCChannelOptions {
     timeout: number
@@ -23,7 +24,7 @@ type Queue = Record<string, QueueEntry>
 
 const PUBLIC_EVENT_METHODS: string[] = ['addEventListener', 'removeEventListener'] satisfies (keyof PublicEventEmitter<any>)[]
 
-export function createRPCChannel<
+export function createRpcChannel<
     Methods extends MethodMap,
     Events extends MethodMap
 >(adapter: AbstractRpcAdapter<Methods, Events>, options: Partial<RPCChannelOptions> = {}) {
@@ -32,14 +33,14 @@ export function createRPCChannel<
     const events = new EventEmitter()
     const queue: Queue = {}
 
-    adapter.setMessageHandler((data) => {
+    adapter.messageHandler = (data) => {
         const {type, message} = parseRpcMessage(data)
 
         if(type === RpcMessageType.RESPONSE) {
             return void handleResponse(message)
         }
         void handleRequest(message)
-    })
+    }
 
     function handleResponse(message: RpcResponse) {
         if(isRpcErrorResponse(message)) {
@@ -106,7 +107,7 @@ export function createRPCChannel<
         })
     }
 
-    return new Proxy({}, {
+    return new Proxy<RpcChannel<Methods, Events>>({} as RpcChannel<Methods, Events>, {
         get(target, prop) {
 
             // Keep for builtins

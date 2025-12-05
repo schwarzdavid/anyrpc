@@ -1,7 +1,7 @@
-import {MethodMap} from "../../types/MethodMap";
+import {MethodMap} from "@/types/MethodMap";
 import {AbstractIFrameAdapter, IFrameAdapterOptions} from "./AbstractIFrameAdapter";
-import {parseRpcMessage, RpcMessageType, RpcParsingResult} from "../../utils/rpc";
-import {RpcResponse} from "../../types/RpcMessages";
+import {parseRpcMessage, RpcMessageType, RpcParsingResult} from "@/utils/rpc";
+import {RpcResponse} from "@/types/RpcMessages";
 
 export class IFrameHostAdapter<Methods extends MethodMap, Events extends MethodMap> extends AbstractIFrameAdapter<Methods, Events> {
     constructor(

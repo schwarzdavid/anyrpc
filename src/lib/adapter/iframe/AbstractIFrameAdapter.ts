@@ -1,6 +1,6 @@
-import {AbstractRpcAdapter} from "../AbstractRpcAdapter";
-import {MethodMap} from "../../types/MethodMap";
-import {RpcMessage} from "../../types/RpcMessages";
+import {AbstractRpcAdapter} from "@/lib/AbstractRpcAdapter";
+import {MethodMap} from "@/types/MethodMap";
+import {RpcMessage} from "@/types/RpcMessages";
 
 export interface IFrameAdapterOptions {
     origin: string,

@@ -1,5 +1,5 @@
-import {MethodFn, MethodMap} from "../types/MethodMap";
-import {EventListenerCallback, PublicEventEmitter, EventListenerOptions} from "../types/EventEmitter";
+import {MethodFn, MethodMap} from "@/types/MethodMap";
+import {EventListenerCallback, PublicEventEmitter, EventListenerOptions} from "@/types/EventEmitter";
 
 interface EventListenerEntry<Listener extends MethodFn, Passive extends boolean = boolean> {
     passive: Passive,
