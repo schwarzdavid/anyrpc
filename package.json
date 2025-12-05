@@ -2,7 +2,6 @@
   "name": "anyrpc",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "scripts": {
     "format": "prettier . -c",
     "format:fix": "prettier . -w",
@@ -17,6 +16,25 @@
   "author": "David Schwarz <david@ists-wurscht.at>",
   "license": "ISC",
   "type": "module",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./adapters/iframe": {
+      "types": "./dist/iframe.d.ts",
+      "import": "./dist/iframe.js",
+      "require": "./dist/iframe.cjs"
+    }
+  },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
