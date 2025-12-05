@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import { resolve } from 'node:path'
 import dts from 'vite-plugin-dts'
@@ -21,6 +22,11 @@ export default defineConfig({
             output: {
                 chunkFileNames: 'chunks/[name]-[hash].js',
             },
+        },
+    },
+    test: {
+        typecheck: {
+            enabled: true,
         },
     },
 })
