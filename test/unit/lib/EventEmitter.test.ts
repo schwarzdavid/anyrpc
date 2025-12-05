@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, assertType, expectTypeOf } from 'vitest'
 import { EventEmitter } from '@/lib/EventEmitter'
 
 interface TestEvents {
@@ -42,6 +42,17 @@ describe('EventEmitter', () => {
             expect(registry).toHaveLength(2)
             expect(registry[0].listener).toBe(passiveListener1)
             expect(registry[1].listener).toBe(passiveListener2)
+        })
+
+        it('should not allow to add an listener for an event type that does not exist', () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+            const listener = vi.fn((arg: string) => arg)
+
+            assertType(eventEmitter.addEventListener('non-existing', listener))
+
+            assertType<number>('string')
+
+            expectTypeOf('hi').toEqualTypeOf(4)
         })
     })
 })
