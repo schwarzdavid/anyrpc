@@ -1,0 +1,10 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "composite": true,
+        "lib": ["ESNext"],
+        "noEmit": true,
+        "types": ["node"]
+    },
+    "include": ["vite.config.ts", "eslint.config.ts", "prettier.config.ts"]
+}

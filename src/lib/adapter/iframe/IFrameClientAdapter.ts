@@ -3,6 +3,8 @@ import { AbstractIFrameAdapter, IFrameAdapterOptions } from './AbstractIFrameAda
 import { RpcRequest } from '@/types/RpcMessages'
 import { uuid } from '@/utils/uuid'
 
+/* eslint-disable @typescript-eslint/no-this-alias */
+
 export interface IFrameClientAdapterOptions extends IFrameAdapterOptions {
     pollingInterval: number
 }
@@ -20,10 +22,10 @@ export class IFrameClientAdapter<Methods extends MethodMap, Events extends Metho
         super(options)
         this.pollingInterval = options?.pollingInterval ?? 1000
 
-        void this.establishConnection()
+        this.establishConnection()
     }
 
-    private async establishConnection() {
+    private establishConnection() {
         const adapter = this
         const messageIntervalId = setInterval(() => this.sendInitMessage(), this.pollingInterval)
 

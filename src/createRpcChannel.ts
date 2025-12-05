@@ -40,17 +40,18 @@ export function createRpcChannel<Methods extends MethodMap, Events extends Metho
         const { type, message } = parseRpcMessage(data)
 
         if (type === RpcMessageType.RESPONSE) {
-            return void handleResponse(message)
+            handleResponse(message)
+            return
         }
         void handleRequest(message)
     }
 
-    function handleResponse(message: RpcResponse) {
+    function handleResponse(message: RpcResponse): void {
         if (isRpcErrorResponse(message)) {
             queue[message.id]?.reject(new RpcError(message.error))
             return
         }
-        return void queue[message.id]?.resolve(message.result)
+        queue[message.id]?.resolve(message.result)
     }
 
     async function handleRequest(message: RpcRequest) {
@@ -58,7 +59,7 @@ export function createRpcChannel<Methods extends MethodMap, Events extends Metho
         let response: RpcResponse
 
         try {
-            const result = await events.dispatchEvent(message.method, message.params)
+            const result = await events.dispatchEvent(message.method, message.params as unknown[])
             response = {
                 ...responseBase,
                 result,
@@ -98,7 +99,7 @@ export function createRpcChannel<Methods extends MethodMap, Events extends Metho
                     clearTimeout(timeoutId)
                     resolve(value)
                 },
-                reject: (err) => {
+                reject: (err: Error) => {
                     clearTimeout(timeoutId)
                     reject(err)
                 },
@@ -106,6 +107,7 @@ export function createRpcChannel<Methods extends MethodMap, Events extends Metho
 
             void adapter.sendMessage(request)
         }).finally(() => {
+            // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
             delete queue[id]
         })
     }

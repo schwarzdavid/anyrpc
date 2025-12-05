@@ -1,5 +1,5 @@
 export function uuid(): string {
-    if (typeof globalThis.crypto?.randomUUID === 'function') {
+    if (typeof globalThis.crypto.randomUUID === 'function') {
         return globalThis.crypto.randomUUID()
     }
 

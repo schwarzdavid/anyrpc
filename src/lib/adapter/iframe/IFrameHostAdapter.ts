@@ -3,6 +3,8 @@ import { AbstractIFrameAdapter, IFrameAdapterOptions } from './AbstractIFrameAda
 import { parseRpcMessage, RpcMessageType, RpcParsingResult } from '@/utils/rpc'
 import { RpcResponse } from '@/types/RpcMessages'
 
+/* eslint-disable @typescript-eslint/no-this-alias */
+
 export class IFrameHostAdapter<Methods extends MethodMap, Events extends MethodMap> extends AbstractIFrameAdapter<
     Methods,
     Events
@@ -13,6 +15,8 @@ export class IFrameHostAdapter<Methods extends MethodMap, Events extends MethodM
         options?: Partial<IFrameAdapterOptions>,
     ) {
         super(options)
+
+        this.establishConnection()
     }
 
     private establishConnection() {
@@ -25,8 +29,8 @@ export class IFrameHostAdapter<Methods extends MethodMap, Events extends MethodM
 
             let result: RpcParsingResult
             try {
-                result = parseRpcMessage(event.data)
-            } catch (err) {
+                result = parseRpcMessage(event.data as object)
+            } catch (_) {
                 // Ignore invalid messages as they might be sent for other purposes
                 return
             }

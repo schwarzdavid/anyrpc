@@ -17,6 +17,7 @@
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
     "eslint-config-prettier": "^10.1.8",
+    "jiti": "^2.6.1",
     "prettier": "^3.7.4",
     "type-fest": "^5.3.0",
     "typescript": "^5.9.3",
