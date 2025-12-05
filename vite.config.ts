@@ -3,11 +3,12 @@ import { resolve } from 'node:path'
 import dts from 'vite-plugin-dts'
 
 export default defineConfig({
-    plugins: [
-        dts({
-            include: ['src'],
-        }),
-    ],
+    plugins: [dts({ tsconfigPath: './tsconfig.app.json' })],
+    resolve: {
+        alias: {
+            '@': resolve(__dirname, 'src'),
+        },
+    },
     build: {
         lib: {
             entry: {
