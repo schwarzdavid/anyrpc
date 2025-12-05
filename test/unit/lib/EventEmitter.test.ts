@@ -9,7 +9,7 @@ describe('EventEmitter', () => {
     describe('addEventListener', () => {
         it('should register event listener', () => {
             const eventEmitter = new EventEmitter<TestEvents>()
-            const listener = vi.fn(async (arg: string) => arg)
+            const listener = vi.fn((arg: string) => arg)
 
             eventEmitter.addEventListener('testEvent', listener)
 

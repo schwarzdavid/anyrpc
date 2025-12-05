@@ -6,11 +6,11 @@ interface EventListenerEntry<Listener extends MethodFn, Passive extends boolean 
     listener: EventListenerCallback<Listener, Passive>
 }
 
-type EventListenerRegistry<Events extends MethodMap> = {
+type EventListenerRegistry<Events extends MethodMap<Events>> = {
     [K in keyof Events]: EventListenerEntry<Events[K]>[]
 }
 
-export class EventEmitter<Events extends MethodMap> implements PublicEventEmitter<Events> {
+export class EventEmitter<Events extends MethodMap<Events>> implements PublicEventEmitter<Events> {
     private readonly registry = {} as EventListenerRegistry<Events>
 
     addEventListener<Event extends keyof Events, Passive extends boolean = false>(
