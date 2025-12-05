@@ -1,9 +1,11 @@
 import eslint from '@eslint/js'
-import { defineConfig } from 'eslint/config'
+import { defineConfig, globalIgnores } from 'eslint/config'
 import tseslint from 'typescript-eslint'
 import prettierConfig from 'eslint-config-prettier'
+import vitest from '@vitest/eslint-plugin'
 
 export default defineConfig(
+    globalIgnores(['dist']),
     eslint.configs.recommended,
     tseslint.configs.strictTypeChecked,
     tseslint.configs.stylisticTypeChecked,
@@ -36,6 +38,26 @@ export default defineConfig(
                     allowOptionalChaining: true,
                 },
             ],
+        },
+    },
+    {
+        files: ['test/**'],
+        plugins: {
+            vitest,
+        },
+        rules: {
+            ...vitest.configs.all.rules,
+            'vitest/no-hooks': 'off',
+            'vitest/prefer-expect-assertions': 'off',
+            '@typescript-eslint/no-explicit-any': 'off',
+            '@typescript-eslint/no-unsafe-member-access': 'off',
+            '@typescript-eslint/no-confusing-void-expression': 'off',
+            '@typescript-eslint/ban-ts-comment': 'off',
+        },
+        settings: {
+            vitest: {
+                typecheck: true,
+            },
         },
     },
     prettierConfig,

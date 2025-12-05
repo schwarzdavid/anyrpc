@@ -5,10 +5,10 @@ import { RpcResponse } from '@/types/RpcMessages'
 
 /* eslint-disable @typescript-eslint/no-this-alias */
 
-export class IFrameHostAdapter<Methods extends MethodMap, Events extends MethodMap> extends AbstractIFrameAdapter<
-    Methods,
-    Events
-> {
+export class IFrameHostAdapter<
+    Methods extends MethodMap<Methods>,
+    Events extends MethodMap<Events>,
+> extends AbstractIFrameAdapter<Methods, Events> {
     constructor(
         private readonly iframe: HTMLIFrameElement,
         private readonly name: string = AbstractIFrameAdapter.DEFAULT_NAME,

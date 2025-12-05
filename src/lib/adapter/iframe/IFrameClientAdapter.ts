@@ -9,10 +9,10 @@ export interface IFrameClientAdapterOptions extends IFrameAdapterOptions {
     pollingInterval: number
 }
 
-export class IFrameClientAdapter<Methods extends MethodMap, Events extends MethodMap> extends AbstractIFrameAdapter<
-    Methods,
-    Events
-> {
+export class IFrameClientAdapter<
+    Methods extends MethodMap<Methods>,
+    Events extends MethodMap<Events>,
+> extends AbstractIFrameAdapter<Methods, Events> {
     private readonly pollingInterval: number
 
     constructor(

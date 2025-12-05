@@ -7,8 +7,8 @@ export interface IFrameAdapterOptions {
 }
 
 export abstract class AbstractIFrameAdapter<
-    Methods extends MethodMap,
-    Events extends MethodMap,
+    Methods extends MethodMap<Methods>,
+    Events extends MethodMap<Events>,
 > extends AbstractRpcAdapter<Methods, Events> {
     protected static readonly INIT_METHOD_NAME = 'init'
     protected static readonly DEFAULT_NAME = 'anyrpc-iframe-adapter'

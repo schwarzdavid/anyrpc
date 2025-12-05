@@ -28,7 +28,7 @@ const PUBLIC_EVENT_METHODS: string[] = [
     'removeEventListener',
 ] satisfies (keyof PublicEventEmitter<never>)[]
 
-export function createRpcChannel<Methods extends MethodMap, Events extends MethodMap>(
+export function createRpcChannel<Methods extends MethodMap<Methods>, Events extends MethodMap<Methods>>(
     adapter: AbstractRpcAdapter<Methods, Events>,
     options: Partial<RPCChannelOptions> = {},
 ) {

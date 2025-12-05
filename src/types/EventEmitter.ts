@@ -9,7 +9,7 @@ export type EventListenerCallback<Listener extends MethodFn, Passive extends boo
     ...args: Parameters<Listener>
 ) => Passive extends true ? unknown : Promisable<Awaited<ReturnType<Listener>>>
 
-export interface PublicEventEmitter<Events extends MethodMap> {
+export interface PublicEventEmitter<Events extends MethodMap<Events>> {
     addEventListener<Event extends keyof Events, Passive extends boolean = false>(
         type: Event,
         listener: EventListenerCallback<Events[Event], Passive>,

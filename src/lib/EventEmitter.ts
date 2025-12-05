@@ -1,12 +1,12 @@
 import { MethodFn, MethodMap } from '@/types/MethodMap'
 import { EventListenerCallback, PublicEventEmitter, EventListenerOptions } from '@/types/EventEmitter'
 
-interface EventListenerEntry<Listener extends MethodFn, Passive extends boolean = boolean> {
+export interface EventListenerEntry<Listener extends MethodFn, Passive extends boolean = boolean> {
     passive: Passive
     listener: EventListenerCallback<Listener, Passive>
 }
 
-type EventListenerRegistry<Events extends MethodMap<Events>> = {
+export type EventListenerRegistry<Events extends MethodMap<Events>> = {
     [K in keyof Events]: EventListenerEntry<Events[K]>[]
 }
 
@@ -49,7 +49,7 @@ export class EventEmitter<Events extends MethodMap<Events>> implements PublicEve
     async dispatchEvent<Event extends keyof Events>(
         type: Event,
         params: Parameters<Events[Event]>,
-    ): Promise<ReturnType<Events[Event]> | undefined> {
+    ): Promise<Awaited<ReturnType<Events[Event]>> | undefined> {
         if (!Array.isArray(this.registry[type])) {
             return
         }
