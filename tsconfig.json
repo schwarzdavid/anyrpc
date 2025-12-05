@@ -19,10 +19,7 @@
         "noImplicitAny": true,
         "noImplicitOverride": true,
         "noImplicitReturns": true,
-        "noImplicitThis": true,
-        "paths": {
-            "@/*": ["./src/*"]
-        }
+        "noImplicitThis": true
     },
     "files": [],
     "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]

@@ -13,21 +13,21 @@ export abstract class AbstractIFrameAdapter<
     protected static readonly INIT_METHOD_NAME = 'init'
     protected static readonly DEFAULT_NAME = 'anyrpc-iframe-adapter'
 
-    private _port?: MessagePort
+    private _port: MessagePort | undefined
     protected readonly origin: string
 
-    constructor(options?: Partial<IFrameAdapterOptions>) {
+    protected constructor(options?: Partial<IFrameAdapterOptions>) {
         super()
 
         this.origin = options?.origin ?? '/'
     }
 
-    protected set port(port: MessagePort) {
+    protected set port(port: MessagePort | undefined) {
         this._port = port
-        this._port.addEventListener('message', (event) => this.onMessage(event.data as object))
+        this._port?.addEventListener('message', (event) => this.onMessage(event.data as object))
     }
 
-    sendMessage(message: RpcMessage): any {
+    sendMessage(message: RpcMessage): void {
         this._port?.postMessage(message)
     }
 }

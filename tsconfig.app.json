@@ -3,7 +3,10 @@
     "compilerOptions": {
         "outDir": "dist",
         "declarationDir": "dist",
-        "lib": ["ESNext", "DOM", "DOM.Iterable"]
+        "lib": ["ESNext", "DOM", "DOM.Iterable"],
+        "paths": {
+            "@/*": ["./src/*"]
+        }
     },
     "include": ["src"]
 }

@@ -13,11 +13,12 @@ export interface RPCChannelOptions {
     timeout: number
 }
 
-type QueueResolveFn = (resolveValue: any) => void
+type QueueResolveFn = (resolveValue: unknown) => void
+type QueueRejectFn = (resolveValue: Error) => void
 
 interface QueueEntry {
     resolve: QueueResolveFn
-    reject: QueueResolveFn
+    reject: QueueRejectFn
 }
 
 type Queue = Record<string, QueueEntry>
@@ -25,7 +26,7 @@ type Queue = Record<string, QueueEntry>
 const PUBLIC_EVENT_METHODS: string[] = [
     'addEventListener',
     'removeEventListener',
-] satisfies (keyof PublicEventEmitter<any>)[]
+] satisfies (keyof PublicEventEmitter<never>)[]
 
 export function createRpcChannel<Methods extends MethodMap, Events extends MethodMap>(
     adapter: AbstractRpcAdapter<Methods, Events>,
@@ -120,7 +121,7 @@ export function createRpcChannel<Methods extends MethodMap, Events extends Metho
             }
 
             if (PUBLIC_EVENT_METHODS.includes(prop.toString())) {
-                return events[prop as keyof PublicEventEmitter<any>]
+                return events[prop as keyof PublicEventEmitter<never>]
             }
             return (...params: unknown[]) => sendRequest(prop.toString(), params)
         },

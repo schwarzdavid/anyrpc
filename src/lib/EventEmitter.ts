@@ -57,7 +57,7 @@ export class EventEmitter<Events extends MethodMap> implements PublicEventEmitte
         for (const { listener, passive } of this.registry[type]) {
             const result = await listener(...params)
             if (!passive) {
-                output = result
+                output = result as Awaited<ReturnType<Events[Event]>>
             }
         }
         return output

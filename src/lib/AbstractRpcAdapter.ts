@@ -18,7 +18,7 @@ export abstract class AbstractRpcAdapter<Methods extends MethodMap, Events exten
         this._messageHandler = handler
     }
 
-    abstract sendMessage(message: RpcMessage): any
+    abstract sendMessage(message: RpcMessage): unknown
 
     protected onMessage(rawMessage: string | object) {
         this._messageHandler?.(rawMessage)

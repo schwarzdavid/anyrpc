@@ -3,7 +3,6 @@ import { RPC_ERROR_MESSAGE_MAP, RPC_ERROR_NAME_MAP, RpcErrorCode } from '@/const
 
 export class RpcError extends Error implements RpcErrorData {
     readonly code: number
-    readonly message: string
 
     constructor(errorCode: RpcErrorCode | RpcErrorData) {
         if (typeof errorCode === 'number') {

@@ -7,7 +7,11 @@
     "format": "prettier . -c",
     "format:fix": "prettier . -w",
     "lint": "eslint",
-    "lint:fix": "eslint --fix"
+    "lint:fix": "eslint --fix",
+    "check": "tsc --build --force --noEmit",
+    "build": "vite build",
+    "preversion": "concurrently 'npm run format' 'npm run lint' 'npm run check'",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [],
   "author": "David Schwarz <david@ists-wurscht.at>",
@@ -16,6 +20,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
+    "concurrently": "^9.2.1",
     "eslint-config-prettier": "^10.1.8",
     "jiti": "^2.6.1",
     "prettier": "^3.7.4",

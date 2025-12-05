@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 export interface RpcMessageBase {
     jsonrpc: '2.0'
     id: string
