@@ -8,7 +8,7 @@
     "format:fix": "prettier . -w",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
-    "check": "tsc --build --force --noEmit",
+    "check": "tsc --build --force",
     "build": "vite build",
     "preversion": "concurrently 'npm run format' 'npm run lint' 'npm run check'",
     "prepublishOnly": "npm run build"
