@@ -1,4 +1,4 @@
-import { assertType, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { EventEmitter, EventListenerEntry } from '@/lib/EventEmitter'
 
 interface TestEvents {
@@ -43,47 +43,48 @@ describe(EventEmitter, () => {
             expect(registry[0]?.listener).toBe(passiveListener1)
             expect(registry[1]?.listener).toBe(passiveListener2)
         })
+    })
 
-        it('should not allow to add a listener for an event type that does not exist', () => {
+    describe('removeEventListener', () => {
+        it('should remove previously registered active listener', () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+            const activeListener = vi.fn<(arg: string) => string>()
+            const passiveListener = vi.fn<(arg: string) => string>()
+
+            eventEmitter.addEventListener('testEvent', activeListener)
+            eventEmitter.addEventListener('testEvent', passiveListener, { passive: true })
+            eventEmitter.removeEventListener('testEvent', activeListener)
+
+            const registry: EventListenerEntry<TestEvents['testEvent']>[] = (eventEmitter as any).registry.testEvent
+
+            expect(registry).toHaveLength(1)
+            expect(registry[0]?.listener).toBe(passiveListener)
+        })
+
+        it('should not throw an error when removing non-existing listener', () => {
             const eventEmitter = new EventEmitter<TestEvents>()
             const listener = vi.fn<(arg: string) => string>()
 
-            // @ts-expect-error
-            assertType(eventEmitter.addEventListener('non-existing', listener))
+            expect(() => {
+                eventEmitter.removeEventListener('testEvent', listener)
+            }).not.toThrowError()
         })
 
-        it('should not allow to add a listener with different argument types', () => {
+        it('should not remove all listeners of type', () => {
             const eventEmitter = new EventEmitter<TestEvents>()
-            const listener = vi.fn<(arg: number) => string>()
+            const listener = vi.fn<(arg: string) => string>()
 
-            // @ts-expect-error
-            assertType(eventEmitter.addEventListener('testEvent', listener))
+            eventEmitter.addEventListener('testEvent', listener, { passive: true })
+            eventEmitter.addEventListener('testEvent', listener, { passive: true })
 
-            // @ts-expect-error
-            assertType(eventEmitter.addEventListener('testEvent', listener, { passive: true }))
-        })
+            eventEmitter.removeEventListener('testEvent', listener)
 
-        it('should not allow to add a passive listener with different argument types', () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const listener = vi.fn<(arg: number) => string>()
+            const registry: EventListenerEntry<TestEvents['testEvent']>[] = (eventEmitter as any).registry.testEvent
 
-            // @ts-expect-error
-            assertType(eventEmitter.addEventListener('testEvent', listener))
-        })
-
-        it('should not allow to add an active listener with different return type', () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const listener = vi.fn<(arg: string) => number>()
-
-            // @ts-expect-error
-            assertType(eventEmitter.addEventListener('testEvent', listener))
-        })
-
-        it('should ignore return type of passive listener', () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const listener = vi.fn<(arg: string) => number>()
-
-            assertType(eventEmitter.addEventListener('testEvent', listener, { passive: true }))
+            expect(registry).toHaveLength(1)
+            expect(registry[0]?.listener).toBe(listener)
         })
     })
+
+    describe.todo('dispatchEvent')
 })

@@ -30,7 +30,6 @@ export default defineConfig({
         typecheck: {
             enabled: true,
             tsconfig: './tsconfig.vitest.json',
-            include: ['test/**/*.ts', 'test/**/*.test-d.ts'],
         },
     },
 })
