@@ -33,6 +33,6 @@ export type RpcResponse<Methods extends MethodMap<Methods>, Name extends keyof M
     | RpcSuccessResponse<Methods[Name]>
     | RpcErrorResponse
 
-export type RpcMessage<Methods extends MethodMap<Methods>, Name extends keyof Methods = keyof Methods> =
-    | RpcRequest<Methods, Name>
-    | RpcResponse<Methods, Name>
+export type RpcMessage<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> =
+    | RpcRequest<Methods>
+    | RpcResponse<Events>

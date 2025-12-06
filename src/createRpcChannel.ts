@@ -57,7 +57,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
 
     async function handleRequest(message: RpcRequest<Events>): Promise<void> {
         const responseBase: RpcMessageBase = { jsonrpc: '2.0', id: message.id }
-        let response: RpcResponse<Methods>
+        let response: RpcResponse<Events>
 
         try {
             const result = await events.dispatchEvent(message.method, message.params)
