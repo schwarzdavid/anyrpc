@@ -38,30 +38,28 @@ export function parseRpcMessage<Methods extends MethodMap<Methods>, Events exten
 
     validateBaseMessage(messageObj)
 
-    const isResponse = Object.hasOwn(messageObj, 'method')
-    const isRequest = Object.hasOwn(messageObj, 'result') || Object.hasOwn(messageObj, 'error')
+    const isRequest = Object.hasOwn(messageObj, 'method')
+    const isResponse = Object.hasOwn(messageObj, 'result') || Object.hasOwn(messageObj, 'error')
 
-    if (isRequest === isResponse) {
+    if (isResponse === isRequest) {
         throw new RpcError(RpcErrorCode.INVALID_REQUEST)
     }
 
-    if (isRequest) {
-        const requestMessage = messageObj as unknown as RpcRequest<Events, keyof Events>
-        validateRequestMessage(requestMessage)
-
-        return {
-            type: RpcMessageType.REQUEST,
-            message: requestMessage,
-        }
-    }
-
     if (isResponse) {
-        const responseMessage = messageObj as unknown as RpcResponse<Methods, keyof Methods>
-        validateResponseMessage(responseMessage)
+        validateResponseMessage(messageObj)
 
         return {
             type: RpcMessageType.RESPONSE,
-            message: responseMessage,
+            message: messageObj,
+        }
+    }
+
+    if (isRequest) {
+        validateRequestMessage(messageObj)
+
+        return {
+            type: RpcMessageType.REQUEST,
+            message: messageObj,
         }
     }
 
@@ -82,7 +80,9 @@ function validateBaseMessage(message: Record<string, unknown>): void {
     }
 }
 
-function validateRequestMessage<Methods extends MethodMap<Methods>>(message: RpcRequest<Methods, keyof Methods>): void {
+function validateRequestMessage<Methods extends MethodMap<Methods>>(
+    message: RpcRequest<Methods> | Record<string, unknown>,
+): asserts message is RpcRequest<Methods> {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (Object.hasOwn(message, 'params') && typeof message.params !== 'object' && message.params !== null) {
         throw new RpcError(RpcErrorCode.INVALID_REQUEST)
@@ -90,14 +90,14 @@ function validateRequestMessage<Methods extends MethodMap<Methods>>(message: Rpc
 }
 
 function validateResponseMessage<Methods extends MethodMap<Methods>>(
-    message: RpcResponse<Methods, keyof Methods>,
-): void {
+    message: RpcResponse<Methods> | Record<string, unknown>,
+): asserts message is RpcResponse<Methods> {
     if (isRpcErrorResponse(message)) {
         validateResponseError(message.error)
     }
 }
 
-function validateResponseError(error: Record<string, unknown> | RpcErrorData): void {
+function validateResponseError(error: Record<string, unknown> | RpcErrorData): asserts error is RpcErrorData {
     if (!Number.isInteger(error.code)) {
         throw new RpcError(RpcErrorCode.INVALID_REQUEST)
     }
@@ -112,6 +112,8 @@ export function isRpcSuccessResponse<Methods extends MethodMap<Methods>, Name ex
     return Object.hasOwn(message, 'result')
 }
 
-export function isRpcErrorResponse(message: RpcResponse<MethodMap<never>, string>): message is RpcErrorResponse {
+export function isRpcErrorResponse(
+    message: RpcResponse<MethodMap<never>, string> | object,
+): message is RpcErrorResponse {
     return Object.hasOwn(message, 'error')
 }

@@ -25,10 +25,7 @@ export default defineConfig({
         },
     },
     test: {
-        // Ensure Vitest picks up our TS path aliases and runs type checks on type-only tests
-        include: ['test/**/*.test.ts', 'test/**/*.spec.ts', 'test/**/*.test-d.ts'],
         typecheck: {
-            enabled: true,
             tsconfig: './tsconfig.vitest.json',
         },
     },

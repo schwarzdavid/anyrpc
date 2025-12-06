@@ -11,7 +11,8 @@
     "build": "vite build",
     "preversion": "concurrently 'npm run format' 'npm run lint' 'npm run check'",
     "prepublishOnly": "npm run build",
-    "test": "vitest",
+    "test": "vitest run --typecheck",
+    "test:watch": "vitest",
     "coverage": "vitest run --coverage"
   },
   "keywords": [],
