@@ -1,4 +1,4 @@
-import { describe, it, assertType, vi } from 'vitest'
+import { describe, it, assertType, vi, expectTypeOf } from 'vitest'
 import { EventEmitter } from '@/lib/EventEmitter'
 
 interface TestEvents {
@@ -86,6 +86,53 @@ describe(EventEmitter, () => {
             const listener = vi.fn<(arg: string) => number>()
 
             assertType(eventEmitter.removeEventListener('testEvent', listener))
+        })
+    })
+
+    describe('dispatchEvent', () => {
+        it('should allow to dispatch an event', () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+
+            assertType(eventEmitter.dispatchEvent('testEvent', ['arg']))
+        })
+
+        it('should not allow to dispatch an event for an event type that does not exist', () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+
+            // @ts-expect-error
+            assertType(eventEmitter.dispatchEvent('non-existing', ['arg']))
+        })
+
+        it('should not allow to dispatch an event with different argument types', () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+
+            // @ts-expect-error
+            assertType(eventEmitter.dispatchEvent('testEvent', []))
+
+            // @ts-expect-error
+            assertType(eventEmitter.dispatchEvent('testEvent', [1]))
+
+            // @ts-expect-error
+            assertType(eventEmitter.dispatchEvent('testEvent', ['arg1', 'arg2']))
+
+            // @ts-expect-error
+            assertType(eventEmitter.dispatchEvent('testEvent', ['arg', undefined]))
+        })
+
+        it('should match the result type with defined events', async () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+
+            const { result } = await eventEmitter.dispatchEvent('testEvent', ['arg'])
+
+            expectTypeOf(result).toEqualTypeOf<string | undefined>()
+        })
+
+        it('should use resolved promise types', async () => {
+            const eventEmitter = new EventEmitter<{ testEvent: (num1: number, num2: number) => Promise<boolean> }>()
+
+            const { result } = await eventEmitter.dispatchEvent('testEvent', [1, 2])
+
+            expectTypeOf(result).toEqualTypeOf<boolean | undefined>()
         })
     })
 })
