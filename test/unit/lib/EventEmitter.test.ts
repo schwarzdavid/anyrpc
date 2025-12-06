@@ -84,7 +84,68 @@ describe(EventEmitter, () => {
             expect(registry).toHaveLength(1)
             expect(registry[0]?.listener).toBe(listener)
         })
+
+        it('should do nothing if listener has not been registered', () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+            const listener1 = vi.fn<(arg: string) => string>()
+            const listener2 = vi.fn<(arg: string) => string>()
+
+            eventEmitter.addEventListener('testEvent', listener2)
+
+            expect(() => eventEmitter.removeEventListener('testEvent', listener1)).not.toThrowError()
+        })
     })
 
-    describe.todo('dispatchEvent')
+    describe('dispatchEvent', () => {
+        it('should dispatch event to all registered listeners', async () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+            const activeListener = vi.fn<(arg: string) => string>(() => 'result')
+            const passiveListener = vi.fn<(arg: string) => string>()
+
+            eventEmitter.addEventListener('testEvent', activeListener)
+            eventEmitter.addEventListener('testEvent', passiveListener, { passive: true })
+
+            const result = await eventEmitter.dispatchEvent('testEvent', ['arg'])
+
+            expect(activeListener).toHaveBeenCalledWith('arg')
+            expect(passiveListener).toHaveBeenCalledWith('arg')
+            expect(result).toBe('result')
+        })
+
+        it('should return undefined if no listeners are registered', async () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+            const registry: EventListenerEntry<TestEvents['testEvent']>[] = (eventEmitter as any).registry.testEvent
+
+            const result = await eventEmitter.dispatchEvent('testEvent', ['arg'])
+
+            expect(registry).toBeUndefined()
+            expect(result).toBeUndefined()
+        })
+
+        it('should return undefined if all registered listeners have been unregistered', async () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+            const listener = vi.fn<(arg: string) => string>()
+
+            eventEmitter.addEventListener('testEvent', listener)
+            eventEmitter.removeEventListener('testEvent', listener)
+
+            const registry: EventListenerEntry<TestEvents['testEvent']>[] = (eventEmitter as any).registry.testEvent
+            const result = await eventEmitter.dispatchEvent('testEvent', ['arg'])
+
+            expect(registry).toHaveLength(0)
+            expect(listener).not.toHaveBeenCalled()
+            expect(result).toBeUndefined()
+        })
+
+        it('should return undefined if only passive listeners are registered', async () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+            const listener = vi.fn<(arg: string) => string>()
+
+            eventEmitter.addEventListener('testEvent', listener, { passive: true })
+
+            const result = await eventEmitter.dispatchEvent('testEvent', ['arg'])
+
+            expect(result).toBeUndefined()
+        })
+    })
 })

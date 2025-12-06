@@ -12,7 +12,7 @@
     "preversion": "concurrently 'npm run format' 'npm run lint' 'npm run check'",
     "prepublishOnly": "npm run build",
     "test": "vitest",
-    "coverage": "vitest --coverage"
+    "coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": "David Schwarz <david@ists-wurscht.at>",
@@ -40,6 +40,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
+    "@vitest/coverage-v8": "^4.0.15",
     "@vitest/eslint-plugin": "^1.5.1",
     "concurrently": "^9.2.1",
     "eslint-config-prettier": "^10.1.8",
