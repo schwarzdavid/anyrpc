@@ -56,31 +56,30 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     }
 
     async function handleRequest(message: RpcRequest<Events>): Promise<void> {
+        const { result, error } = await events.dispatchEvent(message.method, message.params)
         const responseBase: RpcMessageBase = { jsonrpc: '2.0', id: message.id }
         let response: RpcResponse<Events>
 
-        try {
-            const result = await events.dispatchEvent(message.method, message.params)
-            if (!result) {
-                return
-            }
+        if (result) {
             response = {
                 ...responseBase,
                 result,
             }
-        } catch (err) {
-            const error = new RpcError({
+        } else if (error) {
+            const rpcError = new RpcError({
                 code: RpcErrorCode.SERVER_ERROR,
                 message: RPC_ERROR_NAME_MAP[RpcErrorCode.SERVER_ERROR],
 
                 // TODO: improve error serialization & make error details configurable
-                data: err,
+                data: error,
             })
 
             response = {
                 ...responseBase,
-                error,
+                error: rpcError,
             }
+        } else {
+            return
         }
 
         void adapter.sendMessage(response)

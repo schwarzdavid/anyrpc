@@ -10,6 +10,11 @@ export type EventListenerRegistry<Events extends MethodMap<Events>> = {
     [K in keyof Events]: EventListenerEntry<Events[K]>[]
 }
 
+export interface EventDispatchResult<Fn extends MethodFn> {
+    result?: Awaited<ReturnType<Fn>> | undefined
+    error?: Error
+}
+
 export class EventEmitter<Events extends MethodMap<Events>> implements PublicEventEmitter<Events> {
     private readonly registry = {} as EventListenerRegistry<Events>
 
@@ -49,18 +54,33 @@ export class EventEmitter<Events extends MethodMap<Events>> implements PublicEve
     async dispatchEvent<Event extends keyof Events>(
         type: Event,
         params: Parameters<Events[Event]>,
-    ): Promise<Awaited<ReturnType<Events[Event]>> | undefined> {
+    ): Promise<EventDispatchResult<Events[Event]>> {
         if (!Array.isArray(this.registry[type])) {
-            return
+            return { result: undefined }
         }
-        let output: Awaited<ReturnType<Events[Event]>> | undefined = undefined
+        let activeListener: EventListenerCallback<Events[Event], false> | undefined
         for (const { listener, passive } of this.registry[type]) {
-            const result = await listener(...params)
-            if (!passive) {
-                output = result as Awaited<ReturnType<Events[Event]>>
+            if (passive) {
+                listener(...params)
+            } else {
+                activeListener = listener
             }
         }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
+        const output: EventDispatchResult<Events[Event]> = {
+            result: undefined,
+        }
+
+        if (!activeListener) {
+            return output
+        }
+
+        try {
+            output.result = await activeListener(...params)
+        } catch (err) {
+            output.error = err as Error
+        }
+
         return output
     }
 }

@@ -105,21 +105,23 @@ describe(EventEmitter, () => {
             eventEmitter.addEventListener('testEvent', activeListener)
             eventEmitter.addEventListener('testEvent', passiveListener, { passive: true })
 
-            const result = await eventEmitter.dispatchEvent('testEvent', ['arg'])
+            const { result, error } = await eventEmitter.dispatchEvent('testEvent', ['arg'])
 
             expect(activeListener).toHaveBeenCalledWith('arg')
             expect(passiveListener).toHaveBeenCalledWith('arg')
             expect(result).toBe('result')
+            expect(error).toBeUndefined()
         })
 
         it('should return undefined if no listeners are registered', async () => {
             const eventEmitter = new EventEmitter<TestEvents>()
             const registry: EventListenerEntry<TestEvents['testEvent']>[] = (eventEmitter as any).registry.testEvent
 
-            const result = await eventEmitter.dispatchEvent('testEvent', ['arg'])
+            const { result, error } = await eventEmitter.dispatchEvent('testEvent', ['arg'])
 
             expect(registry).toBeUndefined()
             expect(result).toBeUndefined()
+            expect(error).toBeUndefined()
         })
 
         it('should return undefined if all registered listeners have been unregistered', async () => {
@@ -130,11 +132,12 @@ describe(EventEmitter, () => {
             eventEmitter.removeEventListener('testEvent', listener)
 
             const registry: EventListenerEntry<TestEvents['testEvent']>[] = (eventEmitter as any).registry.testEvent
-            const result = await eventEmitter.dispatchEvent('testEvent', ['arg'])
+            const { result, error } = await eventEmitter.dispatchEvent('testEvent', ['arg'])
 
             expect(registry).toHaveLength(0)
             expect(listener).not.toHaveBeenCalled()
             expect(result).toBeUndefined()
+            expect(error).toBeUndefined()
         })
 
         it('should return undefined if only passive listeners are registered', async () => {
@@ -143,9 +146,52 @@ describe(EventEmitter, () => {
 
             eventEmitter.addEventListener('testEvent', listener, { passive: true })
 
-            const result = await eventEmitter.dispatchEvent('testEvent', ['arg'])
+            const { result } = await eventEmitter.dispatchEvent('testEvent', ['arg'])
 
             expect(result).toBeUndefined()
+            expect(result).toBeUndefined()
+        })
+
+        it('should execute active listener last', async () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+            const activeListener = vi.fn<(arg: string) => string>()
+            const passiveListener = vi.fn<(arg: string) => string>()
+
+            eventEmitter.addEventListener('testEvent', activeListener)
+            eventEmitter.addEventListener('testEvent', passiveListener, { passive: true })
+
+            await eventEmitter.dispatchEvent('testEvent', ['arg'])
+
+            expect(activeListener).toHaveBeenCalledAfter(passiveListener)
+        })
+
+        it('should return error if active listener throws an error', async () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+            const listener = vi.fn<(arg: string) => string>().mockRejectedValue(new Error('err'))
+
+            eventEmitter.addEventListener('testEvent', listener)
+
+            const { result, error } = await eventEmitter.dispatchEvent('testEvent', ['arg'])
+
+            expect(listener).toHaveBeenCalledWith('arg')
+            expect(result).toBeUndefined()
+            expect(error).toBeInstanceOf(Error)
+            expect(error?.message).toBe('err')
+        })
+
+        it('should ignore errors thrown by passive listeners', async () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+            const passiveListener = vi.fn<(arg: string) => string>().mockRejectedValue(new Error('err'))
+            const activeListener = vi.fn<(arg: string) => string>(() => 'result')
+
+            eventEmitter.addEventListener('testEvent', passiveListener, { passive: true })
+            eventEmitter.addEventListener('testEvent', activeListener)
+
+            const { result, error } = await eventEmitter.dispatchEvent('testEvent', ['arg'])
+
+            expect(error).toBeUndefined()
+            expect(result).toBe('result')
+            expect(passiveListener).toHaveBeenCalledWith('arg')
         })
     })
 })
