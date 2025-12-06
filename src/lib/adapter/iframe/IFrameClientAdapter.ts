@@ -46,7 +46,9 @@ export class IFrameClientAdapter<
                 method: AbstractIFrameAdapter.INIT_METHOD_NAME,
                 params: [this.name],
                 jsonrpc: '2.0',
-            } satisfies RpcRequest,
+            } satisfies RpcRequest<{
+                [AbstractIFrameAdapter.INIT_METHOD_NAME]: (args: string) => void
+            }>,
             this.origin,
         )
     }

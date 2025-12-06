@@ -38,7 +38,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     const queue: Queue = {}
 
     adapter.messageHandler = (data) => {
-        const { type, message } = parseRpcMessage<Events, Methods>(data)
+        const { type, message } = parseRpcMessage<Methods, Events>(data)
 
         if (type === RpcMessageType.RESPONSE) {
             handleResponse(message)

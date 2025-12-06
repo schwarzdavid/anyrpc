@@ -1,7 +1,7 @@
 import { MethodMap } from '@/types/MethodMap'
 import { AbstractIFrameAdapter, IFrameAdapterOptions } from './AbstractIFrameAdapter'
 import { parseRpcMessage, RpcMessageType, RpcParsingResult } from '@/utils/rpc'
-import { RpcResponse } from '@/types/RpcMessages'
+import { RpcSuccessResponse } from '@/types/RpcMessages'
 
 /* eslint-disable @typescript-eslint/no-this-alias */
 
@@ -27,9 +27,9 @@ export class IFrameHostAdapter<
                 return
             }
 
-            let result: RpcParsingResult
+            let result: RpcParsingResult<Methods, Events>
             try {
-                result = parseRpcMessage(event.data as object)
+                result = parseRpcMessage<Methods, Events>(event.data as object)
             } catch (_) {
                 // Ignore invalid messages as they might be sent for other purposes
                 return
@@ -40,7 +40,7 @@ export class IFrameHostAdapter<
             ) {
                 return
             }
-            const targetName = result.message.params?.[0]
+            const targetName = result.message.params[0]
             if (targetName !== adapter.name) {
                 return
             }
@@ -53,7 +53,7 @@ export class IFrameHostAdapter<
                     id: result.message.id,
                     jsonrpc: '2.0',
                     result: null,
-                } satisfies RpcResponse,
+                } satisfies RpcSuccessResponse<() => null>,
                 this.origin,
                 [messageChannel.port2],
             )

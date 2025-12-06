@@ -19,8 +19,8 @@ export interface RpcRequestParsingResult<Methods extends MethodMap<Methods>> {
 }
 
 export type RpcParsingResult<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> =
-    | RpcResponseParsingResult<Events>
-    | RpcRequestParsingResult<Methods>
+    | RpcResponseParsingResult<Methods>
+    | RpcRequestParsingResult<Events>
 
 export function parseRpcMessage<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>>(
     message: string | object,
@@ -46,7 +46,7 @@ export function parseRpcMessage<Methods extends MethodMap<Methods>, Events exten
     }
 
     if (isRequest) {
-        const requestMessage = messageObj as unknown as RpcRequest<Methods, keyof Methods>
+        const requestMessage = messageObj as unknown as RpcRequest<Events, keyof Events>
         validateRequestMessage(requestMessage)
 
         return {
@@ -56,7 +56,7 @@ export function parseRpcMessage<Methods extends MethodMap<Methods>, Events exten
     }
 
     if (isResponse) {
-        const responseMessage = messageObj as unknown as RpcResponse<Events, keyof Events>
+        const responseMessage = messageObj as unknown as RpcResponse<Methods, keyof Methods>
         validateResponseMessage(responseMessage)
 
         return {
@@ -83,6 +83,7 @@ function validateBaseMessage(message: Record<string, unknown>): void {
 }
 
 function validateRequestMessage<Methods extends MethodMap<Methods>>(message: RpcRequest<Methods, keyof Methods>): void {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (Object.hasOwn(message, 'params') && typeof message.params !== 'object' && message.params !== null) {
         throw new RpcError(RpcErrorCode.INVALID_REQUEST)
     }

@@ -60,6 +60,7 @@ export class EventEmitter<Events extends MethodMap<Events>> implements PublicEve
                 output = result as Awaited<ReturnType<Events[Event]>>
             }
         }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return output
     }
 }
