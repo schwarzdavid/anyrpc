@@ -78,6 +78,15 @@ describe(parseRpcMessage, () => {
         expect(() => parseRpcMessage(invalidMessage)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
     })
 
+    it('should not throw an error if id is missing', () => {
+        const message = { ...validRequest }
+
+        // @ts-ignore
+        delete message.id
+
+        expect(() => parseRpcMessage(message)).not.toThrowError()
+    })
+
     it('should throw an error for missing jsonrpc field', () => {
         const invalidMessage = {
             id: 1,
@@ -124,7 +133,7 @@ describe(parseRpcMessage, () => {
         const invalidResponse = {
             jsonrpc: '2.0',
             id: 1,
-            error: { code: 123, message: 123 },
+            error: { code: 1, message: false },
         }
 
         expect(() => parseRpcMessage(invalidResponse)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
