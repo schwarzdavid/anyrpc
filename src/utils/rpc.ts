@@ -63,6 +63,8 @@ export function parseRpcMessage<Methods extends MethodMap<Methods>, Events exten
         }
     }
 
+    // Unreachable code to prevent TS from complaining about missing return statement
+    /* v8 ignore next -- @preserve */
     throw new RpcError(RpcErrorCode.INTERNAL_ERROR)
 }
 
@@ -104,12 +106,6 @@ function validateResponseError(error: Record<string, unknown> | RpcErrorData): a
     if (typeof error.message !== 'string') {
         throw new RpcError(RpcErrorCode.INVALID_REQUEST)
     }
-}
-
-export function isRpcSuccessResponse<Methods extends MethodMap<Methods>, Name extends keyof Methods = keyof Methods>(
-    message: RpcResponse<Methods, Name>,
-): message is RpcSuccessResponse<Methods[Name]> {
-    return Object.hasOwn(message, 'result')
 }
 
 export function isRpcErrorResponse(

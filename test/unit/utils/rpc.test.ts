@@ -56,6 +56,28 @@ describe(parseRpcMessage, () => {
         expect(() => parseRpcMessage(invalidJsonString)).toThrowError(new RpcError(RpcErrorCode.PARSE_ERROR))
     })
 
+    it('should throw an error for invalid id field', () => {
+        const invalidMessage = {
+            id: false,
+            jsonrpc: '2.0',
+            method: 'exampleMethod',
+            params: { example: 'value' },
+        }
+
+        expect(() => parseRpcMessage(invalidMessage)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
+    })
+
+    it('should throw an error for floating number id field', () => {
+        const invalidMessage = {
+            id: 1.1,
+            jsonrpc: '2.0',
+            method: 'exampleMethod',
+            params: { example: 'value' },
+        }
+
+        expect(() => parseRpcMessage(invalidMessage)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
+    })
+
     it('should throw an error for missing jsonrpc field', () => {
         const invalidMessage = {
             id: 1,
@@ -88,11 +110,21 @@ describe(parseRpcMessage, () => {
         expect(() => parseRpcMessage(invalidRequest)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
     })
 
-    it('should throw an error for response with invalid result/error structure', () => {
+    it('should throw an error for response with invalid error code', () => {
         const invalidResponse = {
             jsonrpc: '2.0',
             id: 1,
-            error: { code: 'notAnInteger', message: 123 },
+            error: { code: 'notAnInteger', message: 'error message' },
+        }
+
+        expect(() => parseRpcMessage(invalidResponse)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
+    })
+
+    it('should throw an error for response with invalid error message', () => {
+        const invalidResponse = {
+            jsonrpc: '2.0',
+            id: 1,
+            error: { code: 123, message: 123 },
         }
 
         expect(() => parseRpcMessage(invalidResponse)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
