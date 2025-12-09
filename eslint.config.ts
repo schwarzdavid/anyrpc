@@ -53,6 +53,7 @@ export default defineConfig(
             '@typescript-eslint/no-unsafe-member-access': 'off',
             '@typescript-eslint/no-confusing-void-expression': 'off',
             '@typescript-eslint/ban-ts-comment': 'off',
+            '@typescript-eslint/no-unsafe-call': 'off',
         },
         settings: {
             vitest: {
