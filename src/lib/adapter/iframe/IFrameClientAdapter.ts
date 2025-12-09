@@ -30,6 +30,8 @@ export class IFrameClientAdapter<
         const messageIntervalId = setInterval(() => this.sendInitMessage(), this.pollingInterval)
 
         window.addEventListener('message', function onWindowMessage(event) {
+            // TODO: check if event.data is init message
+
             adapter.port = event.ports[0]
 
             clearInterval(messageIntervalId)
