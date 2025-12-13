@@ -155,9 +155,26 @@ describe(createRpcChannel, () => {
                 error: {
                     code: RpcErrorCode.SERVER_ERROR,
                     message: RPC_ERROR_NAME_MAP[RpcErrorCode.SERVER_ERROR],
+
+                    // TODO: improve error serialization & make error details configurable. @see todo in createRpcChannel.ts
                     data: expect.anything(),
                 },
             }),
         )
+    })
+
+    it('should return objects builtins', () => {
+        const adapter = new MockAdapter()
+        const rpcChannel = createRpcChannel(adapter)
+        const addEventListenerSpy = vi.spyOn(EventEmitter.prototype, 'addEventListener')
+        const removeEventListenerSpy = vi.spyOn(EventEmitter.prototype, 'removeEventListener')
+
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
+        const prototypeName = rpcChannel.toString()
+
+        expect(prototypeName).toBe('[object Object]')
+        expect(adapter.sendMessage).not.toHaveBeenCalled()
+        expect(addEventListenerSpy).not.toHaveBeenCalled()
+        expect(removeEventListenerSpy).not.toHaveBeenCalled()
     })
 })
