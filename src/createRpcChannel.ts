@@ -37,14 +37,14 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     const events = new EventEmitter<Events>()
     const queue: Queue = {}
 
-    adapter.messageHandler = (data) => {
+    adapter.messageHandler = async (data) => {
         const { type, message } = parseRpcMessage<Methods, Events>(data)
 
         if (type === RpcMessageType.RESPONSE) {
             handleResponse(message)
             return
         }
-        void handleRequest(message)
+        await handleRequest(message)
     }
 
     function handleResponse(message: RpcResponse<Methods>): void {
@@ -76,7 +76,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
 
             response = {
                 ...responseBase,
-                error: rpcError,
+                error: rpcError.toJSON(),
             }
         } else {
             return

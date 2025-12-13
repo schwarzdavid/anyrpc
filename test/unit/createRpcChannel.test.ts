@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRpcChannel } from '@/createRpcChannel'
 import { AbstractRpcAdapter } from '@/lib/AbstractRpcAdapter'
 import { RpcError } from '@/lib/RpcError'
-import { RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
-import { RpcMessage } from '@/types/RpcMessages'
+import { RPC_ERROR_NAME_MAP, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
+import { RpcMessage, RpcRequest, RpcResponse } from '@/types/RpcMessages'
 import { EventEmitter } from '@/lib/EventEmitter'
 
 interface TestMethods {
@@ -13,18 +13,23 @@ interface TestMethods {
 
 interface TestEvents {
     onEvent(message: string): boolean
+    objectEvent(message: string): Record<string, string>
 }
 
 class MockAdapter extends AbstractRpcAdapter<TestMethods, TestEvents> {
     sendMessage = vi.fn<(msg: RpcMessage<TestMethods, TestEvents>) => unknown>()
 
-    triggerHandler(message: any) {
+    async triggerHandler(message: any) {
         const handler = (this as any)._messageHandler
-        handler?.(message)
+        await handler?.(message)
     }
 }
 
 describe(createRpcChannel, () => {
+    afterEach(() => {
+        vi.clearAllMocks()
+    })
+
     it('should send an RPC request and resolve with the correct result', async () => {
         const adapter = new MockAdapter()
         const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
@@ -38,7 +43,7 @@ describe(createRpcChannel, () => {
                 params: [2, 3],
             })
 
-            adapter.triggerHandler({
+            void adapter.triggerHandler({
                 jsonrpc: '2.0',
                 type: 'response',
                 id,
@@ -58,7 +63,7 @@ describe(createRpcChannel, () => {
         const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
 
         adapter.sendMessage.mockImplementationOnce(({ id }) => {
-            adapter.triggerHandler({
+            void adapter.triggerHandler({
                 jsonrpc: '2.0',
                 id,
                 error: { code: RpcErrorCode.SERVER_ERROR, message: 'Server error' },
@@ -96,9 +101,63 @@ describe(createRpcChannel, () => {
             params: ['Hello, world!'],
         }
 
-        adapter.triggerHandler(mockRequest)
+        void adapter.triggerHandler(mockRequest)
 
         expect(eventEmitterSpy).toHaveBeenCalledWith('onEvent', onEventMock)
         expect(onEventMock).toHaveBeenCalledWith('Hello, world!')
+    })
+
+    it('should pass event result to response on success', async () => {
+        const adapter = new MockAdapter()
+        const rpcChannel = createRpcChannel(adapter)
+        const onEventMock = vi.fn<(message: string) => Record<string, string>>().mockReturnValue({ foo: 'bar' })
+        const mockRequest: RpcRequest<TestEvents> = {
+            jsonrpc: '2.0',
+            id: 'event-id',
+            method: 'objectEvent',
+            params: ['Hello, world!'],
+        }
+
+        rpcChannel.addEventListener('objectEvent', onEventMock)
+        await adapter.triggerHandler(mockRequest)
+
+        expect(onEventMock).toHaveBeenCalledWith('Hello, world!')
+        expect(adapter.sendMessage).toHaveBeenCalledWith(
+            expect.objectContaining({
+                jsonrpc: '2.0',
+                id: 'event-id',
+                result: { foo: 'bar' },
+            } satisfies RpcResponse<TestEvents>),
+        )
+    })
+
+    it('should pass event error to response on error', async () => {
+        const adapter = new MockAdapter()
+        const rpcChannel = createRpcChannel(adapter)
+        const onEventMock = vi.fn<(message: string) => Record<string, string>>().mockImplementation(() => {
+            throw new Error('Error')
+        })
+        const mockRequest: RpcRequest<TestEvents> = {
+            jsonrpc: '2.0',
+            id: 'event-id',
+            method: 'objectEvent',
+            params: ['Hello, world!'],
+        }
+
+        rpcChannel.addEventListener('objectEvent', onEventMock)
+        await adapter.triggerHandler(mockRequest)
+
+        expect(onEventMock).toHaveBeenCalledWith('Hello, world!')
+        expect(adapter.sendMessage).toHaveBeenCalledWith(
+            expect.objectContaining({
+                jsonrpc: '2.0',
+                id: 'event-id',
+                error: {
+                    code: RpcErrorCode.SERVER_ERROR,
+                    message: RPC_ERROR_NAME_MAP[RpcErrorCode.SERVER_ERROR],
+                    data: expect.anything(),
+                },
+            }),
+        )
     })
 })

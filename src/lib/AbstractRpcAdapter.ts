@@ -1,7 +1,7 @@
 import { RpcMessage } from '@/types/RpcMessages'
 import { MethodMap } from '@/types/MethodMap'
 
-export type MessageHandler = (message: string | object) => unknown
+export type MessageHandler = (message: string | object) => Promise<void>
 export type ConnectionHandler = () => unknown
 
 export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> {
@@ -18,8 +18,8 @@ export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Eve
 
     abstract sendMessage(message: RpcMessage<Methods, Events>): unknown
 
-    protected onMessage(rawMessage: string | object) {
-        this._messageHandler?.(rawMessage)
+    protected async onMessage(rawMessage: string | object): Promise<void> {
+        await this._messageHandler?.(rawMessage)
     }
 
     protected onConnection() {
