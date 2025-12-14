@@ -25,6 +25,7 @@ export abstract class AbstractIFrameAdapter<
     protected set port(port: MessagePort | undefined) {
         this._port = port
         this._port?.addEventListener('message', (event) => void this.onMessage(event.data as object))
+        this._port?.start()
     }
 
     sendMessage(message: RpcMessage<Methods, Events>): void {

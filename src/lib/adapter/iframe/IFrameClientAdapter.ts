@@ -1,6 +1,6 @@
 import { MethodMap } from '@/types/MethodMap'
 import { AbstractIFrameAdapter, IFrameAdapterOptions } from './AbstractIFrameAdapter'
-import { RpcRequest } from '@/types/RpcMessages'
+import { RpcRequest, RpcSuccessResponse } from '@/types/RpcMessages'
 import { uuid } from '@/utils/uuid'
 
 /* eslint-disable @typescript-eslint/no-this-alias */
@@ -14,6 +14,7 @@ export class IFrameClientAdapter<
     Events extends MethodMap<Events>,
 > extends AbstractIFrameAdapter<Methods, Events> {
     private readonly pollingInterval: number
+    private readonly usedInitIds = new Set<string>()
 
     constructor(
         private readonly name: string = AbstractIFrameAdapter.DEFAULT_NAME,
@@ -30,9 +31,16 @@ export class IFrameClientAdapter<
         const messageIntervalId = setInterval(() => this.sendInitMessage(), this.pollingInterval)
 
         window.addEventListener('message', function onWindowMessage(event) {
-            // TODO: check if event.data is init message
+            if (event.source !== window.parent || !adapter.isInitResponse(event.data)) {
+                return
+            }
+            const receivedPort = event.ports[0]
+            if (!receivedPort) {
+                console.warn('No port received from iframe')
+                return
+            }
 
-            adapter.port = event.ports[0]
+            adapter.port = receivedPort
 
             clearInterval(messageIntervalId)
             window.removeEventListener('message', onWindowMessage)
@@ -42,9 +50,13 @@ export class IFrameClientAdapter<
     }
 
     private sendInitMessage() {
+        const id = uuid()
+
+        this.usedInitIds.add(id)
+
         window.parent.postMessage(
             {
-                id: uuid(),
+                id,
                 method: AbstractIFrameAdapter.INIT_METHOD_NAME,
                 params: [this.name],
                 jsonrpc: '2.0',
@@ -53,5 +65,14 @@ export class IFrameClientAdapter<
             }>,
             this.origin,
         )
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private isInitResponse(message: any): message is RpcSuccessResponse<() => null> {
+        if (typeof message !== 'object' || message === null) {
+            return false
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-argument
+        return message.jsonrpc === '2.0' && message.result === null && this.usedInitIds.has(message.id)
     }
 }
