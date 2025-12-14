@@ -54,7 +54,7 @@ export class IFrameHostAdapter<
                     jsonrpc: '2.0',
                     result: null,
                 } satisfies RpcSuccessResponse<() => null>,
-                this.origin,
+                adapter.origin,
                 [messageChannel.port2],
             )
             window.removeEventListener('message', onWindowMessage)

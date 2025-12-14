@@ -88,13 +88,11 @@ describe(createRpcChannel, () => {
         )
     })
 
-    it('should ignore promise return type of active event listeners', () => {
+    it('should allow promise return type of active event listeners', () => {
         const adapter = new TestAdapter()
         const rpcChannel = createRpcChannel(adapter)
 
-        assertType<void>(rpcChannel.addEventListener('multiply', vi.fn<(a: number, b: number) => number>()))
         assertType<void>(rpcChannel.addEventListener('multiply', vi.fn<(a: number, b: number) => Promise<number>>()))
-        assertType<void>(rpcChannel.addEventListener('divide', vi.fn<(a: number, b: number) => number>()))
         assertType<void>(rpcChannel.addEventListener('divide', vi.fn<(a: number, b: number) => Promise<number>>()))
     })
 

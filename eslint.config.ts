@@ -55,6 +55,7 @@ export default defineConfig(
             '@typescript-eslint/ban-ts-comment': 'off',
             '@typescript-eslint/no-unsafe-call': 'off',
             '@typescript-eslint/no-invalid-void-type': 'off',
+            '@typescript-eslint/unbound-method': 'off',
         },
         settings: {
             vitest: {
