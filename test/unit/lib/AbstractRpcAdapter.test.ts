@@ -23,7 +23,7 @@ class RpcAdapterImpl extends AbstractRpcAdapter<TestMethods, TestEvents> {
 }
 
 describe(AbstractRpcAdapter, () => {
-    it('should set message handler', async () => {
+    it('should set message handler', () => {
         const adapter = new RpcAdapterImpl()
         const messageHandler = vi.fn<MessageHandler>()
 
@@ -34,7 +34,7 @@ describe(AbstractRpcAdapter, () => {
         expect(savedHandler).toBe(messageHandler)
     })
 
-    it('should set connection handler', async () => {
+    it('should set connection handler', () => {
         const adapter = new RpcAdapterImpl()
         const connectionHandler = vi.fn<ConnectionHandler>()
 
@@ -61,7 +61,7 @@ describe(AbstractRpcAdapter, () => {
         expect(messageHandler).toHaveBeenCalledWith(message)
     })
 
-    it('should call connection handler when connected', async () => {
+    it('should call connection handler when connected', () => {
         const adapter = new RpcAdapterImpl()
         const connectionHandler = vi.fn<ConnectionHandler>()
 

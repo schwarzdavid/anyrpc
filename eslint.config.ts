@@ -5,7 +5,7 @@ import prettierConfig from 'eslint-config-prettier'
 import vitest from '@vitest/eslint-plugin'
 
 export default defineConfig(
-    globalIgnores(['dist']),
+    globalIgnores(['dist', 'coverage']),
     eslint.configs.recommended,
     tseslint.configs.strictTypeChecked,
     tseslint.configs.stylisticTypeChecked,
