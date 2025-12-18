@@ -41,6 +41,12 @@ export default defineConfig(
         },
     },
     {
+        files: ['vite.config.ts', 'prettier.config.ts', 'eslint.config.ts'],
+        rules: {
+            '@typescript-eslint/no-unsafe-call': 'off',
+        },
+    },
+    {
         files: ['test/**'],
         plugins: {
             vitest,
@@ -56,6 +62,7 @@ export default defineConfig(
             '@typescript-eslint/no-unsafe-call': 'off',
             '@typescript-eslint/no-invalid-void-type': 'off',
             '@typescript-eslint/unbound-method': 'off',
+            '@typescript-eslint/no-non-null-assertion': 'off',
         },
         settings: {
             vitest: {

@@ -20,11 +20,12 @@
         "noImplicitOverride": true,
         "noImplicitReturns": true,
         "noImplicitThis": true,
-        "noEmit": true
+        "noEmit": true,
+        "types": ["vite/client"]
     },
     "files": [],
     "references": [
-        { "path": "./tsconfig.app.json" },
+        { "path": "./tsconfig.lib.json" },
         { "path": "./tsconfig.node.json" },
         { "path": "./tsconfig.vitest.json" }
     ]

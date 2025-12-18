@@ -12,7 +12,10 @@
     "preversion": "concurrently 'npm run format' 'npm run lint' 'npm run check'",
     "prepublishOnly": "npm run build",
     "test": "vitest run --typecheck",
-    "test:watch": "vitest",
+    "test:unit": "vitest run --project unit --typecheck",
+    "test:browser": "vitest run --project browser --headless",
+    "test:watch:unit": "vitest --project unit",
+    "test:watch:browser": "vitest --project browser",
     "coverage": "vitest run --coverage"
   },
   "keywords": [],
@@ -41,8 +44,9 @@
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
-    "@vitest/coverage-v8": "^4.0.15",
+    "@vitest/coverage-v8": "4.0.16",
     "@vitest/eslint-plugin": "^1.5.1",
+    "@vitest/browser-playwright": "4.0.16",
     "concurrently": "^9.2.1",
     "eslint-config-prettier": "^10.1.8",
     "jiti": "^2.6.1",
@@ -53,6 +57,6 @@
     "typescript-eslint": "^8.48.1",
     "vite": "^7.2.6",
     "vite-plugin-dts": "^4.5.4",
-    "vitest": "4.0.15"
+    "vitest": "4.0.16"
   }
 }

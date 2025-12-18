@@ -2,9 +2,10 @@
 import { defineConfig } from 'vite'
 import { resolve } from 'node:path'
 import dts from 'vite-plugin-dts'
+import { playwright } from '@vitest/browser-playwright'
 
 export default defineConfig({
-    plugins: [dts({ tsconfigPath: './tsconfig.app.json' })],
+    plugins: [dts({ tsconfigPath: './tsconfig.lib.json' })],
     resolve: {
         alias: {
             '@': resolve(__dirname, 'src'),
@@ -35,6 +36,18 @@ export default defineConfig({
                     include: ['test/unit/**/*.test.ts', 'test/unit/**/*.test-d.ts'],
                     name: 'unit',
                     environment: 'jsdom',
+                },
+            },
+            {
+                extends: true,
+                test: {
+                    include: ['test/browser/**/*.test.ts'],
+                    name: 'browser',
+                    browser: {
+                        provider: playwright(),
+                        enabled: true,
+                        instances: [{ browser: 'chromium' }, { browser: 'firefox' }, { browser: 'webkit' }],
+                    },
                 },
             },
         ],
