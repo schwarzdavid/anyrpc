@@ -87,4 +87,31 @@ describe(IFrameHostAdapter, () => {
         )
         expect((adapter as any)._port).toSatisfy((value) => value instanceof MessagePort)
     })
+
+    it('should respect postMessageOrigin option', () => {
+        const initRequestMessage: RpcRequest<{ init(name: string): void }> = {
+            jsonrpc: '2.0',
+            id: 'init-id',
+            method: 'init',
+            params: ['anyrpc-iframe-adapter'],
+        }
+
+        new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, undefined, {
+            postMessageOrigin: 'https://example.com',
+        })
+
+        global.window.dispatchEvent(
+            new MessageEvent('message', { data: initRequestMessage, source: mockContentWindow }),
+        )
+
+        expect(mockContentWindow.postMessage).toHaveBeenCalledWith(
+            expect.objectContaining({
+                jsonrpc: '2.0',
+                id: 'init-id',
+                result: null,
+            }),
+            'https://example.com',
+            expect.arrayContaining([expect.any(MessagePort)]),
+        )
+    })
 })
