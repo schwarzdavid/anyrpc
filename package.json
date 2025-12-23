@@ -9,6 +9,7 @@
     "lint:fix": "eslint --fix",
     "check": "tsc --build --force",
     "build": "vite build",
+    "dev": "vite",
     "preversion": "concurrently 'npm run format' 'npm run lint' 'npm run check'",
     "prepublishOnly": "npm run build",
     "test": "vitest run --typecheck",

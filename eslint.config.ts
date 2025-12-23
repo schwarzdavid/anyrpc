@@ -70,5 +70,11 @@ export default defineConfig(
             },
         },
     },
+    {
+        files: ['examples/**'],
+        rules: {
+            '@typescript-eslint/no-non-null-assertion': 'off',
+        },
+    },
     prettierConfig,
 )
