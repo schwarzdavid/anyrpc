@@ -4,4 +4,5 @@ export interface HostToIFrame {
 
 export interface IFrameToHost {
     pong(): void
+    size(width: number, height: number): void
 }

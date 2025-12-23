@@ -13,6 +13,10 @@ onReady(() => {
         log(MessageType.RECEIVED, 'pong')
     })
 
+    channel.addEventListener('size', (width, height) => {
+        log(MessageType.RECEIVED, 'size', width, height)
+    })
+
     document.querySelector('#send-ping')?.addEventListener('click', () => {
         log(MessageType.SENT, 'ping')
         void channel.ping()

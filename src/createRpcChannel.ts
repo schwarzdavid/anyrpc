@@ -60,12 +60,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         const responseBase: RpcMessageBase = { jsonrpc: '2.0', id: message.id }
         let response: RpcResponse<Events>
 
-        if (result) {
-            response = {
-                ...responseBase,
-                result,
-            }
-        } else if (error) {
+        if (error) {
             const rpcError = new RpcError({
                 code: RpcErrorCode.SERVER_ERROR,
                 message: RPC_ERROR_NAME_MAP[RpcErrorCode.SERVER_ERROR],
@@ -79,7 +74,10 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
                 error: rpcError.toJSON(),
             }
         } else {
-            return
+            response = {
+                ...responseBase,
+                result,
+            }
         }
 
         void adapter.sendMessage(response)

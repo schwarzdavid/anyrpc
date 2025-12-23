@@ -44,6 +44,37 @@ describe(IFrameHostAdapter, () => {
             new MessageEvent('message', { data: initRequestMessage, source: mockContentWindow }),
         )
 
+        expect(removeEventListenerSpy).not.toHaveBeenCalled()
+        expect(mockContentWindow.postMessage).toHaveBeenCalledWith(
+            expect.objectContaining({
+                jsonrpc: '2.0',
+                id: 'init-id',
+                result: null,
+            }),
+            '*',
+            expect.arrayContaining([expect.any(MessagePort)]),
+        )
+        expect((adapter as any)._port).toSatisfy((value) => value instanceof MessagePort)
+    })
+
+    it('should not reconnect if reconnect option is set to false', () => {
+        const addEventListenerSpy = vi.spyOn(window, 'addEventListener')
+        const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
+        const initRequestMessage: RpcRequest<{ init(name: string): void }> = {
+            jsonrpc: '2.0',
+            id: 'init-id',
+            method: 'init',
+            params: ['anyrpc-iframe-adapter'],
+        }
+
+        const adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, undefined, { reconnect: false })
+
+        expect(addEventListenerSpy).toHaveBeenCalledWith('message', expect.anything())
+
+        global.window.dispatchEvent(
+            new MessageEvent('message', { data: initRequestMessage, source: mockContentWindow }),
+        )
+
         expect(removeEventListenerSpy).toHaveBeenCalledWith('message', expect.anything())
         expect(mockContentWindow.postMessage).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -51,7 +82,7 @@ describe(IFrameHostAdapter, () => {
                 id: 'init-id',
                 result: null,
             }),
-            '/',
+            '*',
             expect.arrayContaining([expect.any(MessagePort)]),
         )
         expect((adapter as any)._port).toSatisfy((value) => value instanceof MessagePort)

@@ -5,16 +5,23 @@ import { RpcSuccessResponse } from '@/types/RpcMessages'
 
 /* eslint-disable @typescript-eslint/no-this-alias */
 
+export interface IFrameHostAdapterOptions extends IFrameAdapterOptions {
+    reconnect: boolean
+}
+
 export class IFrameHostAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractIFrameAdapter<Methods, Events> {
+    private readonly reconnect: boolean
+
     constructor(
         private readonly iframe: HTMLIFrameElement,
         private readonly name: string = AbstractIFrameAdapter.DEFAULT_NAME,
-        options?: Partial<IFrameAdapterOptions>,
+        options?: Partial<IFrameHostAdapterOptions>,
     ) {
         super(options)
+        this.reconnect = options?.reconnect ?? true
 
         this.establishConnection()
     }
@@ -54,10 +61,12 @@ export class IFrameHostAdapter<
                     jsonrpc: '2.0',
                     result: null,
                 } satisfies RpcSuccessResponse<() => null>,
-                adapter.origin,
+                adapter.postMessageOrigin,
                 [messageChannel.port2],
             )
-            window.removeEventListener('message', onWindowMessage)
+            if (!adapter.reconnect) {
+                window.removeEventListener('message', onWindowMessage)
+            }
         })
     }
 }

@@ -16,4 +16,9 @@ onReady(() => {
         log(MessageType.SENT, 'pong')
         void channel.pong()
     })
+
+    document.querySelector('#send-size')?.addEventListener('click', () => {
+        log(MessageType.SENT, 'size', window.innerWidth, window.innerHeight)
+        void channel.size(window.innerWidth, window.innerHeight)
+    })
 })

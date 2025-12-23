@@ -8,7 +8,7 @@ export interface RpcMessageBase {
 }
 
 export interface RpcSuccessResponse<Fn extends MethodFn> extends RpcMessageBase {
-    result: Awaited<ReturnType<Fn>>
+    result: Awaited<ReturnType<Fn>> | undefined
 }
 
 export interface RpcErrorData {

@@ -3,7 +3,7 @@ import { MethodMap } from '@/types/MethodMap'
 import { RpcMessage } from '@/types/RpcMessages'
 
 export interface IFrameAdapterOptions {
-    origin: string
+    postMessageOrigin: string
 }
 
 export abstract class AbstractIFrameAdapter<
@@ -14,12 +14,12 @@ export abstract class AbstractIFrameAdapter<
     protected static readonly DEFAULT_NAME = 'anyrpc-iframe-adapter'
 
     private _port: MessagePort | undefined
-    protected readonly origin: string
+    protected readonly postMessageOrigin: string
 
     protected constructor(options?: Partial<IFrameAdapterOptions>) {
         super()
 
-        this.origin = options?.origin ?? '/'
+        this.postMessageOrigin = options?.postMessageOrigin ?? '*'
     }
 
     protected set port(port: MessagePort | undefined) {

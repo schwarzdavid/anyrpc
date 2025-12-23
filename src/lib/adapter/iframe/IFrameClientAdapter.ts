@@ -5,8 +5,16 @@ import { uuid } from '@/utils/uuid'
 
 /* eslint-disable @typescript-eslint/no-this-alias */
 
+export type IFrameClientAdapterOriginOption =
+    | string
+    | RegExp
+    | (string | RegExp)[]
+    | ((origin: string) => boolean)
+    | true
+
 export interface IFrameClientAdapterOptions extends IFrameAdapterOptions {
     pollingInterval: number
+    origin: IFrameClientAdapterOriginOption
 }
 
 export class IFrameClientAdapter<
@@ -15,13 +23,19 @@ export class IFrameClientAdapter<
 > extends AbstractIFrameAdapter<Methods, Events> {
     private readonly pollingInterval: number
     private readonly usedInitIds = new Set<string>()
+    private readonly allowedOrigin: IFrameClientAdapterOriginOption
 
     constructor(
         private readonly name: string = AbstractIFrameAdapter.DEFAULT_NAME,
         options?: Partial<IFrameClientAdapterOptions>,
     ) {
+        if (Array.isArray(options?.origin) && !options.origin.length) {
+            throw new Error('Origin option cannot be an empty array')
+        }
+
         super(options)
         this.pollingInterval = options?.pollingInterval ?? 1000
+        this.allowedOrigin = options?.origin ?? true
 
         this.establishConnection()
     }
@@ -32,6 +46,9 @@ export class IFrameClientAdapter<
 
         window.addEventListener('message', function onWindowMessage(event) {
             if (event.source !== window.parent || !adapter.isInitResponse(event.data)) {
+                return
+            }
+            if (!adapter.isOriginValid(window.parent.origin)) {
                 return
             }
             const receivedPort = event.ports[0]
@@ -63,7 +80,7 @@ export class IFrameClientAdapter<
             } satisfies RpcRequest<{
                 [AbstractIFrameAdapter.INIT_METHOD_NAME]: (args: string) => void
             }>,
-            this.origin,
+            this.postMessageOrigin,
         )
     }
 
@@ -74,5 +91,25 @@ export class IFrameClientAdapter<
         }
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-argument
         return message.jsonrpc === '2.0' && message.result === null && this.usedInitIds.has(message.id)
+    }
+
+    private isOriginValid(url: string) {
+        if (this.allowedOrigin === true) {
+            // TODO: add warning that all origins are allowed which is not recommended
+            return true
+        }
+
+        const { origin } = new URL(url)
+        if (typeof this.allowedOrigin === 'function') {
+            return this.allowedOrigin(origin)
+        }
+        const allowedOriginsArray = Array.isArray(this.allowedOrigin) ? this.allowedOrigin : [this.allowedOrigin]
+
+        return allowedOriginsArray.some((allowedOrigin) => {
+            if (allowedOrigin instanceof RegExp) {
+                return allowedOrigin.test(origin)
+            }
+            return allowedOrigin.toLowerCase().trim() === origin.toLowerCase().trim()
+        })
     }
 }
