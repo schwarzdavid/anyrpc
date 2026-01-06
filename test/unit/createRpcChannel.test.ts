@@ -177,4 +177,22 @@ describe(createRpcChannel, () => {
         expect(addEventListenerSpy).not.toHaveBeenCalled()
         expect(removeEventListenerSpy).not.toHaveBeenCalled()
     })
+
+    it('should return empty response if no active event handler is set', async () => {
+        const adapter = new MockAdapter()
+        createRpcChannel<TestMethods, TestEvents>(adapter)
+
+        await adapter.triggerHandler({
+            id: 'event-id',
+            jsonrpc: '2.0',
+            method: 'onEvent',
+            params: ['Hello, world!'],
+        })
+
+        expect(adapter.sendMessage).toHaveBeenCalledWith({
+            id: 'event-id',
+            jsonrpc: '2.0',
+            result: undefined,
+        })
+    })
 })
