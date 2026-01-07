@@ -1,4 +1,4 @@
-import { MethodMap } from '@/types/MethodMap'
+import { InternalMethodMap } from '@/types/MethodMap'
 import { AbstractIFrameAdapter, IFrameAdapterOptions } from './AbstractIFrameAdapter'
 import { parseRpcMessage, RpcMessageType, RpcParsingResult } from '@/utils/rpc'
 import { RpcSuccessResponse } from '@/types/RpcMessages'
@@ -10,8 +10,8 @@ export interface IFrameHostAdapterOptions extends IFrameAdapterOptions {
 }
 
 export class IFrameHostAdapter<
-    Methods extends MethodMap<Methods>,
-    Events extends MethodMap<Events>,
+    Methods extends InternalMethodMap<Methods>,
+    Events extends InternalMethodMap<Events>,
 > extends AbstractIFrameAdapter<Methods, Events> {
     private readonly reconnect: boolean
 

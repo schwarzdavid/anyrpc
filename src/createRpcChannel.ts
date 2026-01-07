@@ -6,8 +6,9 @@ import { uuid } from './utils/uuid'
 import { RpcMessageBase, RpcRequest, RpcResponse } from './types/RpcMessages'
 import { RPC_ERROR_NAME_MAP, RpcErrorCode } from './constants/JSON_RPC_ERRORS'
 import { PublicEventEmitter } from './types/EventEmitter'
-import { MethodMap } from './types/MethodMap'
+import { InternalMethodMap, MethodMap } from './types/MethodMap'
 import { RpcChannel } from '@/types/RpcChannel'
+import { DefaultEvents } from '@/constants/DEFAULT_EVENTS'
 
 export interface RPCChannelOptions {
     timeout: number
@@ -34,10 +35,10 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
 ) {
     options = Object.assign({ timeout: 3000 }, options)
 
-    const events = new EventEmitter<Events>()
+    const events = new EventEmitter<Events & InternalMethodMap<DefaultEvents>>()
     const queue: Queue = {}
 
-    adapter.messageHandler = async (data) => {
+    adapter.messageHandler = async function rpcChannelMessageHandler(data) {
         const { type, message } = parseRpcMessage<Methods, Events>(data)
 
         if (type === RpcMessageType.RESPONSE) {
@@ -45,6 +46,10 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             return
         }
         await handleRequest(message)
+    }
+
+    adapter.connectionHandler = function rpcChannelConnectionHandler(status) {
+        void events.dispatchEvent('anyrpc::connection-change', status)
     }
 
     function handleResponse(message: RpcResponse<Methods>): void {

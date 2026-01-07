@@ -1,21 +1,21 @@
 import hostHtml from './host.html?raw'
 import iframeHtml from './iframe.html?raw'
-import { MethodMap } from '@/types/MethodMap'
+import { InternalMethodMap } from '@/types/MethodMap'
 import { createRpcChannel } from '@/createRpcChannel'
 import { IFrameHostAdapter } from '@/lib/adapter/iframe'
 import { RpcChannel } from '@/types/RpcChannel'
 
 export interface IFramePageSetup<
-    HostToFrame extends MethodMap<HostToFrame>,
-    FrameToHost extends MethodMap<FrameToHost>,
+    HostToFrame extends InternalMethodMap<HostToFrame>,
+    FrameToHost extends InternalMethodMap<FrameToHost>,
 > {
     hostRpc: RpcChannel<HostToFrame, FrameToHost>
     frameRpc: RpcChannel<FrameToHost, HostToFrame>
 }
 
 export async function setupIFramePage<
-    HostToFrame extends MethodMap<HostToFrame>,
-    FrameToHost extends MethodMap<FrameToHost>,
+    HostToFrame extends InternalMethodMap<HostToFrame>,
+    FrameToHost extends InternalMethodMap<FrameToHost>,
 >(): Promise<IFramePageSetup<HostToFrame, FrameToHost>> {
     document.body.innerHTML = hostHtml
 

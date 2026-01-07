@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { AbstractRpcAdapter, ConnectionHandler, MessageHandler } from '@/lib/AbstractRpcAdapter'
 import { RpcMessage } from '@/types/RpcMessages'
+import { ConnectionStatus } from '@/types/ConnectionStatus'
 
 interface TestMethods {
     exampleMethod: (foo: string, bar: number) => Promise<string>
@@ -17,8 +18,8 @@ class RpcAdapterImpl extends AbstractRpcAdapter<TestMethods, TestEvents> {
         await this.onMessage(message)
     }
 
-    triggerConnection() {
-        this.onConnection()
+    async triggerConnection(): Promise<void> {
+        await this.onConnectionStatusChange(ConnectionStatus.CONNECTED)
     }
 }
 
@@ -61,13 +62,13 @@ describe(AbstractRpcAdapter, () => {
         expect(messageHandler).toHaveBeenCalledWith(message)
     })
 
-    it('should call connection handler when connected', () => {
+    it('should call connection handler when connected', async () => {
         const adapter = new RpcAdapterImpl()
         const connectionHandler = vi.fn<ConnectionHandler>()
 
         adapter.connectionHandler = connectionHandler
-        adapter.triggerConnection()
+        await adapter.triggerConnection()
 
-        expect(connectionHandler).toHaveBeenCalledWith()
+        expect(connectionHandler).toHaveBeenCalledWith(ConnectionStatus.CONNECTED)
     })
 })

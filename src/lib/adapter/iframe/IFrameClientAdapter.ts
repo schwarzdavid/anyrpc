@@ -1,6 +1,6 @@
-import { MethodMap } from '@/types/MethodMap'
+import { InternalMethodMap } from '@/types/MethodMap'
 import { AbstractIFrameAdapter, IFrameAdapterOptions } from './AbstractIFrameAdapter'
-import { RpcRequest, RpcSuccessResponse } from '@/types/RpcMessages'
+import { RpcSuccessResponse } from '@/types/RpcMessages'
 import { uuid } from '@/utils/uuid'
 
 /* eslint-disable @typescript-eslint/no-this-alias */
@@ -18,8 +18,8 @@ export interface IFrameClientAdapterOptions extends IFrameAdapterOptions {
 }
 
 export class IFrameClientAdapter<
-    Methods extends MethodMap<Methods>,
-    Events extends MethodMap<Events>,
+    Methods extends InternalMethodMap<Methods>,
+    Events extends InternalMethodMap<Events>,
 > extends AbstractIFrameAdapter<Methods, Events> {
     private readonly pollingInterval: number
     private readonly usedInitIds = new Set<string>()
@@ -42,7 +42,6 @@ export class IFrameClientAdapter<
 
     private establishConnection() {
         const adapter = this
-        const messageIntervalId = setInterval(() => this.sendInitMessage(), this.pollingInterval)
 
         window.addEventListener('message', function onWindowMessage(event) {
             if (event.source !== window.parent || !adapter.isInitResponse(event.data)) {
@@ -63,6 +62,7 @@ export class IFrameClientAdapter<
             window.removeEventListener('message', onWindowMessage)
         })
 
+        const messageIntervalId = setInterval(() => this.sendInitMessage(), this.pollingInterval)
         this.sendInitMessage()
     }
 
@@ -77,9 +77,7 @@ export class IFrameClientAdapter<
                 method: AbstractIFrameAdapter.INIT_METHOD_NAME,
                 params: [this.name],
                 jsonrpc: '2.0',
-            } satisfies RpcRequest<{
-                [AbstractIFrameAdapter.INIT_METHOD_NAME]: (args: string) => void
-            }>,
+            },
             this.postMessageOrigin,
         )
     }

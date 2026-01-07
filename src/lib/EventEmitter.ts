@@ -1,4 +1,4 @@
-import { MethodFn, MethodMap } from '@/types/MethodMap'
+import { MethodFn, InternalMethodMap } from '@/types/MethodMap'
 import { EventListenerCallback, PublicEventEmitter, EventListenerOptions } from '@/types/EventEmitter'
 
 export interface EventListenerEntry<Listener extends MethodFn, Passive extends boolean = boolean> {
@@ -6,7 +6,7 @@ export interface EventListenerEntry<Listener extends MethodFn, Passive extends b
     listener: EventListenerCallback<Listener, Passive>
 }
 
-export type EventListenerRegistry<Events extends MethodMap<Events>> = {
+export type EventListenerRegistry<Events extends InternalMethodMap<Events>> = {
     [K in keyof Events]: EventListenerEntry<Events[K]>[]
 }
 
@@ -15,7 +15,7 @@ export interface EventDispatchResult<Fn extends MethodFn> {
     error?: Error
 }
 
-export class EventEmitter<Events extends MethodMap<Events>> implements PublicEventEmitter<Events> {
+export class EventEmitter<Events extends InternalMethodMap<Events>> implements PublicEventEmitter<Events> {
     private readonly registry = {} as EventListenerRegistry<Events>
 
     addEventListener<Event extends keyof Events, Passive extends boolean = false>(
