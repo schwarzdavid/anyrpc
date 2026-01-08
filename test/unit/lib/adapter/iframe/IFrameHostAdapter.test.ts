@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { IFrameHostAdapter } from '@/lib/adapter/iframe/IFrameHostAdapter'
-import { RpcRequest } from '@/types/RpcMessages'
+import { RpcRequest, RpcResponse } from '@/types/RpcMessages'
 
 interface TestMethods {
     exampleMethod: (foo: string, bar: number) => Promise<string>
@@ -115,5 +115,63 @@ describe(IFrameHostAdapter, () => {
             'https://example.com',
             expect.arrayContaining([expect.any(MessagePort)]),
         )
+    })
+
+    it('should ignore invalid messages from iframe on connection', () => {
+        new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
+
+        global.window.dispatchEvent(new MessageEvent('message', { data: 'im a gummy bear', source: mockContentWindow }))
+
+        expect(mockContentWindow.postMessage).not.toHaveBeenCalled()
+    })
+
+    it('should ignore response messages from iframe on connection', () => {
+        const randomResponseMessage: RpcResponse<{ [InitMethodName](name: string): void }> = {
+            jsonrpc: '2.0',
+            id: 'init-id',
+            result: undefined,
+        }
+
+        new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
+
+        global.window.dispatchEvent(
+            new MessageEvent('message', { data: randomResponseMessage, source: mockContentWindow }),
+        )
+
+        expect(mockContentWindow.postMessage).not.toHaveBeenCalled()
+    })
+
+    it('should ignore messages from iframe other than init requests on connection', () => {
+        const randomRequestMessage: RpcRequest<{ foo(name: string): void }> = {
+            jsonrpc: '2.0',
+            id: 'init-id',
+            method: 'foo',
+            params: ['bar'],
+        }
+
+        new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
+
+        global.window.dispatchEvent(
+            new MessageEvent('message', { data: randomRequestMessage, source: mockContentWindow }),
+        )
+
+        expect(mockContentWindow.postMessage).not.toHaveBeenCalled()
+    })
+
+    it('should ignore messages from iframe if names do not match', () => {
+        const initRequestMessage: RpcRequest<{ [InitMethodName](name: string): void }> = {
+            jsonrpc: '2.0',
+            id: 'init-id',
+            method: InitMethodName,
+            params: ['anyrpc-iframe-adapter-wrong'],
+        }
+
+        new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, 'custom-name')
+
+        global.window.dispatchEvent(
+            new MessageEvent('message', { data: initRequestMessage, source: mockContentWindow }),
+        )
+
+        expect(mockContentWindow.postMessage).not.toHaveBeenCalled()
     })
 })
