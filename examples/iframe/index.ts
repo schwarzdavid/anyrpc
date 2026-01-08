@@ -17,6 +17,11 @@ onReady(() => {
         log(MessageType.RECEIVED, 'size', width, height)
     })
 
+    channel.addEventListener('anyrpc::connection-change', (status) => {
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        log(MessageType.INFO, `Connection status ${status}`)
+    })
+
     document.querySelector('#send-ping')?.addEventListener('click', () => {
         log(MessageType.SENT, 'ping')
         void channel.ping()
