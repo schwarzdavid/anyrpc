@@ -1,3 +1,3 @@
 export * from './createRpcChannel'
-export * from './types/RpcChannel'
-export * from './types/MethodMap'
+export type { RpcChannel, RpcChannelMethod } from './types/RpcChannel'
+export type { MethodMap, MethodFn } from './types/MethodMap'

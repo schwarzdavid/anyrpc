@@ -5,7 +5,7 @@ import dts from 'vite-plugin-dts'
 import { playwright } from '@vitest/browser-playwright'
 
 export default defineConfig({
-    plugins: [dts({ tsconfigPath: './tsconfig.lib.json' })],
+    plugins: [dts({ tsconfigPath: './tsconfig.lib.json', include: ['src'] })],
     resolve: {
         alias: {
             '@': resolve(__dirname, 'src'),
