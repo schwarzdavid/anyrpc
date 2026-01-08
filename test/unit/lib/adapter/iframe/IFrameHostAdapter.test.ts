@@ -10,6 +10,8 @@ interface TestEvents {
     testEvent: (arg: string) => Promise<string>
 }
 
+const InitMethodName = 'anyrpc::iframe-init'
+
 describe(IFrameHostAdapter, () => {
     let mockIframe: HTMLIFrameElement
     let mockContentWindow: Window
@@ -29,10 +31,10 @@ describe(IFrameHostAdapter, () => {
     it('should establish a connection', () => {
         const addEventListenerSpy = vi.spyOn(window, 'addEventListener')
         const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
-        const initRequestMessage: RpcRequest<{ init(name: string): void }> = {
+        const initRequestMessage: RpcRequest<{ [InitMethodName](name: string): void }> = {
             jsonrpc: '2.0',
             id: 'init-id',
-            method: 'init',
+            method: InitMethodName,
             params: ['anyrpc-iframe-adapter'],
         }
 
@@ -60,10 +62,10 @@ describe(IFrameHostAdapter, () => {
     it('should not reconnect if reconnect option is set to false', () => {
         const addEventListenerSpy = vi.spyOn(window, 'addEventListener')
         const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
-        const initRequestMessage: RpcRequest<{ init(name: string): void }> = {
+        const initRequestMessage: RpcRequest<{ [InitMethodName](name: string): void }> = {
             jsonrpc: '2.0',
             id: 'init-id',
-            method: 'init',
+            method: InitMethodName,
             params: ['anyrpc-iframe-adapter'],
         }
 
@@ -89,10 +91,10 @@ describe(IFrameHostAdapter, () => {
     })
 
     it('should respect postMessageOrigin option', () => {
-        const initRequestMessage: RpcRequest<{ init(name: string): void }> = {
+        const initRequestMessage: RpcRequest<{ [InitMethodName](name: string): void }> = {
             jsonrpc: '2.0',
             id: 'init-id',
-            method: 'init',
+            method: InitMethodName,
             params: ['anyrpc-iframe-adapter'],
         }
 

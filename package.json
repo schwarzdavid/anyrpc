@@ -17,7 +17,7 @@
     "test:browser": "vitest run --project browser --headless",
     "test:watch:unit": "vitest --project unit",
     "test:watch:browser": "vitest --project browser",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage --project unit"
   },
   "keywords": [],
   "author": "David Schwarz <david@ists-wurscht.at>",
