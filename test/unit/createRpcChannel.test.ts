@@ -5,6 +5,7 @@ import { RpcError } from '@/lib/RpcError'
 import { RPC_ERROR_NAME_MAP, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
 import { RpcMessage, RpcRequest, RpcResponse } from '@/types/RpcMessages'
 import { EventEmitter } from '@/lib/EventEmitter'
+import { ConnectionStatus } from '@/types/ConnectionStatus'
 
 interface TestMethods {
     add(a: number, b: number): Promise<number>
@@ -19,9 +20,14 @@ interface TestEvents {
 class MockAdapter extends AbstractRpcAdapter<TestMethods, TestEvents> {
     sendMessage = vi.fn<(msg: RpcMessage<TestMethods, TestEvents>) => unknown>()
 
-    async triggerHandler(message: any) {
+    async triggerMessageHandler(message: any) {
         const handler = (this as any)._messageHandler
         await handler?.(message)
+    }
+
+    async triggerConnectionHandler(status: ConnectionStatus = ConnectionStatus.CONNECTED) {
+        const handler = (this as any)._connectionHandler
+        await handler?.(status)
     }
 }
 
@@ -43,7 +49,7 @@ describe(createRpcChannel, () => {
                 params: [2, 3],
             })
 
-            void adapter.triggerHandler({
+            void adapter.triggerMessageHandler({
                 jsonrpc: '2.0',
                 type: 'response',
                 id,
@@ -63,7 +69,7 @@ describe(createRpcChannel, () => {
         const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
 
         adapter.sendMessage.mockImplementationOnce(({ id }) => {
-            void adapter.triggerHandler({
+            void adapter.triggerMessageHandler({
                 jsonrpc: '2.0',
                 id,
                 error: { code: RpcErrorCode.SERVER_ERROR, message: 'Server error' },
@@ -101,7 +107,7 @@ describe(createRpcChannel, () => {
             params: ['Hello, world!'],
         }
 
-        void adapter.triggerHandler(mockRequest)
+        void adapter.triggerMessageHandler(mockRequest)
 
         expect(eventEmitterSpy).toHaveBeenCalledWith('onEvent', onEventMock)
         expect(onEventMock).toHaveBeenCalledWith('Hello, world!')
@@ -119,7 +125,7 @@ describe(createRpcChannel, () => {
         }
 
         rpcChannel.addEventListener('objectEvent', onEventMock)
-        await adapter.triggerHandler(mockRequest)
+        await adapter.triggerMessageHandler(mockRequest)
 
         expect(onEventMock).toHaveBeenCalledWith('Hello, world!')
         expect(adapter.sendMessage).toHaveBeenCalledWith(
@@ -145,7 +151,7 @@ describe(createRpcChannel, () => {
         }
 
         rpcChannel.addEventListener('objectEvent', onEventMock)
-        await adapter.triggerHandler(mockRequest)
+        await adapter.triggerMessageHandler(mockRequest)
 
         expect(onEventMock).toHaveBeenCalledWith('Hello, world!')
         expect(adapter.sendMessage).toHaveBeenCalledWith(
@@ -182,7 +188,7 @@ describe(createRpcChannel, () => {
         const adapter = new MockAdapter()
         createRpcChannel<TestMethods, TestEvents>(adapter)
 
-        await adapter.triggerHandler({
+        await adapter.triggerMessageHandler({
             id: 'event-id',
             jsonrpc: '2.0',
             method: 'onEvent',
@@ -194,5 +200,17 @@ describe(createRpcChannel, () => {
             jsonrpc: '2.0',
             result: undefined,
         })
+    })
+
+    it('should fire connection event when connection handler is called', async () => {
+        const adapter = new MockAdapter()
+        const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
+        const connectionHandler = vi.fn<(status: ConnectionStatus) => void>()
+
+        rpcChannel.addEventListener('anyrpc::connection-change', connectionHandler)
+
+        await adapter.triggerConnectionHandler()
+
+        expect(connectionHandler).toHaveBeenCalledWith(ConnectionStatus.CONNECTED)
     })
 })
