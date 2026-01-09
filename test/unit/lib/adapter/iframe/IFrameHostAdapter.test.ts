@@ -15,8 +15,10 @@ const InitMethodName = 'anyrpc::iframe-init'
 describe(IFrameHostAdapter, () => {
     let mockIframe: HTMLIFrameElement
     let mockContentWindow: Window
+    let adapter: IFrameHostAdapter<any, any> | undefined
 
     beforeEach(() => {
+        adapter = undefined
         mockIframe = document.createElement('iframe')
         mockContentWindow = {
             postMessage: vi.fn<(this: void, message: any, targetOrigin: string, transfer?: Transferable[]) => void>(),
@@ -25,6 +27,7 @@ describe(IFrameHostAdapter, () => {
     })
 
     afterEach(() => {
+        adapter?.destroy()
         vi.restoreAllMocks()
     })
 
@@ -38,7 +41,7 @@ describe(IFrameHostAdapter, () => {
             params: ['anyrpc-iframe-adapter'],
         }
 
-        const adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
+        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
 
         expect(addEventListenerSpy).toHaveBeenCalledWith('message', expect.anything())
 
@@ -69,7 +72,7 @@ describe(IFrameHostAdapter, () => {
             params: ['anyrpc-iframe-adapter'],
         }
 
-        const adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, undefined, { reconnect: false })
+        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, undefined, { reconnect: false })
 
         expect(addEventListenerSpy).toHaveBeenCalledWith('message', expect.anything())
 
@@ -98,7 +101,7 @@ describe(IFrameHostAdapter, () => {
             params: ['anyrpc-iframe-adapter'],
         }
 
-        new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, undefined, {
+        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, undefined, {
             postMessageOrigin: 'https://example.com',
         })
 
@@ -118,7 +121,7 @@ describe(IFrameHostAdapter, () => {
     })
 
     it('should ignore invalid messages from iframe on connection', () => {
-        new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
+        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
 
         global.window.dispatchEvent(new MessageEvent('message', { data: 'im a gummy bear', source: mockContentWindow }))
 
@@ -132,7 +135,7 @@ describe(IFrameHostAdapter, () => {
             result: undefined,
         }
 
-        new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
+        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
 
         global.window.dispatchEvent(
             new MessageEvent('message', { data: randomResponseMessage, source: mockContentWindow }),
@@ -149,7 +152,7 @@ describe(IFrameHostAdapter, () => {
             params: ['bar'],
         }
 
-        new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
+        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
 
         global.window.dispatchEvent(
             new MessageEvent('message', { data: randomRequestMessage, source: mockContentWindow }),
@@ -166,7 +169,7 @@ describe(IFrameHostAdapter, () => {
             params: ['anyrpc-iframe-adapter-wrong'],
         }
 
-        new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, 'custom-name')
+        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, 'custom-name')
 
         global.window.dispatchEvent(
             new MessageEvent('message', { data: initRequestMessage, source: mockContentWindow }),

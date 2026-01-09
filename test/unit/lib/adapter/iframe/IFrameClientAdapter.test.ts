@@ -21,9 +21,10 @@ vi.mock(import('@/utils/uuid'), () => ({
 describe(IFrameClientAdapter, () => {
     let parentWindowMock: Window
     let portMock: MessagePort
-    let adapter: IFrameClientAdapter<TestMethods, TestEvents> | null = null
+    let adapter: IFrameClientAdapter<any, any> | undefined
 
     beforeEach(() => {
+        adapter = undefined
         parentWindowMock = {
             postMessage: vi.fn<(this: void, message: any, targetOrigin: string, transfer?: Transferable[]) => void>(),
             origin: 'https://example.com',
@@ -39,11 +40,14 @@ describe(IFrameClientAdapter, () => {
     })
 
     afterEach(() => {
+        adapter?.destroy()
+
         vi.unstubAllGlobals()
         vi.resetAllMocks()
-
-        adapter?.destroy()
-        adapter = null
+        vi.restoreAllMocks()
+        vi.clearAllMocks()
+        vi.mocked(uuid).mockReturnValue(defaultUuid)
+        vi.useRealTimers()
     })
 
     it('should establish a connection with parent window', () => {
