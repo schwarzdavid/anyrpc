@@ -177,4 +177,22 @@ describe(IFrameHostAdapter, () => {
 
         expect(mockContentWindow.postMessage).not.toHaveBeenCalled()
     })
+
+    it('should ignore messages from other sources than iframe', () => {
+        const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
+        const initRequestMessage: RpcRequest<{ [InitMethodName](name: string): void }> = {
+            jsonrpc: '2.0',
+            id: 'init-id',
+            method: InitMethodName,
+            params: ['anyrpc-iframe-adapter'],
+        }
+
+        adapter = new IFrameHostAdapter(mockIframe)
+
+        global.window.dispatchEvent(
+            new MessageEvent('message', { data: initRequestMessage, source: {} as unknown as Window }),
+        )
+
+        expect(removeEventListenerSpy).not.toHaveBeenCalled()
+    })
 })

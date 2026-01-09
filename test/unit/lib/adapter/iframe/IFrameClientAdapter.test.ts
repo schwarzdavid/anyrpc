@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { IFrameClientAdapter } from '@/lib/adapter/iframe'
-import { RpcResponse } from '@/types/RpcMessages'
+import { RpcRequest, RpcResponse } from '@/types/RpcMessages'
 import { uuid } from '@/utils/uuid'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 
@@ -34,6 +34,7 @@ describe(IFrameClientAdapter, () => {
             addEventListener: vi.fn<any>(),
             start: vi.fn<any>(),
             close: vi.fn<any>(),
+            postMessage: vi.fn<any>(),
         } as unknown as MessagePort
 
         vi.stubGlobal('parent', parentWindowMock)
@@ -82,6 +83,31 @@ describe(IFrameClientAdapter, () => {
         expect(removeEventListenerSpy).toHaveBeenCalledWith('message', expect.any(Function))
         expect(portMock.start).toHaveBeenCalledWith()
         expect(onConnectionHandler).toHaveBeenCalledWith(ConnectionStatus.CONNECTED)
+    })
+
+    it('should send messages to parent after successful connection', () => {
+        adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
+
+        const initResponse: RpcResponse<any> = {
+            jsonrpc: '2.0',
+            id: defaultUuid,
+            result: null,
+        }
+
+        globalThis.window.dispatchEvent(
+            new MessageEvent('message', { data: initResponse, source: parentWindowMock, ports: [portMock] }),
+        )
+
+        const message: RpcRequest<TestMethods> = {
+            id: 'test-id',
+            jsonrpc: '2.0',
+            params: ['foo', 2],
+            method: 'exampleMethod',
+        }
+
+        adapter.sendMessage(message)
+
+        expect(portMock.postMessage).toHaveBeenCalledWith(message)
     })
 
     it('should polling init messages if parent does not respond', () => {
@@ -353,11 +379,22 @@ describe(IFrameClientAdapter, () => {
         const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
         const adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
 
+        const initResponse: RpcResponse<any> = {
+            jsonrpc: '2.0',
+            id: defaultUuid,
+            result: null,
+        }
+
+        globalThis.window.dispatchEvent(
+            new MessageEvent('message', { data: initResponse, source: parentWindowMock, ports: [portMock] }),
+        )
+
         adapter.destroy()
 
         expect((adapter as any).pollingIntervalId).not.toBeNull()
         expect((adapter as any).messageEventListener).not.toBeNull()
         expect(clearIntervalSpy).toHaveBeenCalledWith((adapter as any).pollingIntervalId)
         expect(removeEventListenerSpy).toHaveBeenCalledWith('message', (adapter as any).messageEventListener)
+        expect(portMock.close).toHaveBeenCalledWith()
     })
 })

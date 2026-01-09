@@ -31,7 +31,7 @@ export class IFrameHostAdapter<
     private establishConnection() {
         const adapter = this
 
-        this.messageEventListener = function onWindowMessage(event: MessageEvent) {
+        this.messageEventListener = (event: MessageEvent) => {
             if (event.source !== adapter.iframe.contentWindow) {
                 return
             }
@@ -67,7 +67,8 @@ export class IFrameHostAdapter<
                 [messageChannel.port2],
             )
             if (!adapter.reconnect) {
-                window.removeEventListener('message', onWindowMessage)
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                window.removeEventListener('message', this.messageEventListener!)
             }
         }
 
@@ -75,9 +76,8 @@ export class IFrameHostAdapter<
     }
 
     override destroy(): void {
-        if (this.messageEventListener) {
-            window.removeEventListener('message', this.messageEventListener)
-        }
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        window.removeEventListener('message', this.messageEventListener!)
         super.destroy()
     }
 }
