@@ -41,4 +41,9 @@ export abstract class AbstractIFrameAdapter<
     sendMessage(message: RpcMessage<Methods, Events> | RpcMessage<IFrameAdapterInternals, Events>): void {
         this._port?.postMessage(message)
     }
+
+    override destroy(): void {
+        this._port?.close()
+        super.destroy()
+    }
 }

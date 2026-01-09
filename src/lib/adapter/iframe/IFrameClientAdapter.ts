@@ -25,6 +25,9 @@ export class IFrameClientAdapter<
     private readonly usedInitIds = new Set<string>()
     private readonly allowedOrigin: IFrameClientAdapterOriginOption
 
+    private pollingIntervalId: number | null = null
+    private messageEventListener: ((event: MessageEvent) => void) | null = null
+
     constructor(
         private readonly name: string = AbstractIFrameAdapter.DEFAULT_NAME,
         options?: Partial<IFrameClientAdapterOptions>,
@@ -43,7 +46,7 @@ export class IFrameClientAdapter<
     private establishConnection() {
         const adapter = this
 
-        window.addEventListener('message', function onWindowMessage(event) {
+        this.messageEventListener = (event: MessageEvent) => {
             if (event.source !== window.parent || !adapter.isInitResponse(event.data)) {
                 return
             }
@@ -58,11 +61,17 @@ export class IFrameClientAdapter<
 
             adapter.port = receivedPort
 
-            clearInterval(messageIntervalId)
-            window.removeEventListener('message', onWindowMessage)
-        })
+            if (this.pollingIntervalId !== null) {
+                clearInterval(this.pollingIntervalId)
+            }
+            if (this.messageEventListener) {
+                window.removeEventListener('message', this.messageEventListener)
+            }
+        }
 
-        const messageIntervalId = setInterval(() => this.sendInitMessage(), this.pollingInterval)
+        window.addEventListener('message', this.messageEventListener)
+
+        this.pollingIntervalId = setInterval(() => this.sendInitMessage(), this.pollingInterval)
         this.sendInitMessage()
     }
 
@@ -109,5 +118,15 @@ export class IFrameClientAdapter<
             }
             return allowedOrigin.toLowerCase().trim() === origin.toLowerCase().trim()
         })
+    }
+
+    override destroy(): void {
+        if (this.pollingIntervalId !== null) {
+            clearInterval(this.pollingIntervalId)
+        }
+        if (this.messageEventListener) {
+            window.removeEventListener('message', this.messageEventListener)
+        }
+        super.destroy()
     }
 }

@@ -21,6 +21,7 @@ vi.mock(import('@/utils/uuid'), () => ({
 describe(IFrameClientAdapter, () => {
     let parentWindowMock: Window
     let portMock: MessagePort
+    let adapter: IFrameClientAdapter<TestMethods, TestEvents> | null = null
 
     beforeEach(() => {
         parentWindowMock = {
@@ -31,6 +32,7 @@ describe(IFrameClientAdapter, () => {
         portMock = {
             addEventListener: vi.fn<any>(),
             start: vi.fn<any>(),
+            close: vi.fn<any>(),
         } as unknown as MessagePort
 
         vi.stubGlobal('parent', parentWindowMock)
@@ -38,7 +40,10 @@ describe(IFrameClientAdapter, () => {
 
     afterEach(() => {
         vi.unstubAllGlobals()
-        vi.clearAllMocks()
+        vi.resetAllMocks()
+
+        adapter?.destroy()
+        adapter = null
     })
 
     it('should establish a connection with parent window', () => {
@@ -46,7 +51,7 @@ describe(IFrameClientAdapter, () => {
         const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
         const onConnectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
-        const adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
+        adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
         adapter.connectionHandler = onConnectionHandler
 
         expect(addEventListenerSpy).toHaveBeenCalledWith('message', expect.any(Function))
@@ -80,11 +85,11 @@ describe(IFrameClientAdapter, () => {
 
         const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
         const uuidMock = vi.mocked(uuid)
-        for (let i = 1; i <= 5; i++) {
+        for (let i = 1; i <= 10; i++) {
             uuidMock.mockReturnValueOnce(i.toString())
         }
 
-        new IFrameClientAdapter<TestMethods, TestEvents>()
+        adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
 
         vi.advanceTimersByTime(4500)
 
@@ -112,7 +117,7 @@ describe(IFrameClientAdapter, () => {
         const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
         const onConnectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
-        new IFrameClientAdapter<TestMethods, TestEvents>()
+        adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
 
         expect(parentWindowMock.postMessage).toHaveBeenCalledWith(
             {
@@ -147,7 +152,7 @@ describe(IFrameClientAdapter, () => {
         const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
         const onConnectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
-        new IFrameClientAdapter<TestMethods, TestEvents>()
+        adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
 
         expect(parentWindowMock.postMessage).toHaveBeenCalledWith(
             {
@@ -177,7 +182,7 @@ describe(IFrameClientAdapter, () => {
         const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
         const onConnectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
-        new IFrameClientAdapter<TestMethods, TestEvents>()
+        adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
 
         expect(parentWindowMock.postMessage).toHaveBeenCalledWith(
             {
@@ -207,7 +212,7 @@ describe(IFrameClientAdapter, () => {
         const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
         const onConnectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
-        new IFrameClientAdapter<TestMethods, TestEvents>()
+        adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
 
         expect(parentWindowMock.postMessage).toHaveBeenCalledWith(
             {
@@ -238,7 +243,7 @@ describe(IFrameClientAdapter, () => {
         const onConnectionHandler = vi.fn<(status: ConnectionStatus) => void>()
         const originHandlerFn = vi.fn<(origin: string) => boolean>(() => false)
 
-        new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
+        adapter = new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
             origin: originHandlerFn,
         })
 
@@ -268,7 +273,7 @@ describe(IFrameClientAdapter, () => {
     })
 
     it('should work with origin option as string', () => {
-        const adapter = new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
+        adapter = new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
             origin: 'https://example.com',
         })
 

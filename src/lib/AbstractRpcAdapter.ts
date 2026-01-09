@@ -30,4 +30,9 @@ export abstract class AbstractRpcAdapter<
     protected async onConnectionStatusChange(status: ConnectionStatus): Promise<void> {
         await this._connectionHandler?.(status)
     }
+
+    destroy(): Promisable<void> {
+        // Keep for inheritors to override
+        return Promise.resolve()
+    }
 }

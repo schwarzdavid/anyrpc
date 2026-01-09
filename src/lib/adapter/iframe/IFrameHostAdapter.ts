@@ -15,6 +15,8 @@ export class IFrameHostAdapter<
 > extends AbstractIFrameAdapter<Methods, Events> {
     private readonly reconnect: boolean
 
+    private messageEventListener: ((event: MessageEvent) => void) | null = null
+
     constructor(
         private readonly iframe: HTMLIFrameElement,
         private readonly name: string = AbstractIFrameAdapter.DEFAULT_NAME,
@@ -29,7 +31,7 @@ export class IFrameHostAdapter<
     private establishConnection() {
         const adapter = this
 
-        window.addEventListener('message', function onWindowMessage(event) {
+        this.messageEventListener = function onWindowMessage(event: MessageEvent) {
             if (event.source !== adapter.iframe.contentWindow) {
                 return
             }
@@ -67,6 +69,15 @@ export class IFrameHostAdapter<
             if (!adapter.reconnect) {
                 window.removeEventListener('message', onWindowMessage)
             }
-        })
+        }
+
+        window.addEventListener('message', this.messageEventListener)
+    }
+
+    override destroy(): void {
+        if (this.messageEventListener) {
+            window.removeEventListener('message', this.messageEventListener)
+        }
+        super.destroy()
     }
 }
