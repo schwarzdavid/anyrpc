@@ -61,17 +61,15 @@ export class IFrameClientAdapter<
 
             adapter.port = receivedPort
 
-            if (this.pollingIntervalId !== null) {
-                clearInterval(this.pollingIntervalId)
-            }
-            if (this.messageEventListener) {
-                window.removeEventListener('message', this.messageEventListener)
-            }
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            window.clearInterval(this.pollingIntervalId!)
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            window.removeEventListener('message', this.messageEventListener!)
         }
 
         window.addEventListener('message', this.messageEventListener)
 
-        this.pollingIntervalId = setInterval(() => this.sendInitMessage(), this.pollingInterval)
+        this.pollingIntervalId = window.setInterval(() => this.sendInitMessage(), this.pollingInterval)
         this.sendInitMessage()
     }
 
@@ -121,12 +119,10 @@ export class IFrameClientAdapter<
     }
 
     override destroy(): void {
-        if (this.pollingIntervalId !== null) {
-            clearInterval(this.pollingIntervalId)
-        }
-        if (this.messageEventListener) {
-            window.removeEventListener('message', this.messageEventListener)
-        }
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        window.clearInterval(this.pollingIntervalId!)
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        window.removeEventListener('message', this.messageEventListener!)
         super.destroy()
     }
 }

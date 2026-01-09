@@ -287,13 +287,77 @@ describe(IFrameClientAdapter, () => {
         expect((adapter as any).isOriginValid('https://example.at')).toBe(false)
     })
 
-    it.todo('should respect origin option as regex')
+    it('should respect origin option as regex', () => {
+        adapter = new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
+            origin: /^http(s?):\/\/(.*).com/u,
+        })
 
-    it.todo('should respect origin option as array')
+        expect((adapter as any).isOriginValid('https://example.com')).toBe(true)
+        expect((adapter as any).isOriginValid('http://example.com')).toBe(true)
+        expect((adapter as any).isOriginValid('http://example.at')).toBe(false)
+    })
 
-    it.todo('should respect origin option as function')
+    it('should respect origin option as array', () => {
+        adapter = new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
+            origin: ['https://example.com', 'https://example.at', /(.*).cloud$/u],
+        })
 
-    it.todo('should respect origin option as true')
+        expect((adapter as any).isOriginValid('https://example.com')).toBe(true)
+        expect((adapter as any).isOriginValid('https://example.at')).toBe(true)
+        expect((adapter as any).isOriginValid('http://test.at.cloud')).toBe(true)
+        expect((adapter as any).isOriginValid('http://example.com')).toBe(false)
+        expect((adapter as any).isOriginValid('https://example.xyz')).toBe(false)
+    })
 
-    it.todo('should respect polling interval option')
+    it('should respect origin option as function', () => {
+        const originFn = vi.fn<(origin: string) => boolean>()
+
+        adapter = new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
+            origin: originFn,
+        })
+
+        originFn.mockReturnValueOnce(true)
+        const truthyResult = (adapter as any).isOriginValid('https://example.com')
+
+        expect(truthyResult).toBe(true)
+        expect(originFn).toHaveBeenCalledWith('https://example.com')
+
+        originFn.mockReturnValueOnce(false)
+        const falsyResult = (adapter as any).isOriginValid('http://invalid-origin.at')
+
+        expect(falsyResult).toBe(false)
+        expect(originFn).toHaveBeenCalledWith('http://invalid-origin.at')
+    })
+
+    it('should respect origin option as true', () => {
+        adapter = new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
+            origin: true,
+        })
+
+        expect((adapter as any).isOriginValid('http://abc.def')).toBe(true)
+        expect((adapter as any).isOriginValid('https://google.com')).toBe(true)
+    })
+
+    it('should respect polling interval option', () => {
+        const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+
+        adapter = new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
+            pollingInterval: 5,
+        })
+
+        expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 5)
+    })
+
+    it('should remove all listeners on destroy', () => {
+        const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')
+        const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
+        const adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
+
+        adapter.destroy()
+
+        expect((adapter as any).pollingIntervalId).not.toBeNull()
+        expect((adapter as any).messageEventListener).not.toBeNull()
+        expect(clearIntervalSpy).toHaveBeenCalledWith((adapter as any).pollingIntervalId)
+        expect(removeEventListenerSpy).toHaveBeenCalledWith('message', (adapter as any).messageEventListener)
+    })
 })
