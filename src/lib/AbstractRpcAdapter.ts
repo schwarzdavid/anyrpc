@@ -18,7 +18,7 @@ export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Eve
         this._messageHandler = handler
     }
 
-    abstract sendMessage(message: RpcMessage<Methods, Events>): unknown
+    abstract sendMessage(message: RpcMessage<Methods, Events>): void
 
     protected async onMessage(rawMessage: string | object): Promise<void> {
         await this._messageHandler?.(rawMessage)

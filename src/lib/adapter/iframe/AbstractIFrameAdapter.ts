@@ -13,11 +13,9 @@ export interface IFrameAdapterInternals {
     [INIT_METHOD_NAME](name: string): void
 }
 
-export type IFrameMethodMap<Events> = MethodMap<Events, keyof IFrameAdapterInternals>
-
 export abstract class AbstractIFrameAdapter<
-    Methods extends IFrameMethodMap<Methods>,
-    Events extends IFrameMethodMap<Events>,
+    Methods extends MethodMap<Methods>,
+    Events extends MethodMap<Events>,
 > extends AbstractRpcAdapter<Methods, Events> {
     protected static readonly INIT_METHOD_NAME = INIT_METHOD_NAME
     protected static readonly DEFAULT_NAME = 'anyrpc-iframe-adapter'

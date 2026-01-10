@@ -207,7 +207,7 @@ describe(createRpcChannel, () => {
         const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
         const connectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
-        rpcChannel.addEventListener('anyrpc::connection-change', connectionHandler)
+        rpcChannel.$.addEventListener('connection-change', connectionHandler)
 
         await adapter.triggerConnectionHandler()
 

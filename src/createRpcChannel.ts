@@ -16,8 +16,15 @@ import {
 } from '@/constants/DEFAULT_EVENTS'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 
-export interface RPCChannelOptions {
+export interface RpcChannelQueueOptions {
+    enabled: boolean
     timeout: number
+    await: boolean
+}
+
+export interface RpcChannelOptions {
+    timeout: number
+    queue: RpcChannelQueueOptions
 }
 
 type QueueResolveFn = (resolveValue: unknown) => void
@@ -37,7 +44,7 @@ const PUBLIC_EVENT_METHODS: string[] = [
 
 export function createRpcChannel<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>>(
     adapter: AbstractRpcAdapter<Methods, Events>,
-    options: Partial<RPCChannelOptions> = {},
+    options: Partial<RpcChannelOptions> = {},
 ) {
     options = Object.assign({ timeout: 3000 }, options)
 
@@ -115,7 +122,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             }
         }
 
-        void adapter.sendMessage(response)
+        adapter.sendMessage(response)
     }
 
     function sendRequest<Method extends keyof Methods>(
@@ -144,7 +151,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
                 },
             }
 
-            void adapter.sendMessage(request)
+            adapter.sendMessage(request)
         }).finally(() => {
             // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
             delete queue[id]
@@ -153,7 +160,6 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
 
     return new Proxy<RpcChannel<Methods, Events>>({ $: meta } as unknown as RpcChannel<Methods, Events>, {
         get(target, prop) {
-            // Keep for builtins
             if (prop in target) {
                 return target[prop as keyof typeof target]
             }

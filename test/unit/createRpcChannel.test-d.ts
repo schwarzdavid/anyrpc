@@ -133,7 +133,7 @@ describe(createRpcChannel, () => {
         const rpcChannel = createRpcChannel(adapter)
         const connectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
-        assertType(rpcChannel.addEventListener('anyrpc::connection-change', connectionHandler))
+        assertType(rpcChannel.$.addEventListener('connection-change', connectionHandler))
     })
 
     it('should throw when wrong connection event listener is added', () => {
@@ -142,7 +142,7 @@ describe(createRpcChannel, () => {
         const connectionHandler = vi.fn<(status: string) => void>()
 
         // @ts-expect-error
-        assertType(rpcChannel.addEventListener('anyrpc::connection-change', connectionHandler))
+        assertType(rpcChannel.$.addEventListener('connection-change', connectionHandler))
     })
 
     it('should ignore connection events defined in user method map', () => {
@@ -150,7 +150,7 @@ describe(createRpcChannel, () => {
         const rpcChannel = createRpcChannel(adapter)
         const connectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
-        assertType(rpcChannel.addEventListener('anyrpc::connection-change', connectionHandler))
+        assertType(rpcChannel.$.addEventListener('connection-change', connectionHandler))
     })
 
     it('should disallow event handler for user defined connection event', () => {
@@ -159,6 +159,6 @@ describe(createRpcChannel, () => {
         const connectionHandler = vi.fn<TestMethodsWithConnectionEvent['anyrpc::connection-change']>()
 
         // @ts-expect-error
-        assertType(rpcChannel.addEventListener('anyrpc::connection-change', connectionHandler))
+        assertType(rpcChannel.$.addEventListener('connection-change', connectionHandler))
     })
 })
