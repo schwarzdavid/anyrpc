@@ -1,28 +1,28 @@
 import { RpcError } from '@/lib/RpcError'
 import { RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
 import { RpcErrorData, RpcErrorResponse, RpcRequest, RpcResponse } from '@/types/RpcMessages'
-import { InternalMethodMap } from '@/types/MethodMap'
+import { MethodMap } from '@/types/MethodMap'
 
 export const enum RpcMessageType {
     REQUEST,
     RESPONSE,
 }
 
-export interface RpcResponseParsingResult<Methods extends InternalMethodMap<Methods>> {
+export interface RpcResponseParsingResult<Methods extends MethodMap<Methods>> {
     message: RpcResponse<Methods>
     type: RpcMessageType.RESPONSE
 }
 
-export interface RpcRequestParsingResult<Methods extends InternalMethodMap<Methods>> {
+export interface RpcRequestParsingResult<Methods extends MethodMap<Methods>> {
     message: RpcRequest<Methods>
     type: RpcMessageType.REQUEST
 }
 
-export type RpcParsingResult<Methods extends InternalMethodMap<Methods>, Events extends InternalMethodMap<Events>> =
+export type RpcParsingResult<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> =
     | RpcResponseParsingResult<Methods>
     | RpcRequestParsingResult<Events>
 
-export function parseRpcMessage<Methods extends InternalMethodMap<Methods>, Events extends InternalMethodMap<Events>>(
+export function parseRpcMessage<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>>(
     message: string | object,
 ): RpcParsingResult<Methods, Events> {
     let messageObj: Record<string, unknown>
@@ -82,7 +82,7 @@ function validateBaseMessage(message: Record<string, unknown>): void {
     }
 }
 
-function validateRequestMessage<Methods extends InternalMethodMap<Methods>>(
+function validateRequestMessage<Methods extends MethodMap<Methods>>(
     message: RpcRequest<Methods> | Record<string, unknown>,
 ): asserts message is RpcRequest<Methods> {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -91,7 +91,7 @@ function validateRequestMessage<Methods extends InternalMethodMap<Methods>>(
     }
 }
 
-function validateResponseMessage<Methods extends InternalMethodMap<Methods>>(
+function validateResponseMessage<Methods extends MethodMap<Methods>>(
     message: RpcResponse<Methods> | Record<string, unknown>,
 ): asserts message is RpcResponse<Methods> {
     if (isRpcErrorResponse(message)) {
@@ -109,7 +109,7 @@ function validateResponseError(error: Record<string, unknown> | RpcErrorData): a
 }
 
 export function isRpcErrorResponse(
-    message: RpcResponse<InternalMethodMap<never>, string> | object,
+    message: RpcResponse<MethodMap<never>, string> | object,
 ): message is RpcErrorResponse {
     return Object.hasOwn(message, 'error')
 }

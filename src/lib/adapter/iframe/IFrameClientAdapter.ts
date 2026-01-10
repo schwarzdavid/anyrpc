@@ -1,4 +1,4 @@
-import { InternalMethodMap } from '@/types/MethodMap'
+import { MethodMap } from '@/types/MethodMap'
 import { AbstractIFrameAdapter, IFrameAdapterOptions } from './AbstractIFrameAdapter'
 import { RpcSuccessResponse } from '@/types/RpcMessages'
 import { uuid } from '@/utils/uuid'
@@ -18,8 +18,8 @@ export interface IFrameClientAdapterOptions extends IFrameAdapterOptions {
 }
 
 export class IFrameClientAdapter<
-    Methods extends InternalMethodMap<Methods>,
-    Events extends InternalMethodMap<Events>,
+    Methods extends MethodMap<Methods>,
+    Events extends MethodMap<Events>,
 > extends AbstractIFrameAdapter<Methods, Events> {
     private readonly pollingInterval: number
     private readonly usedInitIds = new Set<string>()

@@ -3,7 +3,7 @@ import { createRpcChannel } from '@/createRpcChannel'
 import { AbstractRpcAdapter } from '@/lib/AbstractRpcAdapter'
 import { RpcMessage } from '@/types/RpcMessages'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
-import { InternalMethodMap } from '@/types/MethodMap'
+import { MethodMap } from '@/types/MethodMap'
 
 interface TestMethods {
     add(a: number, b: number): number
@@ -19,10 +19,10 @@ interface TestMethodsWithConnectionEvent extends TestEvents {
     'anyrpc::connection-change': (foo: string, bar: number) => boolean[]
 }
 
-class TestAdapter<
-    M extends InternalMethodMap<M> = TestMethods,
-    E extends InternalMethodMap<E> = TestEvents,
-> extends AbstractRpcAdapter<M, E> {
+class TestAdapter<M extends MethodMap<M> = TestMethods, E extends MethodMap<E> = TestEvents> extends AbstractRpcAdapter<
+    M,
+    E
+> {
     override sendMessage = vi.fn<(message: RpcMessage<M, E>) => unknown>()
 }
 

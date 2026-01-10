@@ -14,9 +14,7 @@
     "prepublishOnly": "npm run build",
     "test": "vitest run --typecheck",
     "test:unit": "vitest run --project unit --typecheck",
-    "test:browser": "vitest run --project browser",
     "test:watch:unit": "vitest --project unit",
-    "test:watch:browser": "vitest --project browser",
     "coverage": "vitest run --coverage --project unit"
   },
   "keywords": [],

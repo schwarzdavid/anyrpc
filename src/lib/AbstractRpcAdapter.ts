@@ -1,15 +1,12 @@
 import { RpcMessage } from '@/types/RpcMessages'
-import { InternalMethodMap } from '@/types/MethodMap'
+import { MethodMap } from '@/types/MethodMap'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { Promisable } from 'type-fest'
 
 export type MessageHandler = (message: string | object) => Promisable<void>
 export type ConnectionHandler = (status: ConnectionStatus) => Promisable<unknown>
 
-export abstract class AbstractRpcAdapter<
-    Methods extends InternalMethodMap<Methods>,
-    Events extends InternalMethodMap<Events>,
-> {
+export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> {
     private _messageHandler?: MessageHandler
     private _connectionHandler?: ConnectionHandler
 
@@ -31,8 +28,7 @@ export abstract class AbstractRpcAdapter<
         await this._connectionHandler?.(status)
     }
 
-    destroy(): Promisable<void> {
-        // Keep for inheritors to override
-        return Promise.resolve()
+    destroy(): void {
+        void this._connectionHandler?.(ConnectionStatus.CLOSED)
     }
 }

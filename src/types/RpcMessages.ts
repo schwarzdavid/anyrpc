@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { MethodFn, InternalMethodMap } from '@/types/MethodMap'
+import { MethodFn, MethodMap } from '@/types/MethodMap'
 
 export interface RpcMessageBase {
     jsonrpc: '2.0'
@@ -22,17 +22,17 @@ export interface RpcErrorResponse extends RpcMessageBase {
 }
 
 export interface RpcRequest<
-    Methods extends InternalMethodMap<Methods>,
+    Methods extends MethodMap<Methods>,
     Name extends keyof Methods = keyof Methods,
 > extends RpcMessageBase {
     method: Name
     params: Parameters<Methods[Name]>
 }
 
-export type RpcResponse<Methods extends InternalMethodMap<Methods>, Name extends keyof Methods = keyof Methods> =
+export type RpcResponse<Methods extends MethodMap<Methods>, Name extends keyof Methods = keyof Methods> =
     | RpcSuccessResponse<Methods[Name]>
     | RpcErrorResponse
 
-export type RpcMessage<Methods extends InternalMethodMap<Methods>, Events extends InternalMethodMap<Events>> =
+export type RpcMessage<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> =
     | RpcRequest<Methods>
     | RpcResponse<Events>
