@@ -6,6 +6,7 @@ export const enum RpcErrorCode {
     INTERNAL_ERROR = -32603,
     SERVER_ERROR = -32000,
     TIMEOUT_ERROR = -32001,
+    NOT_CONNECTED = -32002,
 }
 
 export const RPC_ERROR_NAME_MAP: Record<RpcErrorCode, string> = {
@@ -16,6 +17,7 @@ export const RPC_ERROR_NAME_MAP: Record<RpcErrorCode, string> = {
     [RpcErrorCode.INTERNAL_ERROR]: 'Internal JSON-RPC error.',
     [RpcErrorCode.SERVER_ERROR]: 'Server error',
     [RpcErrorCode.TIMEOUT_ERROR]: 'Timeout',
+    [RpcErrorCode.NOT_CONNECTED]: 'Not connected',
 }
 
 export const RPC_ERROR_MESSAGE_MAP: Record<RpcErrorCode, string> = {
@@ -27,4 +29,5 @@ export const RPC_ERROR_MESSAGE_MAP: Record<RpcErrorCode, string> = {
     [RpcErrorCode.INTERNAL_ERROR]: 'Internal JSON-RPC error.',
     [RpcErrorCode.SERVER_ERROR]: '',
     [RpcErrorCode.TIMEOUT_ERROR]: 'No response within specified timeout.',
+    [RpcErrorCode.NOT_CONNECTED]: 'No connection has been established to the server yet.',
 }

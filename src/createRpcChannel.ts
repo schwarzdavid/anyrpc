@@ -16,26 +16,26 @@ import {
 } from '@/constants/DEFAULT_EVENTS'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 
-export interface RpcChannelQueueOptions {
-    enabled: boolean
-    timeout: number
-    await: boolean
-}
-
 export interface RpcChannelOptions {
     timeout: number
-    queue: RpcChannelQueueOptions
+    queueEnabled: boolean
+    queueTimeout: number
+    queueAwait: boolean
 }
 
-type QueueResolveFn = (resolveValue: unknown) => void
-type QueueRejectFn = (resolveValue: Error) => void
+type MessageResolveFn = (resolveValue: unknown) => void
+type MessageRejectFn = (resolveValue: Error) => void
 
-interface QueueEntry {
-    resolve: QueueResolveFn
-    reject: QueueRejectFn
+interface PendingMessage {
+    resolve: MessageResolveFn
+    reject: MessageRejectFn
 }
 
-type Queue = Record<string, QueueEntry>
+interface QueuedMessage<Methods extends MethodMap<Methods>> extends PendingMessage {
+    request: RpcRequest<Methods>
+}
+
+type PendingMessageRegistry = Record<string, PendingMessage>
 
 const PUBLIC_EVENT_METHODS: string[] = [
     'addEventListener',
@@ -46,11 +46,15 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     adapter: AbstractRpcAdapter<Methods, Events>,
     options: Partial<RpcChannelOptions> = {},
 ) {
-    options = Object.assign({ timeout: 3000 }, options)
+    options = Object.assign<RpcChannelOptions, Partial<RpcChannelOptions>>(
+        { timeout: 3000, queueEnabled: false, queueTimeout: 10000, queueAwait: false } satisfies RpcChannelOptions,
+        options,
+    )
 
     const events = new EventEmitter<Events>()
     const anyRpcEvents = new EventEmitter<AnyRpcEvents>()
-    const queue: Queue = {}
+    const pendingMessageRegistry: PendingMessageRegistry = {}
+    const queuedMessages: QueuedMessage<Methods>[] = []
     let currentStatus = ConnectionStatus.CLOSED
 
     adapter.messageHandler = async function rpcChannelMessageHandler(data) {
@@ -63,11 +67,12 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         await handleRequest(message)
     }
 
-    adapter.connectionHandler = function rpcChannelConnectionHandler(status) {
+    adapter.connectionHandler = async function rpcChannelConnectionHandler(status) {
         currentStatus = status
         void anyRpcEvents.dispatchEvent(CONNECTION_CHANGE_EVENT, [status])
 
         if (status === ConnectionStatus.CONNECTED) {
+            await processQueuedMessages()
             void anyRpcEvents.dispatchEvent(CONNECTED_EVENT, [])
         } else {
             void anyRpcEvents.dispatchEvent(CONNECTION_CLOSED_EVENT, [])
@@ -91,10 +96,10 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
 
     function handleResponse(message: RpcResponse<Methods>): void {
         if (isRpcErrorResponse(message)) {
-            queue[message.id]?.reject(new RpcError(message.error))
+            pendingMessageRegistry[message.id]?.reject(new RpcError(message.error))
             return
         }
-        queue[message.id]?.resolve(message.result)
+        pendingMessageRegistry[message.id]?.resolve(message.result)
     }
 
     async function handleRequest(message: RpcRequest<Events>): Promise<void> {
@@ -125,6 +130,19 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         adapter.sendMessage(response)
     }
 
+    function processMessageRequest<Method extends keyof Methods>(
+        method: Method,
+        params: Parameters<Methods[Method]>,
+    ): Promise<unknown> {
+        if (currentStatus === ConnectionStatus.CONNECTED) {
+            return sendRequest(method, params)
+        }
+        if (options.queueEnabled) {
+            return addRequestToConnectionQueue(method, params)
+        }
+        throw new RpcError(RpcErrorCode.NOT_CONNECTED)
+    }
+
     function sendRequest<Method extends keyof Methods>(
         method: Method,
         params: Parameters<Methods[Method]>,
@@ -140,7 +158,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         return new Promise((resolve, reject) => {
             const timeoutId = setTimeout(() => reject(new RpcError(RpcErrorCode.TIMEOUT_ERROR)), options.timeout)
 
-            queue[id] = {
+            pendingMessageRegistry[id] = {
                 resolve: (value) => {
                     clearTimeout(timeoutId)
                     resolve(value)
@@ -154,8 +172,54 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             adapter.sendMessage(request)
         }).finally(() => {
             // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-            delete queue[id]
+            delete pendingMessageRegistry[id]
         })
+    }
+
+    function addRequestToConnectionQueue<Method extends keyof Methods>(
+        method: Method,
+        params: Parameters<Methods[Method]>,
+    ): Promise<unknown> {
+        const id = uuid()
+        const request: RpcRequest<Methods> = {
+            id,
+            jsonrpc: '2.0',
+            method,
+            params,
+        }
+
+        return new Promise((resolve, reject) => {
+            const timeoutId = setTimeout(() => reject(new RpcError(RpcErrorCode.TIMEOUT_ERROR)), options.queueTimeout)
+
+            queuedMessages.push({
+                request,
+                resolve(value) {
+                    clearTimeout(timeoutId)
+                    resolve(value)
+                },
+                reject(err) {
+                    clearTimeout(timeoutId)
+                    reject(err)
+                },
+            })
+        }).finally(() => {
+            const queuedMessageIndex = queuedMessages.findIndex((queuedMessage) => queuedMessage.request.id === id)
+            if (queuedMessageIndex >= 0) {
+                queuedMessages.splice(queuedMessageIndex, 1)
+            }
+        })
+    }
+
+    async function processQueuedMessages(): Promise<void> {
+        for (const queuedMessage of queuedMessages) {
+            const promise = sendRequest(queuedMessage.request.method, queuedMessage.request.params)
+                .then(queuedMessage.resolve)
+                .catch(queuedMessage.reject)
+
+            if (options.queueAwait) {
+                await promise
+            }
+        }
     }
 
     return new Proxy<RpcChannel<Methods, Events>>({ $: meta } as unknown as RpcChannel<Methods, Events>, {
@@ -168,7 +232,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
                 return events[prop as keyof PublicEventEmitter<Events>].bind(events)
             }
             return (...params: unknown[]) =>
-                sendRequest(prop.toString() as keyof Methods, params as Parameters<Methods[keyof Methods]>)
+                processMessageRequest(prop.toString() as keyof Methods, params as Parameters<Methods[keyof Methods]>)
         },
     })
 }
