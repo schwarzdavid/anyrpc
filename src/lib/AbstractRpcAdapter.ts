@@ -35,6 +35,6 @@ export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Eve
     }
 
     destroy(): void {
-        void this._connectionHandler?.(ConnectionStatus.CLOSED)
+        this.connectionStatus = ConnectionStatus.CLOSED
     }
 }

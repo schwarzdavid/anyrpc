@@ -218,4 +218,22 @@ describe(createRpcChannel, () => {
 
         expect(connectionHandler).toHaveBeenCalledWith(ConnectionStatus.CONNECTED)
     })
+
+    it.todo('should always return meta object when calling $')
+
+    it.todo('should allow to add events to meta object')
+
+    it.todo('should allow to remove events from meta object')
+
+    it.todo('should allow to call destroy on meta object')
+
+    it.todo('should contain current status of adapter on meta object')
+
+    it.todo('should queue messages before connection is established if enabled')
+
+    it.todo('should not queue messages before connection is established if disabled')
+
+    it.todo('should reject if queue timeout is reached')
+
+    it.todo('should run queued messages in sequence if option is set')
 })

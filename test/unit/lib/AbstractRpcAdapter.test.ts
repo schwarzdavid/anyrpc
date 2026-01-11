@@ -67,7 +67,7 @@ describe(AbstractRpcAdapter, () => {
         const connectionHandler = vi.fn<ConnectionHandler>()
 
         adapter.connectionHandler = connectionHandler
-        await adapter.triggerConnection()
+        adapter.triggerConnection()
 
         expect(connectionHandler).toHaveBeenCalledWith(ConnectionStatus.CONNECTED)
     })
