@@ -55,7 +55,6 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     const anyRpcEvents = new EventEmitter<AnyRpcEvents>()
     const pendingMessageRegistry: PendingMessageRegistry = {}
     const queuedMessages: QueuedMessage<Methods>[] = []
-    let currentStatus = ConnectionStatus.CLOSED
 
     adapter.messageHandler = async function rpcChannelMessageHandler(data) {
         const { type, message } = parseRpcMessage<Methods, Events>(data)
@@ -68,7 +67,6 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     }
 
     adapter.connectionHandler = async function rpcChannelConnectionHandler(status) {
-        currentStatus = status
         void anyRpcEvents.dispatchEvent(CONNECTION_CHANGE_EVENT, [status])
 
         if (status === ConnectionStatus.CONNECTED) {
@@ -81,7 +79,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
 
     const meta: RpcChannelMeta = {
         get status() {
-            return currentStatus
+            return adapter.connectionStatus
         },
         get addEventListener() {
             return anyRpcEvents.addEventListener.bind(anyRpcEvents)
@@ -134,7 +132,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         method: Method,
         params: Parameters<Methods[Method]>,
     ): Promise<unknown> {
-        if (currentStatus === ConnectionStatus.CONNECTED) {
+        if (adapter.connectionStatus === ConnectionStatus.CONNECTED) {
             return sendRequest(method, params)
         }
         if (options.queueEnabled) {

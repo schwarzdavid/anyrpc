@@ -33,7 +33,7 @@ export abstract class AbstractIFrameAdapter<
         this._port = port
         this._port?.addEventListener('message', (event) => void this.onMessage(event.data as object))
         this._port?.start()
-        void this.onConnectionStatusChange(ConnectionStatus.CONNECTED)
+        this.connectionStatus = ConnectionStatus.CONNECTED
     }
 
     sendMessage(message: RpcMessage<Methods, Events> | RpcMessage<IFrameAdapterInternals, Events>): void {

@@ -9,6 +9,16 @@ export type ConnectionHandler = (status: ConnectionStatus) => Promisable<unknown
 export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> {
     private _messageHandler?: MessageHandler
     private _connectionHandler?: ConnectionHandler
+    private _connectionStatus: ConnectionStatus = ConnectionStatus.CLOSED
+
+    get connectionStatus(): ConnectionStatus {
+        return this._connectionStatus
+    }
+
+    protected set connectionStatus(status: ConnectionStatus) {
+        this._connectionStatus = status
+        this._connectionHandler?.(status)
+    }
 
     set connectionHandler(handler: ConnectionHandler) {
         this._connectionHandler = handler
@@ -22,10 +32,6 @@ export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Eve
 
     protected async onMessage(rawMessage: string | object): Promise<void> {
         await this._messageHandler?.(rawMessage)
-    }
-
-    protected async onConnectionStatusChange(status: ConnectionStatus): Promise<void> {
-        await this._connectionHandler?.(status)
     }
 
     destroy(): void {

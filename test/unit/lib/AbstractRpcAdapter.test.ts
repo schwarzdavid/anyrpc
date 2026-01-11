@@ -18,8 +18,8 @@ class RpcAdapterImpl extends AbstractRpcAdapter<TestMethods, TestEvents> {
         await this.onMessage(message)
     }
 
-    async triggerConnection(): Promise<void> {
-        await this.onConnectionStatusChange(ConnectionStatus.CONNECTED)
+    triggerConnection() {
+        this.connectionStatus = ConnectionStatus.CONNECTED
     }
 }
 

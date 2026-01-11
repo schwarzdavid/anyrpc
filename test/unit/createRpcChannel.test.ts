@@ -18,6 +18,11 @@ interface TestEvents {
 }
 
 class MockAdapter extends AbstractRpcAdapter<TestMethods, TestEvents> {
+    constructor() {
+        super()
+        this.connectionStatus = ConnectionStatus.CONNECTED
+    }
+
     sendMessage = vi.fn<(msg: RpcMessage<TestMethods, TestEvents>) => unknown>()
 
     async triggerMessageHandler(message: any) {
