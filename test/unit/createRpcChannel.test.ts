@@ -18,10 +18,13 @@ interface TestEvents {
     objectEvent(message: string): Record<string, string>
 }
 
-class MockAdapter<M extends MethodMap<M> = TestMethods, E extends MethodMap<E> = TestEvents> extends AbstractRpcAdapter<M, E> {
-    constructor() {
+class MockAdapter<M extends MethodMap<M> = TestMethods, E extends MethodMap<E> = TestEvents> extends AbstractRpcAdapter<
+    M,
+    E
+> {
+    constructor(initialStatus: ConnectionStatus = ConnectionStatus.CONNECTED) {
         super()
-        this.connectionStatus = ConnectionStatus.CONNECTED
+        this.connectionStatus = initialStatus
     }
 
     sendMessage = vi.fn<(msg: RpcMessage<M, E>) => unknown>()
@@ -31,9 +34,8 @@ class MockAdapter<M extends MethodMap<M> = TestMethods, E extends MethodMap<E> =
         await handler?.(message)
     }
 
-    async triggerConnectionHandler(status: ConnectionStatus = ConnectionStatus.CONNECTED) {
-        const handler = (this as any)._connectionHandler
-        await handler?.(status)
+    triggerConnectionHandler(status: ConnectionStatus = ConnectionStatus.CONNECTED) {
+        this.connectionStatus = status
     }
 }
 
@@ -220,34 +222,34 @@ describe(createRpcChannel, () => {
         })
     })
 
-    it('should fire connection event when connection handler is called', async () => {
+    it('should fire connection event when connection handler is called', () => {
         const adapter = new MockAdapter()
-        const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
+        const rpcChannel = createRpcChannel(adapter)
         const connectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
         rpcChannel.$.addEventListener('connection-change', connectionHandler)
 
-        await adapter.triggerConnectionHandler()
+        adapter.triggerConnectionHandler()
 
         expect(connectionHandler).toHaveBeenCalledWith(ConnectionStatus.CONNECTED)
     })
 
-    it('should allow to remove events from meta object', async () => {
+    it('should allow to remove events from meta object', () => {
         const adapter = new MockAdapter()
-        const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
+        const rpcChannel = createRpcChannel(adapter)
         const connectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
         rpcChannel.$.addEventListener('connection-change', connectionHandler)
         rpcChannel.$.removeEventListener('connection-change', connectionHandler)
 
-        await adapter.triggerConnectionHandler()
+        adapter.triggerConnectionHandler()
 
         expect(connectionHandler).not.toHaveBeenCalled()
     })
 
     it('should allow to call destroy on meta object', () => {
         const adapter = new MockAdapter()
-        const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
+        const rpcChannel = createRpcChannel(adapter)
         const destroySpy = vi.spyOn(adapter, 'destroy')
 
         rpcChannel.$.destroy()
@@ -255,11 +257,65 @@ describe(createRpcChannel, () => {
         expect(destroySpy).toHaveBeenCalledWith()
     })
 
-    it.todo('should contain current status of adapter on meta object')
+    it('should contain current status of adapter on meta object', () => {
+        const adapter = new MockAdapter(ConnectionStatus.CLOSED)
+        const rpcChannel = createRpcChannel(adapter)
 
-    it.todo('should queue messages before connection is established if enabled')
+        const statusBeforeConnection = rpcChannel.$.status
 
-    it.todo('should not queue messages before connection is established if disabled')
+        adapter.triggerConnectionHandler(ConnectionStatus.CONNECTED)
+
+        const statusAfterConnection = rpcChannel.$.status
+
+        expect(statusBeforeConnection).toBe(ConnectionStatus.CLOSED)
+        expect(statusAfterConnection).toBe(ConnectionStatus.CONNECTED)
+    })
+
+    it('should queue messages before connection is established if enabled', async () => {
+        const adapter = new MockAdapter(ConnectionStatus.CLOSED)
+        const rpcChannel = createRpcChannel(adapter, { queueEnabled: true })
+
+        adapter.sendMessage.mockImplementationOnce(({ id }) => {
+            void adapter.triggerMessageHandler({
+                id,
+                jsonrpc: '2.0',
+                result: 5,
+            } satisfies RpcResponse<TestMethods>)
+        })
+        const addPromise = rpcChannel.add(2, 3)
+        adapter.sendMessage.mockImplementationOnce(({ id }) => {
+            void adapter.triggerMessageHandler({
+                id,
+                jsonrpc: '2.0',
+                result: -1,
+            })
+        })
+        const subtractPromise = rpcChannel.subtract(3, 4)
+
+        expect(adapter.sendMessage).not.toHaveBeenCalled()
+
+        adapter.triggerConnectionHandler(ConnectionStatus.CONNECTED)
+
+        expect(adapter.sendMessage).toHaveBeenCalledTimes(2)
+
+        const [addResult, subtractResult] = await Promise.all([addPromise, subtractPromise])
+
+        expect(addResult).toBe(5)
+        expect(subtractResult).toBe(-1)
+    })
+
+    it('should not queue messages before connection is established if disabled', () => {
+        const adapter = new MockAdapter(ConnectionStatus.CLOSED)
+        const rpcChannel = createRpcChannel(adapter)
+
+        expect(() => rpcChannel.add(2, 3)).toThrowError(new RpcError(RpcErrorCode.NOT_CONNECTED))
+        expect(() => rpcChannel.subtract(3, 4)).toThrowError(new RpcError(RpcErrorCode.NOT_CONNECTED))
+        expect(adapter.sendMessage).not.toHaveBeenCalled()
+
+        adapter.triggerConnectionHandler(ConnectionStatus.CONNECTED)
+
+        expect(adapter.sendMessage).not.toHaveBeenCalled()
+    })
 
     it.todo('should reject if queue timeout is reached')
 

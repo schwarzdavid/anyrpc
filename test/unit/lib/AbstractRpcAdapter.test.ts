@@ -62,7 +62,7 @@ describe(AbstractRpcAdapter, () => {
         expect(messageHandler).toHaveBeenCalledWith(message)
     })
 
-    it('should call connection handler when connected', async () => {
+    it('should call connection handler when connected', () => {
         const adapter = new RpcAdapterImpl()
         const connectionHandler = vi.fn<ConnectionHandler>()
 
