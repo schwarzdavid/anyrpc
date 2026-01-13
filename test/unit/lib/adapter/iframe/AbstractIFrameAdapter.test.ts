@@ -74,6 +74,4 @@ describe(AbstractIFrameAdapter, () => {
         expect(messagePortMock.close).toHaveBeenCalledWith()
         expect(adapter.connectionStatus).toBe(ConnectionStatus.CLOSED)
     })
-
-    it.todo('test onMessage function')
 })
