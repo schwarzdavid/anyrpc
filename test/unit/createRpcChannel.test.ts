@@ -6,6 +6,7 @@ import { RPC_ERROR_NAME_MAP, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
 import { RpcMessage, RpcRequest, RpcResponse } from '@/types/RpcMessages'
 import { EventEmitter } from '@/lib/EventEmitter'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
+import { MethodMap } from '@/types/MethodMap'
 
 interface TestMethods {
     add(a: number, b: number): Promise<number>
@@ -17,13 +18,13 @@ interface TestEvents {
     objectEvent(message: string): Record<string, string>
 }
 
-class MockAdapter extends AbstractRpcAdapter<TestMethods, TestEvents> {
+class MockAdapter<M extends MethodMap<M> = TestMethods, E extends MethodMap<E> = TestEvents> extends AbstractRpcAdapter<M, E> {
     constructor() {
         super()
         this.connectionStatus = ConnectionStatus.CONNECTED
     }
 
-    sendMessage = vi.fn<(msg: RpcMessage<TestMethods, TestEvents>) => unknown>()
+    sendMessage = vi.fn<(msg: RpcMessage<M, E>) => unknown>()
 
     async triggerMessageHandler(message: any) {
         const handler = (this as any)._messageHandler
@@ -207,6 +208,18 @@ describe(createRpcChannel, () => {
         })
     })
 
+    it('should always return meta object when calling $', () => {
+        const adapter = new MockAdapter()
+        const channel = createRpcChannel(adapter)
+
+        expect(channel.$).toStrictEqual({
+            status: expect.any(Number),
+            addEventListener: expect.any(Function),
+            removeEventListener: expect.any(Function),
+            destroy: expect.any(Function),
+        })
+    })
+
     it('should fire connection event when connection handler is called', async () => {
         const adapter = new MockAdapter()
         const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
@@ -219,13 +232,28 @@ describe(createRpcChannel, () => {
         expect(connectionHandler).toHaveBeenCalledWith(ConnectionStatus.CONNECTED)
     })
 
-    it.todo('should always return meta object when calling $')
+    it('should allow to remove events from meta object', async () => {
+        const adapter = new MockAdapter()
+        const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
+        const connectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
-    it.todo('should allow to add events to meta object')
+        rpcChannel.$.addEventListener('connection-change', connectionHandler)
+        rpcChannel.$.removeEventListener('connection-change', connectionHandler)
 
-    it.todo('should allow to remove events from meta object')
+        await adapter.triggerConnectionHandler()
 
-    it.todo('should allow to call destroy on meta object')
+        expect(connectionHandler).not.toHaveBeenCalled()
+    })
+
+    it('should allow to call destroy on meta object', () => {
+        const adapter = new MockAdapter()
+        const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
+        const destroySpy = vi.spyOn(adapter, 'destroy')
+
+        rpcChannel.$.destroy()
+
+        expect(destroySpy).toHaveBeenCalledWith()
+    })
 
     it.todo('should contain current status of adapter on meta object')
 
