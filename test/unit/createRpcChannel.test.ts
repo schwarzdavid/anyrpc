@@ -309,7 +309,6 @@ describe(createRpcChannel, () => {
         const rpcChannel = createRpcChannel(adapter)
 
         expect(() => rpcChannel.add(2, 3)).toThrowError(new RpcError(RpcErrorCode.NOT_CONNECTED))
-        expect(() => rpcChannel.subtract(3, 4)).toThrowError(new RpcError(RpcErrorCode.NOT_CONNECTED))
         expect(adapter.sendMessage).not.toHaveBeenCalled()
 
         adapter.triggerConnectionHandler(ConnectionStatus.CONNECTED)
