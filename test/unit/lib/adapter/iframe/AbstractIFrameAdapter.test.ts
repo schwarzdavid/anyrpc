@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AbstractIFrameAdapter, IFrameAdapterOptions } from '@/lib/adapter/iframe/AbstractIFrameAdapter'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { RpcRequest } from '@/types/RpcMessages'
+import { MessageHandler } from '@/lib/AbstractRpcAdapter'
 
 interface TestMethods {
     foo(): void
@@ -12,9 +13,11 @@ interface TestEvents {
 }
 
 class MockRpcAdapter extends AbstractIFrameAdapter<TestMethods, TestEvents> {
-    // eslint-disable-next-line @typescript-eslint/no-useless-constructor
+    readonly messageHandlerMock = vi.fn<MessageHandler>()
+
     constructor(options?: Partial<IFrameAdapterOptions>) {
         super(options)
+        this.messageHandler = this.messageHandlerMock
     }
 
     setPort(port: MessagePort) {
@@ -38,6 +41,8 @@ describe(AbstractIFrameAdapter, () => {
     afterEach(() => {
         adapter?.destroy()
         adapter = null
+
+        vi.clearAllMocks()
     })
 
     it('should attach event listeners and start channel when setting port', () => {
@@ -73,5 +78,31 @@ describe(AbstractIFrameAdapter, () => {
 
         expect(messagePortMock.close).toHaveBeenCalledWith()
         expect(adapter.connectionStatus).toBe(ConnectionStatus.CLOSED)
+    })
+
+    it('should pass message to message handler', () => {
+        adapter = new MockRpcAdapter()
+
+        vi.spyOn(messagePortMock, 'addEventListener').mockImplementationOnce((_, handlerOrObject) => {
+            const data = {
+                foo: 'bar',
+            }
+
+            let handler: EventListener
+
+            if (typeof handlerOrObject === 'function') {
+                handler = handlerOrObject
+            } else {
+                handler = handlerOrObject.handleEvent
+            }
+
+            expect(handler).toStrictEqual(expect.any(Function))
+
+            handler({ data } as MessageEvent)
+
+            expect(adapter!.messageHandlerMock).toHaveBeenCalledWith(data)
+        })
+
+        adapter.setPort(messagePortMock)
     })
 })
