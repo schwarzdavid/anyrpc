@@ -335,25 +335,31 @@ describe(createRpcChannel, () => {
         const adapter = new MockAdapter(ConnectionStatus.CLOSED)
         const rpcChannel = createRpcChannel(adapter, { queueEnabled: true, queueAwait: true, timeout: 1000 })
 
-        adapter.sendMessage.mockImplementationOnce(({ id }) => {
+        let previousCall: string | null = null
+
+        adapter.sendMessage.mockImplementationOnce((request) => {
             void vi.advanceTimersByTimeAsync(500).then(() => {
-                expect(adapter.sendMessage).toHaveBeenCalledTimes(1)
+                expect(previousCall).toBeNull()
+
+                previousCall = (request as RpcRequest<TestMethods>).method
 
                 void adapter.triggerMessageHandler({
-                    id,
+                    id: request.id,
                     jsonrpc: '2.0',
                     result: 5,
                 } satisfies RpcResponse<TestMethods>)
             })
         })
 
-        adapter.sendMessage.mockImplementationOnce(({ id }) => {
-            expect(adapter.sendMessage).toHaveBeenCalledTimes(2)
+        adapter.sendMessage.mockImplementationOnce((request) => {
+            expect(previousCall).toBe('add')
+
+            previousCall = (request as RpcRequest<TestMethods>).method
 
             void adapter.triggerMessageHandler({
-                id,
+                id: request.id,
                 jsonrpc: '2.0',
-                result: -1,
+                error: new RpcError(RpcErrorCode.SERVER_ERROR),
             } satisfies RpcResponse<TestMethods>)
         })
 
@@ -362,10 +368,10 @@ describe(createRpcChannel, () => {
 
         adapter.triggerConnectionHandler(ConnectionStatus.CONNECTED)
 
-        const [addResult, subtractResult] = await Promise.all([addPromise, subtractPromise])
+        await Promise.all([addPromise, subtractPromise.catch(() => undefined)])
 
         expect(adapter.sendMessage).toHaveBeenCalledTimes(2)
-        expect(addResult).toBe(5)
-        expect(subtractResult).toBe(-1)
+        await expect(addPromise).resolves.toBe(5)
+        await expect(subtractPromise).rejects.toThrowError(new RpcError(RpcErrorCode.SERVER_ERROR))
     })
 })
