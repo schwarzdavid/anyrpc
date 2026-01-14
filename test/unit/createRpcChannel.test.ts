@@ -59,7 +59,6 @@ describe(createRpcChannel, () => {
 
             void adapter.triggerMessageHandler({
                 jsonrpc: '2.0',
-                type: 'response',
                 id,
                 result: 5,
             })
@@ -316,7 +315,57 @@ describe(createRpcChannel, () => {
         expect(adapter.sendMessage).not.toHaveBeenCalled()
     })
 
-    it.todo('should reject if queue timeout is reached')
+    it('should reject if queue timeout is reached', async () => {
+        vi.useFakeTimers()
 
-    it.todo('should run queued messages in sequence if option is set')
+        const adapter = new MockAdapter(ConnectionStatus.CLOSED)
+        const rpcChannel = createRpcChannel(adapter, { queueEnabled: true, queueTimeout: 100 })
+
+        const addPromise = rpcChannel.add(2, 3)
+
+        vi.advanceTimersByTime(500)
+
+        await expect(addPromise).rejects.toThrowError(new RpcError(RpcErrorCode.TIMEOUT_ERROR))
+        expect(adapter.sendMessage).not.toHaveBeenCalled()
+    })
+
+    it('should run queued messages in sequence if option is set', async () => {
+        vi.useFakeTimers()
+
+        const adapter = new MockAdapter(ConnectionStatus.CLOSED)
+        const rpcChannel = createRpcChannel(adapter, { queueEnabled: true, queueAwait: true, timeout: 1000 })
+
+        adapter.sendMessage.mockImplementationOnce(({ id }) => {
+            void vi.advanceTimersByTimeAsync(500).then(() => {
+                expect(adapter.sendMessage).toHaveBeenCalledTimes(1)
+
+                void adapter.triggerMessageHandler({
+                    id,
+                    jsonrpc: '2.0',
+                    result: 5,
+                } satisfies RpcResponse<TestMethods>)
+            })
+        })
+
+        adapter.sendMessage.mockImplementationOnce(({ id }) => {
+            expect(adapter.sendMessage).toHaveBeenCalledTimes(2)
+
+            void adapter.triggerMessageHandler({
+                id,
+                jsonrpc: '2.0',
+                result: -1,
+            } satisfies RpcResponse<TestMethods>)
+        })
+
+        const addPromise = rpcChannel.add(2, 3)
+        const subtractPromise = rpcChannel.subtract(3, 4)
+
+        adapter.triggerConnectionHandler(ConnectionStatus.CONNECTED)
+
+        const [addResult, subtractResult] = await Promise.all([addPromise, subtractPromise])
+
+        expect(adapter.sendMessage).toHaveBeenCalledTimes(2)
+        expect(addResult).toBe(5)
+        expect(subtractResult).toBe(-1)
+    })
 })

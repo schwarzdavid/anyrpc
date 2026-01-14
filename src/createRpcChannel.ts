@@ -31,8 +31,10 @@ interface PendingMessage {
     reject: MessageRejectFn
 }
 
+type QueuedRequest<Methods extends MethodMap<Methods>> = Omit<RpcRequest<Methods>, 'jsonrpc'>
+
 interface QueuedMessage<Methods extends MethodMap<Methods>> extends PendingMessage {
-    request: RpcRequest<Methods>
+    request: QueuedRequest<Methods>
 }
 
 type PendingMessageRegistry = Record<string, PendingMessage>
@@ -179,9 +181,8 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         params: Parameters<Methods[Method]>,
     ): Promise<unknown> {
         const id = uuid()
-        const request: RpcRequest<Methods> = {
+        const request: QueuedRequest<Methods> = {
             id,
-            jsonrpc: '2.0',
             method,
             params,
         }
@@ -209,7 +210,12 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     }
 
     async function processQueuedMessages(): Promise<void> {
-        for (const queuedMessage of queuedMessages) {
+        while (true) {
+            const queuedMessage = queuedMessages.shift()
+            if (!queuedMessage) {
+                break
+            }
+
             const promise = sendRequest(queuedMessage.request.method, queuedMessage.request.params)
                 .then(queuedMessage.resolve)
                 .catch(queuedMessage.reject)
