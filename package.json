@@ -13,9 +13,8 @@
     "preversion": "concurrently 'npm run format' 'npm run lint' 'npm run check'",
     "prepublishOnly": "npm run build",
     "test": "vitest run --typecheck",
-    "test:unit": "vitest run --project unit --typecheck",
-    "test:watch:unit": "vitest --project unit",
-    "coverage": "vitest run --coverage --project unit"
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": "David Schwarz <david@ists-wurscht.at>",

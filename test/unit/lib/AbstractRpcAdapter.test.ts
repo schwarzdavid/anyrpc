@@ -12,7 +12,9 @@ interface TestEvents {
 }
 
 class RpcAdapterImpl extends AbstractRpcAdapter<TestMethods, TestEvents> {
-    override sendMessage = vi.fn<(message: RpcMessage<TestMethods, TestEvents>) => unknown>()
+    sendMessage = vi.fn<(message: RpcMessage<TestMethods, TestEvents>) => unknown>()
+
+    connect = vi.fn<() => void>()
 
     async triggerMessage(message: RpcMessage<TestMethods, TestEvents>) {
         await this.onMessage(message)

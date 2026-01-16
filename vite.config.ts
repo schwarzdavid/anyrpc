@@ -28,15 +28,8 @@ export default defineConfig({
         typecheck: {
             tsconfig: './tsconfig.vitest.json',
         },
-        projects: [
-            {
-                extends: true,
-                test: {
-                    include: ['test/unit/**/*.test.ts', 'test/unit/**/*.test-d.ts'],
-                    name: 'unit',
-                    environment: 'jsdom',
-                },
-            },
-        ],
+        include: ['test/unit/**/*.test.ts', 'test/unit/**/*.test-d.ts'],
+        silent: 'passed-only',
+        environment: 'jsdom',
     },
 })

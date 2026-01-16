@@ -14,6 +14,10 @@ class MockRpcAdapter extends AbstractIFrameAdapter<TestMethods, TestEvents> {
     constructor(options?: Partial<IFrameAdapterOptions>) {
         super(options)
     }
+
+    connect() {
+        /* empty */
+    }
 }
 
 describe(AbstractIFrameAdapter, () => {

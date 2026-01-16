@@ -23,6 +23,8 @@ class MockRpcAdapter extends AbstractIFrameAdapter<TestMethods, TestEvents> {
     setPort(port: MessagePort) {
         this.port = port
     }
+
+    connect = vi.fn<() => void>()
 }
 
 describe(AbstractIFrameAdapter, () => {
