@@ -2,7 +2,7 @@ import { onReady } from '../__helper/onReady'
 import { createHtmlLogger, MessageType } from '../__helper/createHtmlLogger'
 import { createRpcChannel } from '@/createRpcChannel'
 import { IFrameClientAdapter } from '@/lib/adapter/iframe'
-import { HostToIFrame, IFrameToHost } from './IFrameMessages'
+import type { HostToIFrame, IFrameToHost } from './IFrameMessages'
 
 onReady(() => {
     const log = createHtmlLogger(document.querySelector<HTMLUListElement>('#output')!)

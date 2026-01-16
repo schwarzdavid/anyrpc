@@ -3,13 +3,13 @@ import { EventEmitter } from './lib/EventEmitter'
 import { isRpcErrorResponse, parseRpcMessage, RpcMessageType } from './utils/rpc'
 import { RpcError } from './lib/RpcError'
 import { uuid } from './utils/uuid'
-import { RpcMessageBase, RpcRequest, RpcResponse } from './types/RpcMessages'
+import type { RpcMessageBase, RpcRequest, RpcResponse } from './types/RpcMessages'
 import { RPC_ERROR_NAME_MAP, RpcErrorCode } from './constants/JSON_RPC_ERRORS'
-import { PublicEventEmitter } from './types/EventEmitter'
-import { MethodMap } from './types/MethodMap'
-import { RpcChannel, RpcChannelMeta } from '@/types/RpcChannel'
+import type { PublicEventEmitter } from './types/EventEmitter'
+import type { MethodMap } from './types/MethodMap'
+import type { RpcChannel, RpcChannelMeta } from '@/types/RpcChannel'
 import {
-    AnyRpcEvents,
+    type AnyRpcEvents,
     CONNECTED_EVENT,
     CONNECTION_CHANGE_EVENT,
     CONNECTION_CLOSED_EVENT,

@@ -1,9 +1,9 @@
 import { assertType, describe, it, vi } from 'vitest'
 import { createRpcChannel } from '@/createRpcChannel'
 import { AbstractRpcAdapter } from '@/lib/AbstractRpcAdapter'
-import { RpcMessage } from '@/types/RpcMessages'
+import type { RpcMessage } from '@/types/RpcMessages'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
-import { MethodMap } from '@/types/MethodMap'
+import type { MethodMap } from '@/types/MethodMap'
 
 interface TestMethods {
     add(a: number, b: number): number

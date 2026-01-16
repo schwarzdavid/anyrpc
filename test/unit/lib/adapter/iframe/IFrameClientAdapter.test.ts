@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { IFrameClientAdapter } from '@/lib/adapter/iframe'
-import { RpcRequest, RpcResponse } from '@/types/RpcMessages'
+import type { RpcRequest, RpcResponse } from '@/types/RpcMessages'
 import { uuid } from '@/utils/uuid'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 

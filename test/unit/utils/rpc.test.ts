@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { parseRpcMessage, RpcMessageType } from '@/utils/rpc'
 import { RpcError } from '@/lib/RpcError'
 import { RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
-import { RpcRequest } from '@/types/RpcMessages'
+import type { RpcRequest } from '@/types/RpcMessages'
 
 interface TestMethods {
     exampleMethod: (foo: string, bar: number) => Promise<string>

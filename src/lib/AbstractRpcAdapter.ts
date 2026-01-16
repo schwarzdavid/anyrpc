@@ -1,7 +1,7 @@
-import { RpcMessage } from '@/types/RpcMessages'
-import { MethodMap } from '@/types/MethodMap'
+import type { RpcMessage } from '@/types/RpcMessages'
+import type { MethodMap } from '@/types/MethodMap'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
-import { Promisable } from 'type-fest'
+import type { Promisable } from 'type-fest'
 
 export type MessageHandler = (message: string | object) => Promisable<void>
 export type ConnectionHandler = (status: ConnectionStatus) => Promisable<unknown>

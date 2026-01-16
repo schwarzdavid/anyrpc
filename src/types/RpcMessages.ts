@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { MethodFn, MethodMap } from '@/types/MethodMap'
+import type { MethodFn, MethodMap } from '@/types/MethodMap'
 
 export interface RpcMessageBase {
     jsonrpc: '2.0'

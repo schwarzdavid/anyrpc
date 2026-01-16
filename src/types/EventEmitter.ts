@@ -1,5 +1,5 @@
-import { MethodFn, MethodMap } from './MethodMap'
-import { Promisable } from 'type-fest'
+import type { MethodFn, MethodMap } from './MethodMap'
+import type { Promisable } from 'type-fest'
 
 export interface EventListenerOptions<Passive extends boolean> {
     passive?: Passive

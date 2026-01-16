@@ -1,6 +1,6 @@
 import { AbstractRpcAdapter } from '@/lib/AbstractRpcAdapter'
-import { MethodMap } from '@/types/MethodMap'
-import { RpcMessage } from '@/types/RpcMessages'
+import type { MethodMap } from '@/types/MethodMap'
+import type { RpcMessage } from '@/types/RpcMessages'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 
 export interface IFrameAdapterOptions {

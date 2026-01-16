@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { EventEmitter, EventListenerEntry } from '@/lib/EventEmitter'
+import { EventEmitter, type EventListenerEntry } from '@/lib/EventEmitter'
 
 interface TestEvents {
     testEvent: (arg: string) => Promise<string>

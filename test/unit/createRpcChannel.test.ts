@@ -3,10 +3,10 @@ import { createRpcChannel } from '@/createRpcChannel'
 import { AbstractRpcAdapter } from '@/lib/AbstractRpcAdapter'
 import { RpcError } from '@/lib/RpcError'
 import { RPC_ERROR_NAME_MAP, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
-import { RpcMessage, RpcRequest, RpcResponse } from '@/types/RpcMessages'
+import type { RpcMessage, RpcRequest, RpcResponse } from '@/types/RpcMessages'
 import { EventEmitter } from '@/lib/EventEmitter'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
-import { MethodMap } from '@/types/MethodMap'
+import type { MethodMap } from '@/types/MethodMap'
 
 interface TestMethods {
     add(a: number, b: number): Promise<number>

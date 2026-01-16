@@ -1,7 +1,7 @@
 import { RpcError } from '@/lib/RpcError'
 import { RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
-import { RpcErrorData, RpcErrorResponse, RpcRequest, RpcResponse } from '@/types/RpcMessages'
-import { MethodMap } from '@/types/MethodMap'
+import type { RpcErrorData, RpcErrorResponse, RpcRequest, RpcResponse } from '@/types/RpcMessages'
+import type { MethodMap } from '@/types/MethodMap'
 
 export const enum RpcMessageType {
     REQUEST,

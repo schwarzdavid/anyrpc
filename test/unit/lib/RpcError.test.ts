@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { RpcError } from '@/lib/RpcError'
 import { RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
-import { RpcErrorData } from '@/types/RpcMessages'
+import type { RpcErrorData } from '@/types/RpcMessages'
 
 describe(RpcError, () => {
     it('should create an RpcError with a numeric error code', () => {

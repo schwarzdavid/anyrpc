@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AbstractIFrameAdapter, IFrameAdapterOptions } from '@/lib/adapter/iframe/AbstractIFrameAdapter'
+import { AbstractIFrameAdapter, type IFrameAdapterOptions } from '@/lib/adapter/iframe/AbstractIFrameAdapter'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
-import { RpcRequest } from '@/types/RpcMessages'
-import { MessageHandler } from '@/lib/AbstractRpcAdapter'
+import type { RpcRequest } from '@/types/RpcMessages'
+import type { MessageHandler } from '@/lib/AbstractRpcAdapter'
 
 interface TestMethods {
     foo(): void

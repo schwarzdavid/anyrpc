@@ -1,4 +1,4 @@
-import { RpcErrorData } from '@/types/RpcMessages'
+import type { RpcErrorData } from '@/types/RpcMessages'
 import { RPC_ERROR_MESSAGE_MAP, RPC_ERROR_NAME_MAP, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
 
 export class RpcError extends Error implements RpcErrorData {

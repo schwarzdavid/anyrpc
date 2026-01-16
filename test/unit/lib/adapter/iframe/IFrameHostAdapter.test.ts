@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { IFrameHostAdapter } from '@/lib/adapter/iframe/IFrameHostAdapter'
-import { RpcRequest, RpcResponse } from '@/types/RpcMessages'
+import type { RpcRequest, RpcResponse } from '@/types/RpcMessages'
 
 interface TestMethods {
     exampleMethod: (foo: string, bar: number) => Promise<string>

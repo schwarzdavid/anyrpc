@@ -1,6 +1,6 @@
-import { MethodMap } from '@/types/MethodMap'
-import { AbstractIFrameAdapter, IFrameAdapterOptions } from './AbstractIFrameAdapter'
-import { RpcSuccessResponse } from '@/types/RpcMessages'
+import type { MethodMap } from '@/types/MethodMap'
+import { AbstractIFrameAdapter, type IFrameAdapterOptions } from './AbstractIFrameAdapter'
+import type { RpcSuccessResponse } from '@/types/RpcMessages'
 import { uuid } from '@/utils/uuid'
 
 /* eslint-disable @typescript-eslint/no-this-alias */

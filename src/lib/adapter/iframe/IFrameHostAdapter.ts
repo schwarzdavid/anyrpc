@@ -1,7 +1,7 @@
-import { MethodMap } from '@/types/MethodMap'
-import { AbstractIFrameAdapter, IFrameAdapterOptions } from './AbstractIFrameAdapter'
-import { parseRpcMessage, RpcMessageType, RpcParsingResult } from '@/utils/rpc'
-import { RpcSuccessResponse } from '@/types/RpcMessages'
+import type { MethodMap } from '@/types/MethodMap'
+import { AbstractIFrameAdapter, type IFrameAdapterOptions } from './AbstractIFrameAdapter'
+import { parseRpcMessage, RpcMessageType, type RpcParsingResult } from '@/utils/rpc'
+import type { RpcSuccessResponse } from '@/types/RpcMessages'
 
 /* eslint-disable @typescript-eslint/no-this-alias */
 

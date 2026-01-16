@@ -1,5 +1,5 @@
 import { assertType, describe, it } from 'vitest'
-import { AbstractIFrameAdapter, IFrameAdapterOptions } from '@/lib/adapter/iframe/AbstractIFrameAdapter'
+import { AbstractIFrameAdapter, type IFrameAdapterOptions } from '@/lib/adapter/iframe/AbstractIFrameAdapter'
 
 interface TestMethods {
     foo(baz: string): void
@@ -68,6 +68,6 @@ describe(AbstractIFrameAdapter, () => {
         const adapter = new MockRpcAdapter()
 
         // @ts-expect-error
-        assertType(adapter.sendMessage({id: 'any-id', jsonrpc: '2.0', result: 'not existing'}))
+        assertType(adapter.sendMessage({ id: 'any-id', jsonrpc: '2.0', result: 'not existing' }))
     })
 })

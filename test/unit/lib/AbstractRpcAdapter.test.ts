@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { AbstractRpcAdapter, ConnectionHandler, MessageHandler } from '@/lib/AbstractRpcAdapter'
-import { RpcMessage } from '@/types/RpcMessages'
+import { AbstractRpcAdapter, type ConnectionHandler, type MessageHandler } from '@/lib/AbstractRpcAdapter'
+import type { RpcMessage } from '@/types/RpcMessages'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 
 interface TestMethods {

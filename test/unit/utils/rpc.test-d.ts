@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, it } from 'vitest'
 import { parseRpcMessage, RpcMessageType } from '@/utils/rpc'
-import { RpcRequest, RpcResponse } from '@/types/RpcMessages'
+import type { RpcRequest, RpcResponse } from '@/types/RpcMessages'
 
 interface TestMethods {
     exampleMethod: (foo: string, bar: number) => Promise<string>
