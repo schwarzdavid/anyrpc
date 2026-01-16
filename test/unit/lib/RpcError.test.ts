@@ -45,11 +45,53 @@ describe(RpcError, () => {
 
     it('should handle an invalid type gracefully', () => {
         try {
-            // @ts-expect-error Invalid input type to simulate TypeScript type-checking behavior
+            // @ts-expect-error
             new RpcError('invalid')
         } catch (error) {
             // eslint-disable-next-line vitest/no-conditional-expect
             expect(error).toBeInstanceOf(Error)
         }
+    })
+
+    it('should should not print stacktrace by default', () => {
+        const error = new RpcError({
+            code: RpcErrorCode.SERVER_ERROR,
+            message: 'test',
+            data: new Error('test'),
+        })
+
+        const errorJson = error.toJSON()
+
+        expect(errorJson.data).toStrictEqual(expect.any(Object))
+        expect(errorJson.data.name).toBe('Error')
+        expect(errorJson.data.message).toBe('test')
+        expect(errorJson.data.stack).toBeUndefined()
+    })
+
+    it('should print stacktrace if option is set', () => {
+        const error = new RpcError(
+            {
+                code: RpcErrorCode.SERVER_ERROR,
+                message: 'test',
+                data: new Error('test'),
+            },
+            true,
+        )
+
+        const errorJson = error.toJSON()
+
+        expect(errorJson.data).toStrictEqual(expect.any(Object))
+        expect(errorJson.data.name).toBe('Error')
+        expect(errorJson.data.message).toBe('test')
+        expect(errorJson.data.stack).toStrictEqual(expect.any(String))
+    })
+
+    it('should set data if it is not an error', () => {
+        const data = { foo: 'bar' }
+        const error = new RpcError({ code: RpcErrorCode.SERVER_ERROR, message: 'test', data })
+
+        const errorJson = error.toJSON()
+
+        expect(errorJson.data).toStrictEqual(data)
     })
 })

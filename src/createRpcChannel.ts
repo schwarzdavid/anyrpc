@@ -15,12 +15,17 @@ import {
     CONNECTION_CLOSED_EVENT,
 } from '@/constants/DEFAULT_EVENTS'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
+import { Logger } from '@/lib/Logger'
+import { LogLevel } from '@/types/LogLevel'
 
 export interface RpcChannelOptions {
     timeout: number
     queueEnabled: boolean
     queueTimeout: number
     queueAwait: boolean
+    errorIncludeStack: boolean
+    logLevel: LogLevel
+    autoConnect: boolean
 }
 
 type MessageResolveFn = (resolveValue: unknown) => void
@@ -48,36 +53,24 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     adapter: AbstractRpcAdapter<Methods, Events>,
     options: Partial<RpcChannelOptions> = {},
 ) {
-    options = Object.assign<RpcChannelOptions, Partial<RpcChannelOptions>>(
-        { timeout: 3000, queueEnabled: false, queueTimeout: 10000, queueAwait: false } satisfies RpcChannelOptions,
+    const mergedOptions = Object.assign<RpcChannelOptions, Partial<RpcChannelOptions>>(
+        {
+            timeout: 3000,
+            queueEnabled: false,
+            queueTimeout: 10000,
+            queueAwait: false,
+            errorIncludeStack: false,
+            logLevel: LogLevel.INFO,
+            autoConnect: true,
+        } satisfies RpcChannelOptions,
         options,
     )
 
+    const logger = new Logger('RpcChannel', mergedOptions.logLevel)
     const events = new EventEmitter<Events>()
     const anyRpcEvents = new EventEmitter<AnyRpcEvents>()
     const pendingMessageRegistry: PendingMessageRegistry = {}
     const queuedMessages: QueuedMessage<Methods>[] = []
-
-    adapter.messageHandler = async function rpcChannelMessageHandler(data) {
-        const { type, message } = parseRpcMessage<Methods, Events>(data)
-
-        if (type === RpcMessageType.RESPONSE) {
-            handleResponse(message)
-            return
-        }
-        await handleRequest(message)
-    }
-
-    adapter.connectionHandler = async function rpcChannelConnectionHandler(status) {
-        void anyRpcEvents.dispatchEvent(CONNECTION_CHANGE_EVENT, [status])
-
-        if (status === ConnectionStatus.CONNECTED) {
-            await processQueuedMessages()
-            void anyRpcEvents.dispatchEvent(CONNECTED_EVENT, [])
-        } else {
-            void anyRpcEvents.dispatchEvent(CONNECTION_CLOSED_EVENT, [])
-        }
-    }
 
     const meta: RpcChannelMeta = {
         get status() {
@@ -94,11 +87,42 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         },
     }
 
+    adapter.initLogger(mergedOptions.logLevel)
+
+    adapter.messageHandler = async function rpcChannelMessageHandler(data) {
+        const { type, message } = parseRpcMessage<Methods, Events>(data)
+
+        if (type === RpcMessageType.RESPONSE) {
+            handleResponse(message)
+            return
+        }
+        await handleRequest(message)
+    }
+
+    adapter.connectionHandler = async function rpcChannelConnectionHandler(status) {
+        logger.debug(`Connection status changed to ${status}`)
+
+        void anyRpcEvents.dispatchEvent(CONNECTION_CHANGE_EVENT, [status])
+
+        if (status === ConnectionStatus.CONNECTED) {
+            await processQueuedMessages()
+            void anyRpcEvents.dispatchEvent(CONNECTED_EVENT, [])
+        } else {
+            void anyRpcEvents.dispatchEvent(CONNECTION_CLOSED_EVENT, [])
+        }
+    }
+
+    if (mergedOptions.autoConnect) {
+        adapter.connect()
+    }
+
     function handleResponse(message: RpcResponse<Methods>): void {
         if (isRpcErrorResponse(message)) {
+            logger.debug('Received error response', message)
             pendingMessageRegistry[message.id]?.reject(new RpcError(message.error))
             return
         }
+        logger.debug('Received successful response', message)
         pendingMessageRegistry[message.id]?.resolve(message.result)
     }
 
@@ -111,8 +135,6 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             const rpcError = new RpcError({
                 code: RpcErrorCode.SERVER_ERROR,
                 message: RPC_ERROR_NAME_MAP[RpcErrorCode.SERVER_ERROR],
-
-                // TODO: improve error serialization & make error details configurable
                 data: error,
             })
 
@@ -137,7 +159,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         if (adapter.connectionStatus === ConnectionStatus.CONNECTED) {
             return sendRequest(method, params)
         }
-        if (options.queueEnabled) {
+        if (mergedOptions.queueEnabled) {
             return addRequestToConnectionQueue(method, params)
         }
         throw new RpcError(RpcErrorCode.NOT_CONNECTED)
@@ -156,7 +178,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         }
 
         return new Promise((resolve, reject) => {
-            const timeoutId = setTimeout(() => reject(new RpcError(RpcErrorCode.TIMEOUT_ERROR)), options.timeout)
+            const timeoutId = setTimeout(() => reject(new RpcError(RpcErrorCode.TIMEOUT_ERROR)), mergedOptions.timeout)
 
             pendingMessageRegistry[id] = {
                 resolve: (value) => {
@@ -188,7 +210,10 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         }
 
         return new Promise((resolve, reject) => {
-            const timeoutId = setTimeout(() => reject(new RpcError(RpcErrorCode.TIMEOUT_ERROR)), options.queueTimeout)
+            const timeoutId = setTimeout(
+                () => reject(new RpcError(RpcErrorCode.TIMEOUT_ERROR)),
+                mergedOptions.queueTimeout,
+            )
 
             queuedMessages.push({
                 request,
@@ -220,7 +245,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
                 .then(queuedMessage.resolve)
                 .catch(queuedMessage.reject)
 
-            if (options.queueAwait) {
+            if (mergedOptions.queueAwait) {
                 await promise
             }
         }

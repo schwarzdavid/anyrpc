@@ -7,7 +7,12 @@ export class RpcError extends Error implements RpcErrorData {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     readonly data?: any
 
-    constructor(errorCode: RpcErrorCode | RpcErrorData) {
+    constructor(errorCode: RpcErrorCode)
+    constructor(error: RpcErrorData, includeStack?: boolean)
+    constructor(
+        errorCode: RpcErrorCode | RpcErrorData,
+        private readonly includeStack = false,
+    ) {
         if (typeof errorCode === 'number') {
             super(RPC_ERROR_NAME_MAP[errorCode])
 
@@ -25,7 +30,14 @@ export class RpcError extends Error implements RpcErrorData {
         return {
             code: this.code,
             message: this.message,
-            data: this.data,
+            data:
+                this.data instanceof Error
+                    ? {
+                          message: this.data.message,
+                          name: this.data.name,
+                          stack: this.includeStack ? this.data.stack : undefined,
+                      }
+                    : this.data,
         }
     }
 }

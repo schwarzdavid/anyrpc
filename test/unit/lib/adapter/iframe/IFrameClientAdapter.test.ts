@@ -58,6 +58,7 @@ describe(IFrameClientAdapter, () => {
 
         adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
         adapter.connectionHandler = onConnectionHandler
+        adapter.connect()
 
         expect(addEventListenerSpy).toHaveBeenCalledWith('message', expect.any(Function))
         expect(parentWindowMock.postMessage).toHaveBeenCalledWith(
@@ -87,6 +88,7 @@ describe(IFrameClientAdapter, () => {
 
     it('should send messages to parent after successful connection', () => {
         adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
+        adapter.connect()
 
         const initResponse: RpcResponse<any> = {
             jsonrpc: '2.0',
@@ -120,6 +122,7 @@ describe(IFrameClientAdapter, () => {
         }
 
         adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
+        adapter.connect()
 
         vi.advanceTimersByTime(4500)
 
@@ -148,6 +151,7 @@ describe(IFrameClientAdapter, () => {
         const onConnectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
         adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
+        adapter.connect()
 
         expect(parentWindowMock.postMessage).toHaveBeenCalledWith(
             {
@@ -183,6 +187,7 @@ describe(IFrameClientAdapter, () => {
         const onConnectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
         adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
+        adapter.connect()
 
         expect(parentWindowMock.postMessage).toHaveBeenCalledWith(
             {
@@ -213,6 +218,7 @@ describe(IFrameClientAdapter, () => {
         const onConnectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
         adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
+        adapter.connect()
 
         expect(parentWindowMock.postMessage).toHaveBeenCalledWith(
             {
@@ -243,6 +249,7 @@ describe(IFrameClientAdapter, () => {
         const onConnectionHandler = vi.fn<(status: ConnectionStatus) => void>()
 
         adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
+        adapter.connect()
 
         expect(parentWindowMock.postMessage).toHaveBeenCalledWith(
             {
@@ -276,6 +283,7 @@ describe(IFrameClientAdapter, () => {
         adapter = new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
             origin: originHandlerFn,
         })
+        adapter.connect()
 
         expect(parentWindowMock.postMessage).toHaveBeenCalledWith(
             {
@@ -306,6 +314,7 @@ describe(IFrameClientAdapter, () => {
         adapter = new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
             origin: 'https://example.com',
         })
+        adapter.connect()
 
         expect((adapter as any).isOriginValid('https://example.com')).toBe(true)
         expect((adapter as any).isOriginValid('http://example.com')).toBe(false)
@@ -317,6 +326,7 @@ describe(IFrameClientAdapter, () => {
         adapter = new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
             origin: /^http(s?):\/\/(.*).com/u,
         })
+        adapter.connect()
 
         expect((adapter as any).isOriginValid('https://example.com')).toBe(true)
         expect((adapter as any).isOriginValid('http://example.com')).toBe(true)
@@ -341,6 +351,7 @@ describe(IFrameClientAdapter, () => {
         adapter = new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
             origin: originFn,
         })
+        adapter.connect()
 
         originFn.mockReturnValueOnce(true)
         const truthyResult = (adapter as any).isOriginValid('https://example.com')
@@ -359,6 +370,7 @@ describe(IFrameClientAdapter, () => {
         adapter = new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
             origin: true,
         })
+        adapter.connect()
 
         expect((adapter as any).isOriginValid('http://abc.def')).toBe(true)
         expect((adapter as any).isOriginValid('https://google.com')).toBe(true)
@@ -370,6 +382,7 @@ describe(IFrameClientAdapter, () => {
         adapter = new IFrameClientAdapter<TestMethods, TestEvents>(undefined, {
             pollingInterval: 5,
         })
+        adapter.connect()
 
         expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 5)
     })
@@ -378,6 +391,7 @@ describe(IFrameClientAdapter, () => {
         const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')
         const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
         const adapter = new IFrameClientAdapter<TestMethods, TestEvents>()
+        adapter.connect()
 
         const initResponse: RpcResponse<any> = {
             jsonrpc: '2.0',

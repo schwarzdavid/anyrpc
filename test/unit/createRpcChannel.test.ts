@@ -29,6 +29,8 @@ class MockAdapter<M extends MethodMap<M> = TestMethods, E extends MethodMap<E> =
 
     sendMessage = vi.fn<(msg: RpcMessage<M, E>) => unknown>()
 
+    connect = vi.fn<() => void>()
+
     async triggerMessageHandler(message: any) {
         const handler = (this as any)._messageHandler
         await handler?.(message)
@@ -214,7 +216,7 @@ describe(createRpcChannel, () => {
         const channel = createRpcChannel(adapter)
 
         expect(channel.$).toStrictEqual({
-            status: expect.any(Number),
+            status: expect.any(String),
             addEventListener: expect.any(Function),
             removeEventListener: expect.any(Function),
             destroy: expect.any(Function),
@@ -373,5 +375,12 @@ describe(createRpcChannel, () => {
         expect(adapter.sendMessage).toHaveBeenCalledTimes(2)
         await expect(addPromise).resolves.toBe(5)
         await expect(subtractPromise).rejects.toThrowError(new RpcError(RpcErrorCode.SERVER_ERROR))
+    })
+
+    it('should not connect if autoConnect is false', () => {
+        const adapter = new MockAdapter(ConnectionStatus.CLOSED)
+        createRpcChannel(adapter, { autoConnect: false })
+
+        expect(adapter.connect).not.toHaveBeenCalled()
     })
 })

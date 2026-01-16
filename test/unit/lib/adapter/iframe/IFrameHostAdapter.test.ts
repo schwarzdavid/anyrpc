@@ -42,6 +42,7 @@ describe(IFrameHostAdapter, () => {
         }
 
         adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
+        adapter.connect()
 
         expect(addEventListenerSpy).toHaveBeenCalledWith('message', expect.anything())
 
@@ -73,6 +74,7 @@ describe(IFrameHostAdapter, () => {
         }
 
         adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, undefined, { reconnect: false })
+        adapter.connect()
 
         expect(addEventListenerSpy).toHaveBeenCalledWith('message', expect.anything())
 
@@ -104,6 +106,7 @@ describe(IFrameHostAdapter, () => {
         adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, undefined, {
             postMessageOrigin: 'https://example.com',
         })
+        adapter.connect()
 
         global.window.dispatchEvent(
             new MessageEvent('message', { data: initRequestMessage, source: mockContentWindow }),
@@ -122,6 +125,7 @@ describe(IFrameHostAdapter, () => {
 
     it('should ignore invalid messages from iframe on connection', () => {
         adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
+        adapter.connect()
 
         global.window.dispatchEvent(new MessageEvent('message', { data: 'im a gummy bear', source: mockContentWindow }))
 
@@ -136,6 +140,7 @@ describe(IFrameHostAdapter, () => {
         }
 
         adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
+        adapter.connect()
 
         global.window.dispatchEvent(
             new MessageEvent('message', { data: randomResponseMessage, source: mockContentWindow }),
@@ -153,6 +158,7 @@ describe(IFrameHostAdapter, () => {
         }
 
         adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
+        adapter.connect()
 
         global.window.dispatchEvent(
             new MessageEvent('message', { data: randomRequestMessage, source: mockContentWindow }),
@@ -170,6 +176,7 @@ describe(IFrameHostAdapter, () => {
         }
 
         adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, 'custom-name')
+        adapter.connect()
 
         global.window.dispatchEvent(
             new MessageEvent('message', { data: initRequestMessage, source: mockContentWindow }),
@@ -188,6 +195,7 @@ describe(IFrameHostAdapter, () => {
         }
 
         adapter = new IFrameHostAdapter(mockIframe)
+        adapter.connect()
 
         global.window.dispatchEvent(
             new MessageEvent('message', { data: initRequestMessage, source: {} as unknown as Window }),

@@ -39,11 +39,9 @@ export class IFrameClientAdapter<
         super(options)
         this.pollingInterval = options?.pollingInterval ?? 1000
         this.allowedOrigin = options?.origin ?? true
-
-        this.establishConnection()
     }
 
-    private establishConnection() {
+    connect() {
         const adapter = this
 
         this.messageEventListener = (event: MessageEvent) => {

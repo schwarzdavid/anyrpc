@@ -19,11 +19,10 @@ class TestAdapter<M extends MethodMap<M> = TestMethods, E extends MethodMap<E> =
     M,
     E
 > {
-    constructor() {
-        super()
+    sendMessage = vi.fn<(message: RpcMessage<M, E>) => unknown>()
+    connect() {
         this.connectionStatus = ConnectionStatus.CONNECTED
     }
-    override sendMessage = vi.fn<(message: RpcMessage<M, E>) => unknown>()
 }
 
 describe(createRpcChannel, () => {

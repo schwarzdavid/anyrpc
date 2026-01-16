@@ -24,11 +24,9 @@ export class IFrameHostAdapter<
     ) {
         super(options)
         this.reconnect = options?.reconnect ?? true
-
-        this.establishConnection()
     }
 
-    private establishConnection() {
+    connect() {
         const adapter = this
 
         this.messageEventListener = (event: MessageEvent) => {
