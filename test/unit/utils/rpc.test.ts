@@ -108,6 +108,16 @@ describe(parseRpcMessage, () => {
         expect(() => parseRpcMessage(ambiguousMessage)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
     })
 
+    it('should throw an error for messages that are neither request nor response', () => {
+        const unknownMessage = {
+            jsonrpc: '2.0',
+            id: 1,
+            params: { example: 'value' },
+        }
+
+        expect(() => parseRpcMessage(unknownMessage)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
+    })
+
     it('should throw an error for invalid params in a request', () => {
         const invalidRequest = {
             jsonrpc: '2.0',

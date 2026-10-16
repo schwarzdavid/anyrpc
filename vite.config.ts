@@ -31,5 +31,9 @@ export default defineConfig({
         include: ['test/unit/**/*.test.ts', 'test/unit/**/*.test-d.ts'],
         silent: 'passed-only',
         environment: 'jsdom',
+        coverage: {
+            include: ['src/**'],
+            thresholds: { 100: true },
+        },
     },
 })

@@ -41,20 +41,7 @@ export function parseRpcMessage<Methods extends MethodMap<Methods>, Events exten
     const isRequest = Object.hasOwn(messageObj, 'method')
     const isResponse = Object.hasOwn(messageObj, 'result') || Object.hasOwn(messageObj, 'error')
 
-    if (isResponse === isRequest) {
-        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
-    }
-
-    if (isResponse) {
-        validateResponseMessage(messageObj)
-
-        return {
-            type: RpcMessageType.RESPONSE,
-            message: messageObj,
-        }
-    }
-
-    if (isRequest) {
+    if (isRequest && !isResponse) {
         validateRequestMessage(messageObj)
 
         return {
@@ -63,9 +50,16 @@ export function parseRpcMessage<Methods extends MethodMap<Methods>, Events exten
         }
     }
 
-    // Unreachable code to prevent TS from complaining about missing return statement
-    /* v8 ignore next -- @preserve */
-    throw new RpcError(RpcErrorCode.INTERNAL_ERROR)
+    if (isResponse && !isRequest) {
+        validateResponseMessage(messageObj)
+
+        return {
+            type: RpcMessageType.RESPONSE,
+            message: messageObj,
+        }
+    }
+
+    throw new RpcError(RpcErrorCode.INVALID_REQUEST)
 }
 
 function validateBaseMessage(message: Record<string, unknown>): void {
