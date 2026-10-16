@@ -20,7 +20,7 @@ Talking to another JavaScript context, such as an iframe, a worker or a socket, 
 - **Connection handshake boilerplate.** An iframe may not be loaded yet when the host wants to talk to it. You need a handshake, retries, origin checks and a way to know when the other side is ready.
 - **Messages from everyone.** `window.onmessage` receives messages from every frame and browser extension on the page, so you end up writing a lot of filtering code.
 
-anyrpc takes care of all of this. You describe both directions of communication as TypeScript interfaces and get back a typed proxy object. Calling a method sends a request, and the remote listener's return value (or thrown error) comes back as the resolved (or rejected) promise.
+anyrpc takes care of all of this. You describe both directions of communication as TypeScript interfaces and get back a typed proxy object. Calling a method sends a request, and the remote handler's return value (or thrown error) comes back as the resolved (or rejected) promise.
 
 ## Features
 
@@ -30,7 +30,8 @@ anyrpc takes care of all of this. You describe both directions of communication 
 - 📬 **Optional request queue.** Calls made before the connection is established can be queued and sent once connected.
 - 🧯 **Error propagation.** Errors thrown in a remote handler are returned as JSON-RPC error responses and rejected locally as `RpcError`.
 - 🔌 **Pluggable transports.** Adapters implement a small abstract class (`connect`, `sendMessage`, `destroy`).
-- 📡 **Connection events.** Listen for `connected`, `closed` and `connection-change`.
+- 📡 **Connection events.** Listen for `rpc.connected`, `rpc.disconnected` and `rpc.status`.
+- 📣 **Notifications.** Fire-and-forget calls for `void` methods via `channel.method.notify(...)`, observable by any number of listeners.
 
 ## Adapters
 
@@ -82,13 +83,16 @@ const iframe = document.querySelector('iframe')!
 // createRpcChannel<MethodsICanCall, MethodsICanHandle>
 const channel = createRpcChannel<HostToIFrame, IFrameToHost>(new IFrameHostAdapter(iframe, 'my-app'))
 
-// Handle calls coming from the iframe
-channel.addEventListener('size', (width, height) => {
+// Answer calls coming from the iframe
+channel.$.handle('pong', () => console.log('pong received'))
+
+// Observe calls and notifications coming from the iframe
+channel.$.on('size', (width, height) => {
     console.log(`iframe is ${width}x${height}`)
 })
 
 // Call methods inside the iframe
-channel.$.addEventListener('connected', async () => {
+channel.$.on('rpc.connected', async () => {
     await channel.ping()
     const title = await channel.getTitle() // typed as string
 })
@@ -106,38 +110,52 @@ const channel = createRpcChannel<IFrameToHost, HostToIFrame>(
     new IFrameClientAdapter('my-app', { origin: 'https://host.example.com' }),
 )
 
-channel.addEventListener('ping', () => console.log('ping received'))
-channel.addEventListener('getTitle', () => document.title) // return value is sent back to the caller
+channel.$.handle('ping', () => console.log('ping received'))
+channel.$.handle('getTitle', () => document.title) // return value is sent back to the caller
 
-await channel.size(window.innerWidth, window.innerHeight)
+await channel.pong() // request: resolves once the host has handled it
+channel.size.notify(window.innerWidth, window.innerHeight) // notification: fire-and-forget, no response
 ```
 
 Both adapters must use the same **name** (`'my-app'` above). This lets several independent channels share one page.
 
 ### Channel API
 
-| Member                                            | Description                                                                                                                                           |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `channel.<method>(...args)`                       | Calls a remote method. Always returns a `Promise` of the method's return type.                                                                        |
-| `channel.addEventListener(name, fn, { passive })` | Handles incoming calls. Only **one** non-passive listener per method may exist, and its return value is the response. Passive listeners only observe. |
-| `channel.removeEventListener(name, fn)`           | Removes a listener.                                                                                                                                   |
-| `channel.$.status`                                | Current `ConnectionStatus` (`'connected'` or `'closed'`).                                                                                             |
-| `channel.$.addEventListener(event, fn)`           | Listens for connection events: `'connected'`, `'closed'`, `'connection-change'`.                                                                      |
-| `channel.$.destroy()`                             | Closes the connection and removes all listeners from the transport.                                                                                   |
+| Member                                                                    | Description                                                                                                                                                         |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `channel.<method>(...args)`                                               | Calls a remote method (JSON-RPC request). Always returns a `Promise` of the method's return type.                                                                   |
+| `channel.<method>.notify(...args)`                                        | Sends a JSON-RPC notification: fire-and-forget, returns `void`. Only available for methods returning `void` or `Promise<void>`.                                     |
+| `channel.$.handle(name, fn)`                                              | Answers incoming calls of `name`. Only **one** handler per method; its return value is the response. Returns a function that removes the handler.                   |
+| `channel.$.on(name, fn)`                                                  | Observes incoming calls and notifications of `name`. Any number of listeners; return values are ignored. Returns a function that removes the listener.              |
+| `channel.$.on('rpc.connected' \| 'rpc.disconnected' \| 'rpc.status', fn)` | Listens for connection events. `rpc.status` receives the new `ConnectionStatus`.                                                                                    |
+| `channel.$.on('rpc.error', fn)`                                           | Receives an `RpcError` for every invalid incoming message and for error responses the other side could not assign to a request (`id: null`). Useful for monitoring. |
+| `channel.$.status`                                                        | Current `ConnectionStatus` (`'connected'` or `'disconnected'`).                                                                                                     |
+| `channel.$.destroy()`                                                     | Closes the connection and removes all listeners from the transport.                                                                                                 |
+
+The only property names a remote method cannot have are `$`, `then` and names starting with `rpc.` (reserved by JSON-RPC 2.0, used here for channel events).
+
+### Requests, notifications and listeners
+
+- **Requests** (`channel.ping()`) wait for a response. If no handler is registered on the other side, the promise rejects with `-32601` (method not found).
+- **Notifications** (`channel.size.notify(...)`) never get a response. On the receiving side, the handler (if any) and all `on`-listeners run; errors are only logged. Use them for events where the caller does not need a result or an acknowledgement.
+- **Listeners** registered with `$.on` run for every incoming call, before the handler. Each listener is isolated: if one throws, the error is logged and neither other listeners nor the response are affected.
+- For **requests without a handler**, listeners do not run by default, because the call failed for the caller. Set `unhandledRequests: 'observe'` to run them anyway (the caller still receives `-32601`).
+- When the queue is enabled, notifications made while disconnected are queued as well. If no connection is established within `queueTimeout`, they are dropped with a warning.
 
 ### Channel options
 
 `createRpcChannel(adapter, options)` takes an optional second argument:
 
-| Option              | Default | Description                                                                                          |
-| ------------------- | ------- | ---------------------------------------------------------------------------------------------------- |
-| `timeout`           | `3000`  | Milliseconds to wait for a response before rejecting with a timeout `RpcError`.                      |
-| `queueEnabled`      | `false` | Queue calls made while disconnected instead of rejecting them immediately.                           |
-| `queueTimeout`      | `10000` | Milliseconds a queued call may wait for a connection before it rejects.                              |
-| `queueAwait`        | `false` | Send queued calls one after another, waiting for each response, instead of all at once.              |
-| `autoConnect`       | `true`  | Call `adapter.connect()` automatically when the channel is created.                                  |
-| `errorIncludeStack` | `false` | Include the stack trace of errors thrown in your listeners in the error response sent to the caller. |
-| `logLevel`          | `INFO`  | Log verbosity (`DEBUG`, `INFO`, `WARN`, `ERROR`, `NONE`).                                            |
+| Option              | Default    | Description                                                                                                                                             |
+| ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `timeout`           | `3000`     | Milliseconds to wait for a response before rejecting with a timeout `RpcError`.                                                                         |
+| `queueEnabled`      | `false`    | Queue calls made while disconnected instead of rejecting them immediately.                                                                              |
+| `queueTimeout`      | `10000`    | Milliseconds a queued call may wait for a connection before it rejects.                                                                                 |
+| `queueAwait`        | `false`    | Send queued calls one after another, waiting for each response, instead of all at once.                                                                 |
+| `autoConnect`       | `true`     | Call `adapter.connect()` automatically when the channel is created.                                                                                     |
+| `errorIncludeStack` | `false`    | Include the stack trace of errors thrown in your handlers in the error response sent to the caller.                                                     |
+| `unhandledRequests` | `'reject'` | `'reject'`: requests without a handler are answered with `-32601` and listeners do not run. `'observe'`: listeners run, the response is still `-32601`. |
+| `logLevel`          | `INFO`     | Log verbosity (`DEBUG`, `INFO`, `WARN`, `ERROR`, `NONE`).                                                                                               |
 
 ### iframe adapter options
 
@@ -170,20 +188,26 @@ try {
 }
 ```
 
-| Code     | Origin | Meaning                                                                                   |
-| -------- | ------ | ----------------------------------------------------------------------------------------- |
-| `-32601` | remote | No listener is registered for the called method, or the method name starts with `rpc.`.   |
-| `-32602` | remote | The call used named params (an object). Listeners only support positional params.         |
-| `-32000` | remote | The remote listener threw. The original error's `name` and `message` are in `data`.       |
-| `-31001` | local  | No response arrived within `timeout`, or a queued call waited longer than `queueTimeout`. |
-| `-31002` | local  | The method was called while disconnected and the queue is disabled.                       |
+| Code     | Origin | Meaning                                                                                                                                                 |
+| -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-32700` | remote | The other side could not parse the message as JSON. `data.reason` explains why.                                                                         |
+| `-32600` | remote | The message is not a valid JSON-RPC request (e.g. `method` is not a string). `data.reason` explains why.                                                |
+| `-32601` | remote | No handler is registered for the called method, or the method name starts with `rpc.`.                                                                  |
+| `-32602` | remote | The call used named params (an object). Handlers only support positional params.                                                                        |
+| `-32603` | remote | The handler succeeded, but its result could not be sent (e.g. a function or DOM node that `postMessage` cannot clone). The original error is in `data`. |
+| `-32000` | remote | The remote handler threw. The original error's `name` and `message` are in `data`.                                                                      |
+| `-31001` | local  | No response arrived within `timeout`, or a queued call waited longer than `queueTimeout`.                                                               |
+| `-31002` | local  | The method was called while disconnected and the queue is disabled.                                                                                     |
 
-The local codes lie outside the range JSON-RPC reserves for protocol and server errors (`-32768` to `-32000`) and are never sent over the wire. If a listener throws an `RpcError` with an application-defined code (any code outside that range, except the local codes), the caller receives it unchanged. Every other error is wrapped in a `-32000` server error.
+The local codes lie outside the range JSON-RPC reserves for protocol and server errors (`-32768` to `-32000`) and are never sent over the wire. If a handler throws an `RpcError` with an application-defined code (any code outside that range, except the local codes), the caller receives it unchanged. Every other error is wrapped in a `-32000` server error.
 
 ### JSON-RPC compliance
 
-- **Batch requests are not supported.** anyrpc never sends batches, and an incoming array of requests is rejected as an invalid request.
-- Listeners that return `undefined` (e.g. `void` methods) respond with `result: null`, because `undefined` is not a JSON value. The caller receives `null`.
+- **Batch requests are not supported.** anyrpc never sends batches, and an incoming array of requests is answered with `-32600` (invalid request).
+- **Invalid incoming messages are answered with an error response.** Unparsable JSON gets `-32700`, a structurally invalid request or notification gets `-32600`, both with a `data.reason`. The response carries the message's `id` if it could be read, otherwise `id: null`. Invalid messages that look like responses (they contain `result` or `error`) are never answered, so two peers cannot end up in an error loop. Every invalid message is logged as a warning and emitted as `rpc.error`.
+- Error responses with `id: null` cannot be matched to a request. They are logged and emitted as `rpc.error`; the affected request rejects with a timeout.
+- Messages the transport receives from unrelated sources (e.g. other frames or browser extensions posting to `window`) are filtered by the adapter before they reach the channel and are never answered.
+- Handlers that return `undefined` (e.g. `void` methods) respond with `result: null`, because `undefined` is not a JSON value. The caller receives `null`.
 - Method names starting with `rpc.` are reserved by the specification. Calling them throws, and incoming calls to them are answered with `-32601`.
 - A channel is never a thenable, so it can safely be returned from `async` functions. As a consequence, interface members named `then` cannot be called.
 
@@ -209,8 +233,6 @@ npm run build      # Build ESM + CJS bundles and type declarations into dist/
 
 **Protocol and behavior**
 
-- [ ] Respond with proper JSON-RPC error responses for malformed incoming messages instead of throwing in the message handler
-- [ ] Support JSON-RPC notifications (fire-and-forget requests without `id`)
 - [ ] Support request cancellation (e.g. via `AbortSignal`)
 - [ ] Warn when `IFrameClientAdapter` allows any origin (`origin: true`)
 

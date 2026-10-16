@@ -9,16 +9,15 @@ onReady(() => {
     const iframe = document.querySelector<HTMLIFrameElement>('iframe')!
     const channel = createRpcChannel<HostToIFrame, IFrameToHost>(new IFrameHostAdapter(iframe, 'example'))
 
-    channel.addEventListener('pong', () => {
+    channel.$.handle('pong', () => {
         log(MessageType.RECEIVED, 'pong')
     })
 
-    channel.addEventListener('size', (width, height) => {
+    channel.$.on('size', (width, height) => {
         log(MessageType.RECEIVED, 'size', width, height)
     })
 
-    channel.$.addEventListener('connection-change', (status) => {
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+    channel.$.on('rpc.status', (status) => {
         log(MessageType.INFO, `Connection status ${status}`)
     })
 

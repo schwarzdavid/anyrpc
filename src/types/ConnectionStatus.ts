@@ -1,4 +1,4 @@
 export const enum ConnectionStatus {
     CONNECTED = 'connected',
-    CLOSED = 'closed',
+    DISCONNECTED = 'disconnected',
 }

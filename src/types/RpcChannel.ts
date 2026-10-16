@@ -1,23 +1,36 @@
-import type { PublicEventEmitter } from './EventEmitter'
+import type { RpcHandler, RpcListener, Unsubscribe } from './EventEmitter'
 import type { MethodFn, MethodMap } from './MethodMap'
-import { ConnectionStatus } from './ConnectionStatus'
-import type { AnyRpcEvents } from '@/constants/DEFAULT_EVENTS'
+import type { ConnectionStatus } from './ConnectionStatus'
+import type { RpcChannelEvents } from './RpcChannelEvents'
 
-// Always returns a promise which is not obligatory for passed generic methods
-export type RpcChannelMethod<Fn extends MethodFn> = (...args: Parameters<Fn>) => Promise<Awaited<ReturnType<Fn>>>
+export type ReservedMethodName = `rpc.${string}`
 
-export interface RpcChannelMeta extends PublicEventEmitter<AnyRpcEvents> {
+export type UncallableMethodName = '$' | 'then' | ReservedMethodName
+
+export interface RpcNotifiable<Fn extends MethodFn> {
+    notify(...args: Parameters<Fn>): void
+}
+
+export type RpcChannelMethod<Fn extends MethodFn> = ((...args: Parameters<Fn>) => Promise<Awaited<ReturnType<Fn>>>) &
+    ([Promise<Awaited<ReturnType<Fn>>>] extends [Promise<void>] ? RpcNotifiable<Fn> : unknown)
+
+export type RpcHandleableName<Events extends MethodMap<Events>> = Exclude<keyof Events, ReservedMethodName>
+
+export type RpcObservableEvents<Events extends MethodMap<Events>> = Pick<Events, RpcHandleableName<Events>> &
+    RpcChannelEvents
+
+export interface RpcChannelMeta<Events extends MethodMap<Events>> {
     readonly status: ConnectionStatus
+    handle<Name extends RpcHandleableName<Events>>(name: Name, handler: RpcHandler<Events[Name]>): Unsubscribe
+    on<Name extends keyof RpcObservableEvents<Events>>(
+        name: Name,
+        listener: RpcListener<RpcObservableEvents<Events>[Name]>,
+    ): Unsubscribe
     destroy(): void
 }
 
-export type UncallableMethodName = 'then' | `rpc.${string}`
-
-export type RpcChannel<
-    Methods extends MethodMap<Methods>,
-    Events extends MethodMap<Events>,
-> = PublicEventEmitter<Events> & {
+export type RpcChannel<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> = {
     [Method in Exclude<keyof Methods, UncallableMethodName>]: RpcChannelMethod<Methods[Method]>
 } & {
-    readonly $: RpcChannelMeta
+    readonly $: RpcChannelMeta<Events>
 }

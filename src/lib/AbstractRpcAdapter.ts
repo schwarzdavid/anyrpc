@@ -11,7 +11,7 @@ export type ConnectionHandler = (status: ConnectionStatus) => Promisable<unknown
 export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> {
     private _messageHandler?: MessageHandler
     private _connectionHandler?: ConnectionHandler
-    private _connectionStatus: ConnectionStatus = ConnectionStatus.CLOSED
+    private _connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED
     protected logger?: Logger
 
     get connectionStatus(): ConnectionStatus {
@@ -44,6 +44,6 @@ export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Eve
     }
 
     destroy(): void {
-        this.connectionStatus = ConnectionStatus.CLOSED
+        this.connectionStatus = ConnectionStatus.DISCONNECTED
     }
 }
