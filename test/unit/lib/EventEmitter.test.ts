@@ -1,229 +1,95 @@
 import { describe, expect, it, vi } from 'vitest'
-import { EventEmitter, type EventListenerEntry } from '@/lib/EventEmitter'
+import { EventEmitter } from '@/lib/EventEmitter'
 
 interface TestEvents {
-    testEvent: (arg: string) => Promise<string>
+    testEvent: (arg: string) => void
+    otherEvent: () => void
+}
+
+function createEmitter() {
+    const onListenerError = vi.fn<(error: unknown, type: keyof TestEvents) => void>()
+    const eventEmitter = new EventEmitter<TestEvents>(onListenerError)
+    return { eventEmitter, onListenerError }
 }
 
 describe(EventEmitter, () => {
-    describe('addEventListener', () => {
-        it('should register event listener', () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const listener = vi.fn<(arg: string) => string>()
+    it('should call all listeners of an event with the given params', () => {
+        const { eventEmitter } = createEmitter()
+        const firstListener = vi.fn<(arg: string) => void>()
+        const secondListener = vi.fn<(arg: string) => void>()
 
-            eventEmitter.addEventListener('testEvent', listener)
+        eventEmitter.on('testEvent', firstListener)
+        eventEmitter.on('testEvent', secondListener)
+        eventEmitter.emit('testEvent', ['arg'])
 
-            expect((eventEmitter as any).registry.testEvent).toHaveLength(1)
-            expect((eventEmitter as any).registry.testEvent[0].listener).toBe(listener)
-        })
-
-        it('should throw an error when adding more than one non-passive listener', () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const listener1 = vi.fn<(arg: string) => string>()
-            const listener2 = vi.fn<(arg: string) => string>()
-
-            eventEmitter.addEventListener('testEvent', listener1)
-
-            expect(() => {
-                eventEmitter.addEventListener('testEvent', listener2)
-            }).toThrowError('Only one non-passive listener can be registered for an event type')
-        })
-
-        it('should allow multiple passive listeners for the same event', () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const passiveListener1 = vi.fn<(arg: string) => string>()
-            const passiveListener2 = vi.fn<(arg: string) => string>()
-
-            eventEmitter.addEventListener('testEvent', passiveListener1, { passive: true })
-            eventEmitter.addEventListener('testEvent', passiveListener2, { passive: true })
-
-            const registry: EventListenerEntry<TestEvents['testEvent']>[] = (eventEmitter as any).registry.testEvent
-
-            expect(registry).toHaveLength(2)
-            expect(registry[0]?.listener).toBe(passiveListener1)
-            expect(registry[1]?.listener).toBe(passiveListener2)
-        })
+        expect(firstListener).toHaveBeenCalledWith('arg')
+        expect(secondListener).toHaveBeenCalledWith('arg')
     })
 
-    describe('removeEventListener', () => {
-        it('should remove previously registered active listener', () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const activeListener = vi.fn<(arg: string) => string>()
-            const passiveListener = vi.fn<(arg: string) => string>()
+    it('should only call listeners of the emitted event', () => {
+        const { eventEmitter } = createEmitter()
+        const otherListener = vi.fn<() => void>()
 
-            eventEmitter.addEventListener('testEvent', activeListener)
-            eventEmitter.addEventListener('testEvent', passiveListener, { passive: true })
-            eventEmitter.removeEventListener('testEvent', activeListener)
+        eventEmitter.on('otherEvent', otherListener)
+        eventEmitter.emit('testEvent', ['arg'])
 
-            const registry: EventListenerEntry<TestEvents['testEvent']>[] = (eventEmitter as any).registry.testEvent
-
-            expect(registry).toHaveLength(1)
-            expect(registry[0]?.listener).toBe(passiveListener)
-        })
-
-        it('should not throw an error when removing non-existing listener', () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const listener = vi.fn<(arg: string) => string>()
-
-            expect(() => {
-                eventEmitter.removeEventListener('testEvent', listener)
-            }).not.toThrowError()
-        })
-
-        it('should not remove all listeners of type', () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const listener = vi.fn<(arg: string) => string>()
-
-            eventEmitter.addEventListener('testEvent', listener, { passive: true })
-            eventEmitter.addEventListener('testEvent', listener, { passive: true })
-
-            eventEmitter.removeEventListener('testEvent', listener)
-
-            const registry: EventListenerEntry<TestEvents['testEvent']>[] = (eventEmitter as any).registry.testEvent
-
-            expect(registry).toHaveLength(1)
-            expect(registry[0]?.listener).toBe(listener)
-        })
-
-        it('should do nothing if listener has not been registered', () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const listener1 = vi.fn<(arg: string) => string>()
-            const listener2 = vi.fn<(arg: string) => string>()
-
-            eventEmitter.addEventListener('testEvent', listener2)
-
-            expect(() => eventEmitter.removeEventListener('testEvent', listener1)).not.toThrowError()
-        })
+        expect(otherListener).not.toHaveBeenCalled()
     })
 
-    describe('dispatchEvent', () => {
-        it('should dispatch event to all registered listeners', async () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const activeListener = vi.fn<(arg: string) => string>(() => 'result')
-            const passiveListener = vi.fn<(arg: string) => string>()
+    it('should not fail when emitting an event without listeners', () => {
+        const { eventEmitter } = createEmitter()
 
-            eventEmitter.addEventListener('testEvent', activeListener)
-            eventEmitter.addEventListener('testEvent', passiveListener, { passive: true })
-
-            const { result, error } = await eventEmitter.dispatchEvent('testEvent', ['arg'])
-
-            expect(activeListener).toHaveBeenCalledWith('arg')
-            expect(passiveListener).toHaveBeenCalledWith('arg')
-            expect(result).toBe('result')
-            expect(error).toBeUndefined()
-        })
-
-        it('should return undefined if no listeners are registered', async () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const registry: EventListenerEntry<TestEvents['testEvent']>[] = (eventEmitter as any).registry.testEvent
-
-            const { result, error } = await eventEmitter.dispatchEvent('testEvent', ['arg'])
-
-            expect(registry).toBeUndefined()
-            expect(result).toBeUndefined()
-            expect(error).toBeUndefined()
-        })
-
-        it('should return undefined if all registered listeners have been unregistered', async () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const listener = vi.fn<(arg: string) => string>()
-
-            eventEmitter.addEventListener('testEvent', listener)
-            eventEmitter.removeEventListener('testEvent', listener)
-
-            const registry: EventListenerEntry<TestEvents['testEvent']>[] = (eventEmitter as any).registry.testEvent
-            const { result, error } = await eventEmitter.dispatchEvent('testEvent', ['arg'])
-
-            expect(registry).toHaveLength(0)
-            expect(listener).not.toHaveBeenCalled()
-            expect(result).toBeUndefined()
-            expect(error).toBeUndefined()
-        })
-
-        it('should return undefined if only passive listeners are registered', async () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const listener = vi.fn<(arg: string) => string>()
-
-            eventEmitter.addEventListener('testEvent', listener, { passive: true })
-
-            const { result } = await eventEmitter.dispatchEvent('testEvent', ['arg'])
-
-            expect(result).toBeUndefined()
-            expect(result).toBeUndefined()
-        })
-
-        it('should execute active listener last', async () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const activeListener = vi.fn<(arg: string) => string>()
-            const passiveListener = vi.fn<(arg: string) => string>()
-
-            eventEmitter.addEventListener('testEvent', activeListener)
-            eventEmitter.addEventListener('testEvent', passiveListener, { passive: true })
-
-            await eventEmitter.dispatchEvent('testEvent', ['arg'])
-
-            expect(activeListener).toHaveBeenCalledAfter(passiveListener)
-        })
-
-        it('should return error if active listener throws an error', async () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const listener = vi.fn<(arg: string) => string>().mockRejectedValue(new Error('err'))
-
-            eventEmitter.addEventListener('testEvent', listener)
-
-            const { result, error } = await eventEmitter.dispatchEvent('testEvent', ['arg'])
-
-            expect(listener).toHaveBeenCalledWith('arg')
-            expect(result).toBeUndefined()
-            expect(error).toBeInstanceOf(Error)
-            expect(error?.message).toBe('err')
-        })
-
-        it('should ignore errors thrown by passive listeners', async () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const passiveListener = vi.fn<(arg: string) => string>().mockRejectedValue(new Error('err'))
-            const activeListener = vi.fn<(arg: string) => string>(() => 'result')
-
-            eventEmitter.addEventListener('testEvent', passiveListener, { passive: true })
-            eventEmitter.addEventListener('testEvent', activeListener)
-
-            const { result, error } = await eventEmitter.dispatchEvent('testEvent', ['arg'])
-
-            expect(error).toBeUndefined()
-            expect(result).toBe('result')
-            expect(passiveListener).toHaveBeenCalledWith('arg')
-        })
+        expect(() => eventEmitter.emit('testEvent', ['arg'])).not.toThrowError()
     })
 
-    describe('hasEventListeners', () => {
-        it('should return false if no listener was ever registered', () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
+    it('should stop calling a listener after unsubscribing', () => {
+        const { eventEmitter } = createEmitter()
+        const listener = vi.fn<(arg: string) => void>()
 
-            expect(eventEmitter.hasEventListeners('testEvent')).toBe(false)
+        const unsubscribe = eventEmitter.on('testEvent', listener)
+        unsubscribe()
+        eventEmitter.emit('testEvent', ['arg'])
+
+        expect(listener).not.toHaveBeenCalled()
+    })
+
+    it('should not call listeners added during an emit until the next emit', () => {
+        const { eventEmitter } = createEmitter()
+        const lateListener = vi.fn<(arg: string) => void>()
+
+        eventEmitter.on('testEvent', () => {
+            eventEmitter.on('testEvent', lateListener)
         })
+        eventEmitter.emit('testEvent', ['first'])
 
-        it('should return true if a listener is registered', () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
+        expect(lateListener).not.toHaveBeenCalled()
 
-            eventEmitter.addEventListener('testEvent', vi.fn<(arg: string) => string>(), { passive: true })
+        eventEmitter.emit('testEvent', ['second'])
 
-            expect(eventEmitter.hasEventListeners('testEvent')).toBe(true)
+        expect(lateListener).toHaveBeenCalledWith('second')
+    })
+
+    it('should report synchronous listener errors and keep calling other listeners', () => {
+        const { eventEmitter, onListenerError } = createEmitter()
+        const error = new Error('listener failed')
+        const secondListener = vi.fn<(arg: string) => void>()
+
+        eventEmitter.on('testEvent', () => {
+            throw error
         })
+        eventEmitter.on('testEvent', secondListener)
+        eventEmitter.emit('testEvent', ['arg'])
 
-        it('should return false after all listeners were removed', () => {
-            const eventEmitter = new EventEmitter<TestEvents>()
-            const listener = vi.fn<(arg: string) => string>()
+        expect(onListenerError).toHaveBeenCalledWith(error, 'testEvent')
+        expect(secondListener).toHaveBeenCalledWith('arg')
+    })
 
-            eventEmitter.addEventListener('testEvent', listener)
-            eventEmitter.removeEventListener('testEvent', listener)
+    it('should report rejected promises of async listeners', async () => {
+        const { eventEmitter, onListenerError } = createEmitter()
+        const error = new Error('listener failed')
 
-            expect(eventEmitter.hasEventListeners('testEvent')).toBe(false)
-        })
-
-        it('should not treat inherited object properties as listeners', () => {
-            const eventEmitter = new EventEmitter<Record<string, () => void>>()
-
-            expect(eventEmitter.hasEventListeners('constructor')).toBe(false)
-        })
+        eventEmitter.on('testEvent', () => Promise.reject(error))
+        eventEmitter.emit('testEvent', ['arg'])
+        await vi.waitFor(() => expect(onListenerError).toHaveBeenCalledWith(error, 'testEvent'))
     })
 })

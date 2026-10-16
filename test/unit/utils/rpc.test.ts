@@ -78,13 +78,25 @@ describe(parseRpcMessage, () => {
         expect(() => parseRpcMessage(invalidMessage)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
     })
 
-    it('should not throw an error if id is missing', () => {
-        const message = { ...validRequest }
+    it('should parse a message without id as notification', () => {
+        const notification = { jsonrpc: '2.0', method: 'exampleMethod', params: ['arg', 1] }
 
-        // @ts-ignore
-        delete message.id
+        const result = parseRpcMessage(notification)
 
-        expect(() => parseRpcMessage(message)).not.toThrowError()
+        expect(result.type).toBe(RpcMessageType.NOTIFICATION)
+        expect(result.message).toStrictEqual(notification)
+    })
+
+    it('should parse a message with null id as request', () => {
+        const request = { jsonrpc: '2.0', id: null, method: 'exampleMethod', params: [] }
+
+        expect(parseRpcMessage(request).type).toBe(RpcMessageType.REQUEST)
+    })
+
+    it('should default missing params of notifications to an empty array', () => {
+        const result = parseRpcMessage({ jsonrpc: '2.0', method: 'exampleMethod' })
+
+        expect(result.message).toStrictEqual({ jsonrpc: '2.0', method: 'exampleMethod', params: [] })
     })
 
     it('should throw an error for missing jsonrpc field', () => {

@@ -79,7 +79,7 @@ describe(AbstractIFrameAdapter, () => {
         adapter.destroy()
 
         expect(messagePortMock.close).toHaveBeenCalledWith()
-        expect(adapter.connectionStatus).toBe(ConnectionStatus.CLOSED)
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
     })
 
     it('should pass message to message handler', () => {

@@ -1,10 +1,17 @@
 import { RpcError } from '@/lib/RpcError'
 import { LOCAL_ERROR_CODES, RESERVED_ERROR_CODE_RANGE, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
-import type { RpcErrorData, RpcErrorResponse, RpcIncomingRequest, RpcResponse } from '@/types/RpcMessages'
+import type {
+    RpcErrorData,
+    RpcErrorResponse,
+    RpcIncomingNotification,
+    RpcIncomingRequest,
+    RpcResponse,
+} from '@/types/RpcMessages'
 import type { MethodMap } from '@/types/MethodMap'
 
 export const enum RpcMessageType {
     REQUEST,
+    NOTIFICATION,
     RESPONSE,
 }
 
@@ -18,9 +25,15 @@ export interface RpcRequestParsingResult<Methods extends MethodMap<Methods>> {
     type: RpcMessageType.REQUEST
 }
 
+export interface RpcNotificationParsingResult<Methods extends MethodMap<Methods>> {
+    message: RpcIncomingNotification<Methods>
+    type: RpcMessageType.NOTIFICATION
+}
+
 export type RpcParsingResult<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> =
     | RpcResponseParsingResult<Methods>
     | RpcRequestParsingResult<Events>
+    | RpcNotificationParsingResult<Events>
 
 const RESERVED_METHOD_PREFIX = 'rpc.'
 
@@ -31,17 +44,19 @@ export function parseRpcMessage<Methods extends MethodMap<Methods>, Events exten
 
     validateBaseMessage(messageObj)
 
-    const isRequest = Object.hasOwn(messageObj, 'method')
+    const hasMethod = Object.hasOwn(messageObj, 'method')
     const isResponse = Object.hasOwn(messageObj, 'result') || Object.hasOwn(messageObj, 'error')
 
-    if (isRequest && !isResponse) {
-        return {
-            type: RpcMessageType.REQUEST,
-            message: parseRequestMessage<Events>(messageObj),
+    if (hasMethod && !isResponse) {
+        const callMessage = parseCallMessage<Events>(messageObj)
+
+        if (Object.hasOwn(callMessage, 'id')) {
+            return { type: RpcMessageType.REQUEST, message: callMessage as RpcIncomingRequest<Events> }
         }
+        return { type: RpcMessageType.NOTIFICATION, message: callMessage }
     }
 
-    if (isResponse && !isRequest) {
+    if (isResponse && !hasMethod) {
         validateResponseMessage(messageObj)
 
         return {
@@ -87,9 +102,9 @@ function validateBaseMessage(message: Record<string, unknown>): void {
     }
 }
 
-function parseRequestMessage<Methods extends MethodMap<Methods>>(
+function parseCallMessage<Methods extends MethodMap<Methods>>(
     message: Record<string, unknown>,
-): RpcIncomingRequest<Methods> {
+): RpcIncomingNotification<Methods> {
     if (typeof message.method !== 'string') {
         throw new RpcError(RpcErrorCode.INVALID_REQUEST)
     }
@@ -97,7 +112,7 @@ function parseRequestMessage<Methods extends MethodMap<Methods>>(
     if (!Array.isArray(params) && !isRecord(params)) {
         throw new RpcError(RpcErrorCode.INVALID_REQUEST)
     }
-    return { ...message, params } as RpcIncomingRequest<Methods>
+    return { ...message, params } as RpcIncomingNotification<Methods>
 }
 
 function validateResponseMessage<Methods extends MethodMap<Methods>>(

@@ -8,12 +8,11 @@ onReady(() => {
     const log = createHtmlLogger(document.querySelector<HTMLUListElement>('#output')!)
     const channel = createRpcChannel<IFrameToHost, HostToIFrame>(new IFrameClientAdapter('example'))
 
-    channel.addEventListener('ping', () => {
+    channel.$.handle('ping', () => {
         log(MessageType.RECEIVED, 'ping')
     })
 
-    channel.$.addEventListener('connection-change', (status) => {
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+    channel.$.on('rpc.status', (status) => {
         log(MessageType.INFO, `Connection status ${status}`)
     })
 
@@ -23,7 +22,7 @@ onReady(() => {
     })
 
     document.querySelector('#send-size')?.addEventListener('click', () => {
-        log(MessageType.SENT, 'size', window.innerWidth, window.innerHeight)
-        void channel.size(window.innerWidth, window.innerHeight)
+        log(MessageType.SENT, 'size (notification)', window.innerWidth, window.innerHeight)
+        channel.size.notify(window.innerWidth, window.innerHeight)
     })
 })
