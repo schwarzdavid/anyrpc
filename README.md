@@ -178,20 +178,14 @@ try {
 | `-31001` | local  | No response arrived within `timeout`, or a queued call waited longer than `queueTimeout`. |
 | `-31002` | local  | The method was called while disconnected and the queue is disabled.                       |
 
-The local codes lie outside the range JSON-RPC reserves for protocol and server errors (`-32768` to `-32000`) and are
-never sent over the wire. If a listener throws an `RpcError` with an application-defined code (any code outside that
-range, except the local codes), the caller receives it unchanged. Every other error is wrapped in a `-32000` server error.
+The local codes lie outside the range JSON-RPC reserves for protocol and server errors (`-32768` to `-32000`) and are never sent over the wire. If a listener throws an `RpcError` with an application-defined code (any code outside that range, except the local codes), the caller receives it unchanged. Every other error is wrapped in a `-32000` server error.
 
 ### JSON-RPC compliance
 
-- **Batch requests are not supported.** anyrpc never sends batches, and an incoming array of requests is rejected as an
-  invalid request.
-- Listeners that return `undefined` (e.g. `void` methods) respond with `result: null`, because `undefined` is not a JSON
-  value. The caller receives `null`.
-- Method names starting with `rpc.` are reserved by the specification. Calling them throws, and incoming calls to them
-  are answered with `-32601`.
-- A channel is never a thenable, so it can safely be returned from `async` functions. As a consequence, interface
-  members named `then` cannot be called.
+- **Batch requests are not supported.** anyrpc never sends batches, and an incoming array of requests is rejected as an invalid request.
+- Listeners that return `undefined` (e.g. `void` methods) respond with `result: null`, because `undefined` is not a JSON value. The caller receives `null`.
+- Method names starting with `rpc.` are reserved by the specification. Calling them throws, and incoming calls to them are answered with `-32601`.
+- A channel is never a thenable, so it can safely be returned from `async` functions. As a consequence, interface members named `then` cannot be called.
 
 ## Development
 
