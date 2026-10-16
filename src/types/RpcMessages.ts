@@ -2,9 +2,11 @@
 
 import type { MethodFn, MethodMap } from '@/types/MethodMap'
 
+export type RpcId = string | number | null
+
 export interface RpcMessageBase {
     jsonrpc: '2.0'
-    id: string
+    id: RpcId
 }
 
 export interface RpcSuccessResponse<Fn extends MethodFn> extends RpcMessageBase {
@@ -49,7 +51,7 @@ export interface RpcIncomingRequest<
     Methods extends MethodMap<Methods>,
     Name extends keyof Methods = keyof Methods,
 > extends RpcIncomingNotification<Methods, Name> {
-    id: string
+    id: RpcId
 }
 
 export type RpcResponse<Methods extends MethodMap<Methods>, Name extends keyof Methods = keyof Methods> =

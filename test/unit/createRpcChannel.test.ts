@@ -532,6 +532,133 @@ describe(createRpcChannel, () => {
         })
     })
 
+    describe('handling invalid messages', () => {
+        it('should respond with invalid request and the detected id', async () => {
+            const adapter = new MockAdapter()
+            createRpcChannel(adapter)
+
+            await adapter.triggerMessageHandler({ jsonrpc: '2.0', id: 'request-id', method: 'onEvent', params: 'x' })
+
+            expect(adapter.sendMessage).toHaveBeenCalledWith({
+                jsonrpc: '2.0',
+                id: 'request-id',
+                error: {
+                    code: RpcErrorCode.INVALID_REQUEST,
+                    message: RPC_ERROR_MESSAGE_MAP[RpcErrorCode.INVALID_REQUEST],
+                    data: { reason: '"params" must be an array or an object' },
+                },
+            })
+        })
+
+        it('should respond with invalid request and null id to invalid notifications', async () => {
+            const adapter = new MockAdapter()
+            createRpcChannel(adapter)
+
+            await adapter.triggerMessageHandler({ jsonrpc: '2.0', method: 1, params: 'bar' })
+
+            expect(adapter.sendMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    id: null,
+                    error: expect.objectContaining({ code: RpcErrorCode.INVALID_REQUEST }),
+                }),
+            )
+        })
+
+        it('should respond with a parse error and null id to invalid JSON', async () => {
+            const adapter = new MockAdapter()
+            createRpcChannel(adapter)
+
+            await adapter.triggerMessageHandler('{ invalid json')
+
+            expect(adapter.sendMessage).toHaveBeenCalledWith({
+                jsonrpc: '2.0',
+                id: null,
+                error: {
+                    code: RpcErrorCode.PARSE_ERROR,
+                    message: RPC_ERROR_MESSAGE_MAP[RpcErrorCode.PARSE_ERROR],
+                    data: { reason: 'message is not valid JSON' },
+                },
+            })
+        })
+
+        it('should not respond to invalid response-like messages', async () => {
+            const adapter = new MockAdapter()
+            createRpcChannel(adapter)
+
+            await adapter.triggerMessageHandler({ jsonrpc: '2.0', id: 'request-id', error: 'broken' })
+
+            expect(adapter.sendMessage).not.toHaveBeenCalled()
+        })
+
+        it('should log a warning and emit rpc.error for invalid messages', async () => {
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel(adapter)
+            const errorListener = vi.fn<(error: RpcError) => void>()
+            const invalidMessage = { jsonrpc: '1.0', id: 'request-id', method: 'onEvent' }
+
+            rpcChannel.$.on('rpc.error', errorListener)
+            await adapter.triggerMessageHandler(invalidMessage)
+
+            expect(errorListener).toHaveBeenCalledWith(expect.objectContaining({ code: RpcErrorCode.INVALID_REQUEST }))
+            expect(console.warn).toHaveBeenCalledWith(
+                '[RpcChannel]',
+                'Received an invalid message: "jsonrpc" must be exactly "2.0"',
+                invalidMessage,
+            )
+        })
+
+        it('should log a warning and emit rpc.error for error responses with null id', async () => {
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel(adapter)
+            const errorListener = vi.fn<(error: RpcError) => void>()
+
+            rpcChannel.$.on('rpc.error', errorListener)
+            await adapter.triggerMessageHandler({
+                jsonrpc: '2.0',
+                id: null,
+                error: { code: RpcErrorCode.PARSE_ERROR, message: 'Parse error' },
+            })
+
+            const [[error]] = errorListener.mock.calls as [[RpcError]]
+
+            expect(error).toBeInstanceOf(RpcError)
+            expect(error.code).toBe(RpcErrorCode.PARSE_ERROR)
+            expect(console.warn).toHaveBeenCalledWith(
+                '[RpcChannel]',
+                'Received an error response that cannot be assigned to a request',
+                error,
+            )
+            expect(adapter.sendMessage).not.toHaveBeenCalled()
+        })
+
+        it('should respond with an internal error if the response cannot be sent', async () => {
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel(adapter)
+            const cloneError = new Error('() => undefined could not be cloned.')
+
+            adapter.sendMessage.mockImplementationOnce(() => {
+                throw cloneError
+            })
+            rpcChannel.$.handle('onEvent', () => true)
+            await adapter.triggerMessageHandler(request('onEvent', ['hi']))
+
+            expect(console.error).toHaveBeenCalledWith(
+                '[RpcChannel]',
+                'Could not send the response to "onEvent"',
+                cloneError,
+            )
+            expect(adapter.sendMessage).toHaveBeenLastCalledWith({
+                jsonrpc: '2.0',
+                id: 'request-id',
+                error: {
+                    code: RpcErrorCode.INTERNAL_ERROR,
+                    message: RPC_ERROR_MESSAGE_MAP[RpcErrorCode.INTERNAL_ERROR],
+                    data: { message: cloneError.message, name: 'Error', stack: undefined },
+                },
+            })
+        })
+    })
+
     describe('$', () => {
         it('should throw when registering a second handler for a method', () => {
             const rpcChannel = createRpcChannel(new MockAdapter())

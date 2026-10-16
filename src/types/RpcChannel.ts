@@ -1,7 +1,7 @@
 import type { RpcHandler, RpcListener, Unsubscribe } from './EventEmitter'
 import type { MethodFn, MethodMap } from './MethodMap'
 import type { ConnectionStatus } from './ConnectionStatus'
-import type { RpcConnectionEvents } from './RpcConnectionEvents'
+import type { RpcChannelEvents } from './RpcChannelEvents'
 
 export type ReservedMethodName = `rpc.${string}`
 
@@ -17,7 +17,7 @@ export type RpcChannelMethod<Fn extends MethodFn> = ((...args: Parameters<Fn>) =
 export type RpcHandleableName<Events extends MethodMap<Events>> = Exclude<keyof Events, ReservedMethodName>
 
 export type RpcObservableEvents<Events extends MethodMap<Events>> = Pick<Events, RpcHandleableName<Events>> &
-    RpcConnectionEvents
+    RpcChannelEvents
 
 export interface RpcChannelMeta<Events extends MethodMap<Events>> {
     readonly status: ConnectionStatus

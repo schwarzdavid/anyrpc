@@ -121,17 +121,18 @@ Both adapters must use the same **name** (`'my-app'` above). This lets several i
 
 ### Channel API
 
-| Member                                                                    | Description                                                                                                                                            |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `channel.<method>(...args)`                                               | Calls a remote method (JSON-RPC request). Always returns a `Promise` of the method's return type.                                                      |
-| `channel.<method>.notify(...args)`                                        | Sends a JSON-RPC notification: fire-and-forget, returns `void`. Only available for methods returning `void` or `Promise<void>`.                        |
-| `channel.$.handle(name, fn)`                                              | Answers incoming calls of `name`. Only **one** handler per method; its return value is the response. Returns a function that removes the handler.      |
-| `channel.$.on(name, fn)`                                                  | Observes incoming calls and notifications of `name`. Any number of listeners; return values are ignored. Returns a function that removes the listener. |
-| `channel.$.on('rpc.connected' \| 'rpc.disconnected' \| 'rpc.status', fn)` | Listens for connection events. `rpc.status` receives the new `ConnectionStatus`.                                                                       |
-| `channel.$.status`                                                        | Current `ConnectionStatus` (`'connected'` or `'disconnected'`).                                                                                        |
-| `channel.$.destroy()`                                                     | Closes the connection and removes all listeners from the transport.                                                                                    |
+| Member                                                                    | Description                                                                                                                                                         |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `channel.<method>(...args)`                                               | Calls a remote method (JSON-RPC request). Always returns a `Promise` of the method's return type.                                                                   |
+| `channel.<method>.notify(...args)`                                        | Sends a JSON-RPC notification: fire-and-forget, returns `void`. Only available for methods returning `void` or `Promise<void>`.                                     |
+| `channel.$.handle(name, fn)`                                              | Answers incoming calls of `name`. Only **one** handler per method; its return value is the response. Returns a function that removes the handler.                   |
+| `channel.$.on(name, fn)`                                                  | Observes incoming calls and notifications of `name`. Any number of listeners; return values are ignored. Returns a function that removes the listener.              |
+| `channel.$.on('rpc.connected' \| 'rpc.disconnected' \| 'rpc.status', fn)` | Listens for connection events. `rpc.status` receives the new `ConnectionStatus`.                                                                                    |
+| `channel.$.on('rpc.error', fn)`                                           | Receives an `RpcError` for every invalid incoming message and for error responses the other side could not assign to a request (`id: null`). Useful for monitoring. |
+| `channel.$.status`                                                        | Current `ConnectionStatus` (`'connected'` or `'disconnected'`).                                                                                                     |
+| `channel.$.destroy()`                                                     | Closes the connection and removes all listeners from the transport.                                                                                                 |
 
-The only property names a remote method cannot have are `$`, `then` and names starting with `rpc.` (reserved by JSON-RPC 2.0, used here for connection events).
+The only property names a remote method cannot have are `$`, `then` and names starting with `rpc.` (reserved by JSON-RPC 2.0, used here for channel events).
 
 ### Requests, notifications and listeners
 
@@ -187,19 +188,25 @@ try {
 }
 ```
 
-| Code     | Origin | Meaning                                                                                   |
-| -------- | ------ | ----------------------------------------------------------------------------------------- |
-| `-32601` | remote | No handler is registered for the called method, or the method name starts with `rpc.`.    |
-| `-32602` | remote | The call used named params (an object). Handlers only support positional params.          |
-| `-32000` | remote | The remote handler threw. The original error's `name` and `message` are in `data`.        |
-| `-31001` | local  | No response arrived within `timeout`, or a queued call waited longer than `queueTimeout`. |
-| `-31002` | local  | The method was called while disconnected and the queue is disabled.                       |
+| Code     | Origin | Meaning                                                                                                                                                 |
+| -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-32700` | remote | The other side could not parse the message as JSON. `data.reason` explains why.                                                                         |
+| `-32600` | remote | The message is not a valid JSON-RPC request (e.g. `method` is not a string). `data.reason` explains why.                                                |
+| `-32601` | remote | No handler is registered for the called method, or the method name starts with `rpc.`.                                                                  |
+| `-32602` | remote | The call used named params (an object). Handlers only support positional params.                                                                        |
+| `-32603` | remote | The handler succeeded, but its result could not be sent (e.g. a function or DOM node that `postMessage` cannot clone). The original error is in `data`. |
+| `-32000` | remote | The remote handler threw. The original error's `name` and `message` are in `data`.                                                                      |
+| `-31001` | local  | No response arrived within `timeout`, or a queued call waited longer than `queueTimeout`.                                                               |
+| `-31002` | local  | The method was called while disconnected and the queue is disabled.                                                                                     |
 
 The local codes lie outside the range JSON-RPC reserves for protocol and server errors (`-32768` to `-32000`) and are never sent over the wire. If a handler throws an `RpcError` with an application-defined code (any code outside that range, except the local codes), the caller receives it unchanged. Every other error is wrapped in a `-32000` server error.
 
 ### JSON-RPC compliance
 
-- **Batch requests are not supported.** anyrpc never sends batches, and an incoming array of requests is rejected as an invalid request.
+- **Batch requests are not supported.** anyrpc never sends batches, and an incoming array of requests is answered with `-32600` (invalid request).
+- **Invalid incoming messages are answered with an error response.** Unparsable JSON gets `-32700`, a structurally invalid request or notification gets `-32600`, both with a `data.reason`. The response carries the message's `id` if it could be read, otherwise `id: null`. Invalid messages that look like responses (they contain `result` or `error`) are never answered, so two peers cannot end up in an error loop. Every invalid message is logged as a warning and emitted as `rpc.error`.
+- Error responses with `id: null` cannot be matched to a request. They are logged and emitted as `rpc.error`; the affected request rejects with a timeout.
+- Messages the transport receives from unrelated sources (e.g. other frames or browser extensions posting to `window`) are filtered by the adapter before they reach the channel and are never answered.
 - Handlers that return `undefined` (e.g. `void` methods) respond with `result: null`, because `undefined` is not a JSON value. The caller receives `null`.
 - Method names starting with `rpc.` are reserved by the specification. Calling them throws, and incoming calls to them are answered with `-32601`.
 - A channel is never a thenable, so it can safely be returned from `async` functions. As a consequence, interface members named `then` cannot be called.
@@ -226,7 +233,6 @@ npm run build      # Build ESM + CJS bundles and type declarations into dist/
 
 **Protocol and behavior**
 
-- [ ] Respond with proper JSON-RPC error responses for malformed incoming messages instead of throwing in the message handler
 - [ ] Support request cancellation (e.g. via `AbortSignal`)
 - [ ] Warn when `IFrameClientAdapter` allows any origin (`origin: true`)
 

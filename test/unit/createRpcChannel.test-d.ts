@@ -5,6 +5,7 @@ import type { RpcMessage } from '@/types/RpcMessages'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import type { MethodMap } from '@/types/MethodMap'
 import type { Unsubscribe } from '@/types/EventEmitter'
+import type { RpcError } from '@/lib/RpcError'
 
 interface TestMethods {
     add(a: number, b: number): number
@@ -147,6 +148,9 @@ describe(createRpcChannel, () => {
             assertType<Unsubscribe>(rpcChannel.$.on('rpc.connected', vi.fn<() => void>()))
             assertType<Unsubscribe>(rpcChannel.$.on('rpc.disconnected', vi.fn<() => void>()))
             assertType<Unsubscribe>(rpcChannel.$.on('rpc.status', vi.fn<(status: ConnectionStatus) => void>()))
+            assertType<Unsubscribe>(rpcChannel.$.on('rpc.error', vi.fn<(error: RpcError) => void>()))
+            // @ts-expect-error
+            assertType<Unsubscribe>(rpcChannel.$.on('rpc.error', vi.fn<(error: string) => void>()))
         })
 
         it('should reject reserved names that are not connection events', () => {

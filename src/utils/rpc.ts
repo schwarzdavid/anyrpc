@@ -1,8 +1,9 @@
-import { RpcError } from '@/lib/RpcError'
+import { RpcMessageError } from '@/lib/RpcMessageError'
 import { LOCAL_ERROR_CODES, RESERVED_ERROR_CODE_RANGE, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
 import type {
     RpcErrorData,
     RpcErrorResponse,
+    RpcId,
     RpcIncomingNotification,
     RpcIncomingRequest,
     RpcResponse,
@@ -35,52 +36,62 @@ export type RpcParsingResult<Methods extends MethodMap<Methods>, Events extends 
     | RpcRequestParsingResult<Events>
     | RpcNotificationParsingResult<Events>
 
+type FailValidation = (reason: string) => never
+
 const RESERVED_METHOD_PREFIX = 'rpc.'
 
 export function parseRpcMessage<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>>(
     message: string | object,
 ): RpcParsingResult<Methods, Events> {
-    const messageObj = toMessageObject(message)
+    const messageValue = typeof message === 'string' ? parseJson(message) : message
+    const fail: FailValidation = (reason) => {
+        throw new RpcMessageError(RpcErrorCode.INVALID_REQUEST, {
+            reason,
+            requestId: detectRequestId(messageValue),
+            isResponse: isResponseLike(messageValue),
+        })
+    }
 
-    validateBaseMessage(messageObj)
+    if (Array.isArray(messageValue)) {
+        fail('batch requests are not supported')
+    }
+    if (!isRecord(messageValue)) {
+        fail('message must be a JSON object')
+    }
 
-    const hasMethod = Object.hasOwn(messageObj, 'method')
-    const isResponse = Object.hasOwn(messageObj, 'result') || Object.hasOwn(messageObj, 'error')
+    validateBaseMessage(messageValue, fail)
 
-    if (hasMethod && !isResponse) {
-        const callMessage = parseCallMessage<Events>(messageObj)
+    const hasMethod = Object.hasOwn(messageValue, 'method')
+    const isResponse = isResponseLike(messageValue)
+
+    if (hasMethod && isResponse) {
+        fail('message must not contain "method" together with "result" or "error"')
+    }
+    if (hasMethod) {
+        const callMessage = parseCallMessage<Events>(messageValue, fail)
 
         if (Object.hasOwn(callMessage, 'id')) {
             return { type: RpcMessageType.REQUEST, message: callMessage as RpcIncomingRequest<Events> }
         }
         return { type: RpcMessageType.NOTIFICATION, message: callMessage }
     }
+    if (isResponse) {
+        validateResponseMessage<Methods>(messageValue, fail)
 
-    if (isResponse && !hasMethod) {
-        validateResponseMessage(messageObj)
-
-        return {
-            type: RpcMessageType.RESPONSE,
-            message: messageObj,
-        }
+        return { type: RpcMessageType.RESPONSE, message: messageValue }
     }
-
-    throw new RpcError(RpcErrorCode.INVALID_REQUEST)
-}
-
-function toMessageObject(message: unknown): Record<string, unknown> {
-    const messageValue = typeof message === 'string' ? parseJson(message) : message
-    if (!isRecord(messageValue)) {
-        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
-    }
-    return messageValue
+    return fail('message must contain either "method" or "result"/"error"')
 }
 
 function parseJson(message: string): unknown {
     try {
         return JSON.parse(message)
     } catch {
-        throw new RpcError(RpcErrorCode.PARSE_ERROR)
+        throw new RpcMessageError(RpcErrorCode.PARSE_ERROR, {
+            reason: 'message is not valid JSON',
+            requestId: null,
+            isResponse: false,
+        })
     }
 }
 
@@ -88,57 +99,66 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function validateBaseMessage(message: Record<string, unknown>): void {
+function isValidId(id: unknown): id is RpcId {
+    return typeof id === 'string' || id === null || Number.isInteger(id)
+}
+
+function detectRequestId(message: unknown): RpcId {
+    return isRecord(message) && isValidId(message.id) ? message.id : null
+}
+
+function isResponseLike(message: unknown): boolean {
+    return isRecord(message) && (Object.hasOwn(message, 'result') || Object.hasOwn(message, 'error'))
+}
+
+function validateBaseMessage(message: Record<string, unknown>, fail: FailValidation): void {
     if (message.jsonrpc !== '2.0') {
-        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
+        fail('"jsonrpc" must be exactly "2.0"')
     }
-    if (Object.hasOwn(message, 'id')) {
-        if (!(typeof message.id === 'string' || typeof message.id === 'number' || message.id === null)) {
-            throw new RpcError(RpcErrorCode.INVALID_REQUEST)
-        }
-        if (typeof message.id === 'number' && !Number.isInteger(message.id)) {
-            throw new RpcError(RpcErrorCode.INVALID_REQUEST)
-        }
+    if (Object.hasOwn(message, 'id') && !isValidId(message.id)) {
+        fail('"id" must be a string, an integer or null')
     }
 }
 
 function parseCallMessage<Methods extends MethodMap<Methods>>(
     message: Record<string, unknown>,
+    fail: FailValidation,
 ): RpcIncomingNotification<Methods> {
     if (typeof message.method !== 'string') {
-        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
+        fail('"method" must be a string')
     }
     const params = Object.hasOwn(message, 'params') ? message.params : []
     if (!Array.isArray(params) && !isRecord(params)) {
-        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
+        fail('"params" must be an array or an object')
     }
     return { ...message, params } as RpcIncomingNotification<Methods>
 }
 
 function validateResponseMessage<Methods extends MethodMap<Methods>>(
     message: Record<string, unknown>,
+    fail: FailValidation,
 ): asserts message is RpcResponse<Methods> & Record<string, unknown> {
     if (!Object.hasOwn(message, 'id')) {
-        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
+        fail('responses must contain an "id"')
     }
     if (!isRpcErrorResponse(message)) {
         return
     }
     if (Object.hasOwn(message, 'result')) {
-        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
+        fail('responses must not contain both "result" and "error"')
     }
-    validateResponseError(message.error)
+    validateResponseError(message.error, fail)
 }
 
-function validateResponseError(error: unknown): asserts error is RpcErrorData {
+function validateResponseError(error: unknown, fail: FailValidation): asserts error is RpcErrorData {
     if (!isRecord(error)) {
-        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
+        fail('"error" must be an object')
     }
     if (!Number.isInteger(error.code)) {
-        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
+        fail('"error.code" must be an integer')
     }
     if (typeof error.message !== 'string') {
-        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
+        fail('"error.message" must be a string')
     }
 }
 

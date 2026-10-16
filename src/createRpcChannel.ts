@@ -7,8 +7,10 @@ import {
     isRpcErrorResponse,
     parseRpcMessage,
     RpcMessageType,
+    type RpcParsingResult,
 } from './utils/rpc'
 import { RpcError } from './lib/RpcError'
+import type { RpcMessageError } from './lib/RpcMessageError'
 import { uuid } from './utils/uuid'
 import type {
     RpcErrorResponse,
@@ -20,7 +22,7 @@ import type {
 import { RPC_ERROR_MESSAGE_MAP, RpcErrorCode } from './constants/JSON_RPC_ERRORS'
 import type { MethodFn, MethodMap } from './types/MethodMap'
 import type { RpcListener } from './types/EventEmitter'
-import type { RpcConnectionEvents } from './types/RpcConnectionEvents'
+import type { RpcChannelEvents } from './types/RpcChannelEvents'
 import type { RpcChannel, RpcChannelMeta, RpcHandleableName } from '@/types/RpcChannel'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { Logger } from '@/lib/Logger'
@@ -75,7 +77,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         logger.error(`Listener for "${String(name)}" threw an error`, error)
     }
     const callEvents = new EventEmitter<Events>(reportListenerError)
-    const connectionEvents = new EventEmitter<RpcConnectionEvents>(reportListenerError)
+    const channelEvents = new EventEmitter<RpcChannelEvents>(reportListenerError)
     const handlers = new HandlerRegistry<Events>()
     const pendingMessageRegistry: PendingMessageRegistry = {}
     const queuedMessages: QueuedMessage[] = []
@@ -90,8 +92,8 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         },
         on(name, listener) {
             const untypedListener = listener as RpcListener<MethodFn>
-            if (isConnectionEventName(name)) {
-                return connectionEvents.on(name, untypedListener)
+            if (isChannelEventName(name)) {
+                return channelEvents.on(name, untypedListener)
             }
             return callEvents.on(name as RpcHandleableName<Events>, untypedListener)
         },
@@ -103,7 +105,14 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     adapter.initLogger(mergedOptions.logLevel)
 
     adapter.messageHandler = async function rpcChannelMessageHandler(data) {
-        const { type, message } = parseRpcMessage<Methods, Events>(data)
+        let parsingResult: RpcParsingResult<Methods, Events>
+        try {
+            parsingResult = parseRpcMessage<Methods, Events>(data)
+        } catch (error) {
+            handleInvalidMessage(error as RpcMessageError, data)
+            return
+        }
+        const { type, message } = parsingResult
 
         if (type === RpcMessageType.RESPONSE) {
             handleResponse(message)
@@ -119,13 +128,13 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     adapter.connectionHandler = async function rpcChannelConnectionHandler(status) {
         logger.debug(`Connection status changed to ${status}`)
 
-        connectionEvents.emit('rpc.status', [status])
+        channelEvents.emit('rpc.status', [status])
 
         if (status === ConnectionStatus.CONNECTED) {
             await processQueuedMessages()
-            connectionEvents.emit('rpc.connected', [])
+            channelEvents.emit('rpc.connected', [])
         } else {
-            connectionEvents.emit('rpc.disconnected', [])
+            channelEvents.emit('rpc.disconnected', [])
         }
     }
 
@@ -141,22 +150,55 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         }
     }
 
-    function isConnectionEventName(name: PropertyKey): name is keyof RpcConnectionEvents {
+    function isChannelEventName(name: PropertyKey): name is keyof RpcChannelEvents {
         return isReservedMethodName(name)
+    }
+
+    function handleInvalidMessage(error: RpcMessageError, data: unknown): void {
+        logger.warn(`Received an invalid message: ${error.reason}`, data)
+        channelEvents.emit('rpc.error', [error])
+
+        if (!error.isResponse) {
+            adapter.sendMessage({ jsonrpc: '2.0', id: error.requestId, error: error.toJSON() })
+        }
     }
 
     function handleResponse(message: RpcResponse<Methods>): void {
         if (isRpcErrorResponse(message)) {
-            logger.debug('Received error response', message)
-            pendingMessageRegistry[message.id]?.reject(new RpcError(message.error))
+            handleErrorResponse(message)
             return
         }
         logger.debug('Received successful response', message)
-        pendingMessageRegistry[message.id]?.resolve(message.result)
+        pendingMessageRegistry[String(message.id)]?.resolve(message.result)
+    }
+
+    function handleErrorResponse(message: RpcErrorResponse): void {
+        const error = new RpcError(message.error)
+
+        if (message.id === null) {
+            logger.warn('Received an error response that cannot be assigned to a request', error)
+            channelEvents.emit('rpc.error', [error])
+            return
+        }
+        logger.debug('Received error response', message)
+        pendingMessageRegistry[message.id]?.reject(error)
     }
 
     async function handleRequest(request: RpcIncomingRequest<Events>): Promise<void> {
-        adapter.sendMessage(await createResponse(request))
+        const response = await createResponse(request)
+        try {
+            adapter.sendMessage(response)
+        } catch (error) {
+            logger.error(`Could not send the response to "${String(request.method)}"`, error)
+            adapter.sendMessage(createErrorResponse(request, wrapError(RpcErrorCode.INTERNAL_ERROR, error)))
+        }
+    }
+
+    function wrapError(code: RpcErrorCode.SERVER_ERROR | RpcErrorCode.INTERNAL_ERROR, error: unknown): RpcError {
+        return new RpcError(
+            { code, message: RPC_ERROR_MESSAGE_MAP[code], data: error },
+            mergedOptions.errorIncludeStack,
+        )
     }
 
     async function createResponse(request: RpcIncomingRequest<Events>): Promise<RpcResponse<Events>> {
@@ -192,14 +234,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         if (error instanceof RpcError && isApplicationErrorCode(error.code)) {
             return error
         }
-        return new RpcError(
-            {
-                code: RpcErrorCode.SERVER_ERROR,
-                message: RPC_ERROR_MESSAGE_MAP[RpcErrorCode.SERVER_ERROR],
-                data: error,
-            },
-            mergedOptions.errorIncludeStack,
-        )
+        return wrapError(RpcErrorCode.SERVER_ERROR, error)
     }
 
     async function handleNotification(notification: RpcIncomingNotification<Events>): Promise<void> {
