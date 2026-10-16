@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, it } from 'vitest'
 import { parseRpcMessage, RpcMessageType } from '@/utils/rpc'
-import type { RpcRequest, RpcResponse } from '@/types/RpcMessages'
+import type { RpcIncomingRequest, RpcRequest, RpcResponse } from '@/types/RpcMessages'
 
 interface TestMethods {
     exampleMethod: (foo: string, bar: number) => Promise<string>
@@ -49,7 +49,7 @@ describe(parseRpcMessage, () => {
 
         type ResultType = Extract<typeof result, { type: RpcMessageType.REQUEST }>
 
-        expectTypeOf<ResultType['message']>().toExtend<RpcRequest<TestEvents>>()
-        expectTypeOf<ResultType['message']>().not.toMatchObjectType<RpcRequest<TestMethods>>()
+        expectTypeOf<ResultType['message']>().toExtend<RpcIncomingRequest<TestEvents>>()
+        expectTypeOf<ResultType['message']>().not.toMatchObjectType<RpcIncomingRequest<TestMethods>>()
     })
 })

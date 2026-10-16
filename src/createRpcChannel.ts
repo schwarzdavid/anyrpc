@@ -1,10 +1,16 @@
 import { AbstractRpcAdapter } from './lib/AbstractRpcAdapter'
 import { EventEmitter } from './lib/EventEmitter'
-import { isRpcErrorResponse, parseRpcMessage, RpcMessageType } from './utils/rpc'
+import {
+    isApplicationErrorCode,
+    isReservedMethodName,
+    isRpcErrorResponse,
+    parseRpcMessage,
+    RpcMessageType,
+} from './utils/rpc'
 import { RpcError } from './lib/RpcError'
 import { uuid } from './utils/uuid'
-import type { RpcMessageBase, RpcRequest, RpcResponse } from './types/RpcMessages'
-import { RPC_ERROR_NAME_MAP, RpcErrorCode } from './constants/JSON_RPC_ERRORS'
+import type { RpcIncomingRequest, RpcMessageBase, RpcRequest, RpcResponse } from './types/RpcMessages'
+import { RPC_ERROR_MESSAGE_MAP, RpcErrorCode } from './constants/JSON_RPC_ERRORS'
 import type { PublicEventEmitter } from './types/EventEmitter'
 import type { MethodMap } from './types/MethodMap'
 import type { RpcChannel, RpcChannelMeta } from '@/types/RpcChannel'
@@ -48,6 +54,8 @@ const PUBLIC_EVENT_METHODS: string[] = [
     'addEventListener',
     'removeEventListener',
 ] satisfies (keyof PublicEventEmitter<never>)[]
+
+const THENABLE_PROPERTY = 'then'
 
 export function createRpcChannel<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>>(
     adapter: AbstractRpcAdapter<Methods, Events>,
@@ -126,36 +134,51 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         pendingMessageRegistry[message.id]?.resolve(message.result)
     }
 
-    async function handleRequest(message: RpcRequest<Events>): Promise<void> {
-        const { result, error } = await events.dispatchEvent(message.method, message.params)
-        const responseBase: RpcMessageBase = { jsonrpc: '2.0', id: message.id }
-        let response: RpcResponse<Events>
+    async function handleRequest(message: RpcIncomingRequest<Events>): Promise<void> {
+        adapter.sendMessage(await createResponse(message))
+    }
 
-        if (error) {
-            const rpcError = new RpcError({
-                code: RpcErrorCode.SERVER_ERROR,
-                message: RPC_ERROR_NAME_MAP[RpcErrorCode.SERVER_ERROR],
-                data: error,
-            })
+    async function createResponse(request: RpcIncomingRequest<Events>): Promise<RpcResponse<Events>> {
+        const responseBase: RpcMessageBase = { jsonrpc: '2.0', id: request.id }
 
-            response = {
-                ...responseBase,
-                error: rpcError.toJSON(),
-            }
-        } else {
-            response = {
-                ...responseBase,
-                result,
-            }
+        if (isReservedMethodName(request.method) || !events.hasEventListeners(request.method)) {
+            return { ...responseBase, error: new RpcError(RpcErrorCode.METHOD_NOT_FOUND).toJSON() }
+        }
+        if (!Array.isArray(request.params)) {
+            return { ...responseBase, error: new RpcError(RpcErrorCode.INVALID_PARAMS).toJSON() }
         }
 
-        adapter.sendMessage(response)
+        const { result, error } = await events.dispatchEvent(request.method, request.params)
+
+        if (error) {
+            return { ...responseBase, error: toResponseError(error).toJSON() }
+        }
+        return { ...responseBase, result: result ?? null }
+    }
+
+    function toResponseError(error: Error): RpcError {
+        if (error instanceof RpcError && isApplicationErrorCode(error.code)) {
+            return error
+        }
+        return new RpcError(
+            {
+                code: RpcErrorCode.SERVER_ERROR,
+                message: RPC_ERROR_MESSAGE_MAP[RpcErrorCode.SERVER_ERROR],
+                data: error,
+            },
+            mergedOptions.errorIncludeStack,
+        )
     }
 
     function processMessageRequest<Method extends keyof Methods>(
         method: Method,
         params: Parameters<Methods[Method]>,
     ): Promise<unknown> {
+        if (isReservedMethodName(method)) {
+            throw new Error(
+                `Cannot call "${String(method)}": method names starting with "rpc." are reserved by JSON-RPC 2.0`,
+            )
+        }
         if (adapter.connectionStatus === ConnectionStatus.CONNECTED) {
             return sendRequest(method, params)
         }
@@ -256,12 +279,14 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             if (prop in target) {
                 return target[prop as keyof typeof target]
             }
-
-            if (PUBLIC_EVENT_METHODS.includes(prop.toString())) {
+            if (typeof prop === 'symbol' || prop === THENABLE_PROPERTY) {
+                return undefined
+            }
+            if (PUBLIC_EVENT_METHODS.includes(prop)) {
                 return events[prop as keyof PublicEventEmitter<Events>].bind(events)
             }
             return (...params: unknown[]) =>
-                processMessageRequest(prop.toString() as keyof Methods, params as Parameters<Methods[keyof Methods]>)
+                processMessageRequest(prop as keyof Methods, params as Parameters<Methods[keyof Methods]>)
         },
     })
 }

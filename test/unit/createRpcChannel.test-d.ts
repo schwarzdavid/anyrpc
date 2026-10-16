@@ -1,4 +1,4 @@
-import { assertType, describe, it, vi } from 'vitest'
+import { assertType, describe, expectTypeOf, it, vi } from 'vitest'
 import { createRpcChannel } from '@/createRpcChannel'
 import { AbstractRpcAdapter } from '@/lib/AbstractRpcAdapter'
 import type { RpcMessage } from '@/types/RpcMessages'
@@ -62,6 +62,21 @@ describe(createRpcChannel, () => {
 
         // @ts-expect-error
         assertType(rpcChannel.doSomething())
+    })
+
+    it('should not expose then or reserved rpc. methods as callable methods', () => {
+        interface UncallableMethods {
+            then(): void
+            'rpc.discover'(): void
+            regular(): void
+        }
+
+        const adapter = new TestAdapter<UncallableMethods>()
+        const rpcChannel = createRpcChannel(adapter)
+
+        expectTypeOf(rpcChannel).toHaveProperty('regular')
+        expectTypeOf(rpcChannel).not.toHaveProperty('then')
+        expectTypeOf(rpcChannel).not.toHaveProperty('rpc.discover')
     })
 
     it('should allow adding event listeners', () => {

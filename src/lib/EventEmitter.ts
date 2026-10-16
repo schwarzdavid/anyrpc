@@ -51,6 +51,10 @@ export class EventEmitter<Events extends MethodMap<Events>> implements PublicEve
         }
     }
 
+    hasEventListeners(type: keyof Events): boolean {
+        return Array.isArray(this.registry[type]) && this.registry[type].length > 0
+    }
+
     async dispatchEvent<Event extends keyof Events>(
         type: Event,
         params: Parameters<Events[Event]>,

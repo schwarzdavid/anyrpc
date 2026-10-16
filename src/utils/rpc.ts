@@ -1,6 +1,6 @@
 import { RpcError } from '@/lib/RpcError'
-import { RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
-import type { RpcErrorData, RpcErrorResponse, RpcRequest, RpcResponse } from '@/types/RpcMessages'
+import { LOCAL_ERROR_CODES, RESERVED_ERROR_CODE_RANGE, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
+import type { RpcErrorData, RpcErrorResponse, RpcIncomingRequest, RpcResponse } from '@/types/RpcMessages'
 import type { MethodMap } from '@/types/MethodMap'
 
 export const enum RpcMessageType {
@@ -14,7 +14,7 @@ export interface RpcResponseParsingResult<Methods extends MethodMap<Methods>> {
 }
 
 export interface RpcRequestParsingResult<Methods extends MethodMap<Methods>> {
-    message: RpcRequest<Methods>
+    message: RpcIncomingRequest<Methods>
     type: RpcMessageType.REQUEST
 }
 
@@ -22,19 +22,12 @@ export type RpcParsingResult<Methods extends MethodMap<Methods>, Events extends 
     | RpcResponseParsingResult<Methods>
     | RpcRequestParsingResult<Events>
 
+const RESERVED_METHOD_PREFIX = 'rpc.'
+
 export function parseRpcMessage<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>>(
     message: string | object,
 ): RpcParsingResult<Methods, Events> {
-    let messageObj: Record<string, unknown>
-    if (typeof message === 'string') {
-        try {
-            messageObj = JSON.parse(message)
-        } catch (err) {
-            throw new RpcError(RpcErrorCode.PARSE_ERROR)
-        }
-    } else {
-        messageObj = message as Record<string, unknown>
-    }
+    const messageObj = toMessageObject(message)
 
     validateBaseMessage(messageObj)
 
@@ -42,11 +35,9 @@ export function parseRpcMessage<Methods extends MethodMap<Methods>, Events exten
     const isResponse = Object.hasOwn(messageObj, 'result') || Object.hasOwn(messageObj, 'error')
 
     if (isRequest && !isResponse) {
-        validateRequestMessage(messageObj)
-
         return {
             type: RpcMessageType.REQUEST,
-            message: messageObj,
+            message: parseRequestMessage<Events>(messageObj),
         }
     }
 
@@ -60,6 +51,26 @@ export function parseRpcMessage<Methods extends MethodMap<Methods>, Events exten
     }
 
     throw new RpcError(RpcErrorCode.INVALID_REQUEST)
+}
+
+function toMessageObject(message: unknown): Record<string, unknown> {
+    const messageValue = typeof message === 'string' ? parseJson(message) : message
+    if (!isRecord(messageValue)) {
+        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
+    }
+    return messageValue
+}
+
+function parseJson(message: string): unknown {
+    try {
+        return JSON.parse(message)
+    } catch {
+        throw new RpcError(RpcErrorCode.PARSE_ERROR)
+    }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function validateBaseMessage(message: Record<string, unknown>): void {
@@ -76,24 +87,38 @@ function validateBaseMessage(message: Record<string, unknown>): void {
     }
 }
 
-function validateRequestMessage<Methods extends MethodMap<Methods>>(
-    message: RpcRequest<Methods> | Record<string, unknown>,
-): asserts message is RpcRequest<Methods> {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (Object.hasOwn(message, 'params') && typeof message.params !== 'object' && message.params !== null) {
+function parseRequestMessage<Methods extends MethodMap<Methods>>(
+    message: Record<string, unknown>,
+): RpcIncomingRequest<Methods> {
+    if (typeof message.method !== 'string') {
         throw new RpcError(RpcErrorCode.INVALID_REQUEST)
     }
+    const params = Object.hasOwn(message, 'params') ? message.params : []
+    if (!Array.isArray(params) && !isRecord(params)) {
+        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
+    }
+    return { ...message, params } as RpcIncomingRequest<Methods>
 }
 
 function validateResponseMessage<Methods extends MethodMap<Methods>>(
-    message: RpcResponse<Methods> | Record<string, unknown>,
-): asserts message is RpcResponse<Methods> {
-    if (isRpcErrorResponse(message)) {
-        validateResponseError(message.error)
+    message: Record<string, unknown>,
+): asserts message is RpcResponse<Methods> & Record<string, unknown> {
+    if (!Object.hasOwn(message, 'id')) {
+        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
     }
+    if (!isRpcErrorResponse(message)) {
+        return
+    }
+    if (Object.hasOwn(message, 'result')) {
+        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
+    }
+    validateResponseError(message.error)
 }
 
-function validateResponseError(error: Record<string, unknown> | RpcErrorData): asserts error is RpcErrorData {
+function validateResponseError(error: unknown): asserts error is RpcErrorData {
+    if (!isRecord(error)) {
+        throw new RpcError(RpcErrorCode.INVALID_REQUEST)
+    }
     if (!Number.isInteger(error.code)) {
         throw new RpcError(RpcErrorCode.INVALID_REQUEST)
     }
@@ -106,4 +131,13 @@ export function isRpcErrorResponse(
     message: RpcResponse<MethodMap<never>, string> | object,
 ): message is RpcErrorResponse {
     return Object.hasOwn(message, 'error')
+}
+
+export function isReservedMethodName(method: PropertyKey): boolean {
+    return typeof method === 'string' && method.startsWith(RESERVED_METHOD_PREFIX)
+}
+
+export function isApplicationErrorCode(code: number): boolean {
+    const isReservedCode = code >= RESERVED_ERROR_CODE_RANGE.min && code <= RESERVED_ERROR_CODE_RANGE.max
+    return !isReservedCode && !LOCAL_ERROR_CODES.includes(code)
 }

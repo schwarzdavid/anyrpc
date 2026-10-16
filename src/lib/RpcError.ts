@@ -1,5 +1,5 @@
 import type { RpcErrorData } from '@/types/RpcMessages'
-import { RPC_ERROR_MESSAGE_MAP, RPC_ERROR_NAME_MAP, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
+import { RPC_ERROR_MESSAGE_MAP, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
 
 export class RpcError extends Error implements RpcErrorData {
     readonly code: number
@@ -14,10 +14,8 @@ export class RpcError extends Error implements RpcErrorData {
         private readonly includeStack = false,
     ) {
         if (typeof errorCode === 'number') {
-            super(RPC_ERROR_NAME_MAP[errorCode])
-
+            super(RPC_ERROR_MESSAGE_MAP[errorCode])
             this.code = errorCode
-            this.message = RPC_ERROR_MESSAGE_MAP[errorCode]
         } else {
             super(errorCode.message)
             this.code = errorCode.code

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRpcChannel } from '@/createRpcChannel'
 import { AbstractRpcAdapter } from '@/lib/AbstractRpcAdapter'
 import { RpcError } from '@/lib/RpcError'
-import { RPC_ERROR_NAME_MAP, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
+import { RPC_ERROR_MESSAGE_MAP, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
 import type { RpcMessage, RpcRequest, RpcResponse } from '@/types/RpcMessages'
 import { EventEmitter } from '@/lib/EventEmitter'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
@@ -169,10 +169,8 @@ describe(createRpcChannel, () => {
                 id: 'event-id',
                 error: {
                     code: RpcErrorCode.SERVER_ERROR,
-                    message: RPC_ERROR_NAME_MAP[RpcErrorCode.SERVER_ERROR],
-
-                    // TODO: improve error serialization & make error details configurable. @see todo in createRpcChannel.ts
-                    data: expect.anything(),
+                    message: RPC_ERROR_MESSAGE_MAP[RpcErrorCode.SERVER_ERROR],
+                    data: { message: 'Error', name: 'Error', stack: undefined },
                 },
             }),
         )
@@ -193,7 +191,7 @@ describe(createRpcChannel, () => {
         expect(removeEventListenerSpy).not.toHaveBeenCalled()
     })
 
-    it('should return empty response if no active event handler is set', async () => {
+    it('should respond with method not found if no listener is registered', async () => {
         const adapter = new MockAdapter()
         createRpcChannel<TestMethods, TestEvents>(adapter)
 
@@ -207,8 +205,164 @@ describe(createRpcChannel, () => {
         expect(adapter.sendMessage).toHaveBeenCalledWith({
             id: 'event-id',
             jsonrpc: '2.0',
-            result: undefined,
+            error: new RpcError(RpcErrorCode.METHOD_NOT_FOUND).toJSON(),
         })
+    })
+
+    it('should respond with method not found for reserved rpc. methods', async () => {
+        const adapter = new MockAdapter<TestMethods, Record<string, () => string>>()
+        const rpcChannel = createRpcChannel(adapter)
+        const listener = vi.fn<() => string>().mockReturnValue('value')
+
+        rpcChannel.addEventListener('rpc.discover', listener)
+        await adapter.triggerMessageHandler({ id: 'event-id', jsonrpc: '2.0', method: 'rpc.discover', params: [] })
+
+        expect(listener).not.toHaveBeenCalled()
+        expect(adapter.sendMessage).toHaveBeenCalledWith({
+            id: 'event-id',
+            jsonrpc: '2.0',
+            error: new RpcError(RpcErrorCode.METHOD_NOT_FOUND).toJSON(),
+        })
+    })
+
+    it('should respond with null result if only passive listeners are registered', async () => {
+        const adapter = new MockAdapter()
+        const rpcChannel = createRpcChannel(adapter)
+        const passiveListener = vi.fn<(message: string) => void>()
+
+        rpcChannel.addEventListener('onEvent', passiveListener, { passive: true })
+        await adapter.triggerMessageHandler({ id: 'event-id', jsonrpc: '2.0', method: 'onEvent', params: ['hi'] })
+
+        expect(passiveListener).toHaveBeenCalledWith('hi')
+        expect(adapter.sendMessage).toHaveBeenCalledWith({ id: 'event-id', jsonrpc: '2.0', result: null })
+    })
+
+    it('should respond with null result if the listener returns undefined', async () => {
+        const adapter = new MockAdapter<TestMethods, { notify(): void }>()
+        const rpcChannel = createRpcChannel(adapter)
+
+        rpcChannel.addEventListener('notify', vi.fn<() => void>())
+        await adapter.triggerMessageHandler({ id: 'event-id', jsonrpc: '2.0', method: 'notify', params: [] })
+
+        expect(adapter.sendMessage).toHaveBeenCalledWith({ id: 'event-id', jsonrpc: '2.0', result: null })
+    })
+
+    it('should call the listener without arguments if params are omitted', async () => {
+        const adapter = new MockAdapter()
+        const rpcChannel = createRpcChannel(adapter)
+        const listener = vi.fn<(message: string) => boolean>().mockReturnValue(true)
+
+        rpcChannel.addEventListener('onEvent', listener)
+        await adapter.triggerMessageHandler({ id: 'event-id', jsonrpc: '2.0', method: 'onEvent' })
+
+        expect(listener).toHaveBeenCalledWith()
+        expect(adapter.sendMessage).toHaveBeenCalledWith({ id: 'event-id', jsonrpc: '2.0', result: true })
+    })
+
+    it('should respond with invalid params for named params', async () => {
+        const adapter = new MockAdapter()
+        const rpcChannel = createRpcChannel(adapter)
+        const listener = vi.fn<(message: string) => boolean>()
+
+        rpcChannel.addEventListener('onEvent', listener)
+        await adapter.triggerMessageHandler({
+            id: 'event-id',
+            jsonrpc: '2.0',
+            method: 'onEvent',
+            params: { message: 'hi' },
+        })
+
+        expect(listener).not.toHaveBeenCalled()
+        expect(adapter.sendMessage).toHaveBeenCalledWith({
+            id: 'event-id',
+            jsonrpc: '2.0',
+            error: new RpcError(RpcErrorCode.INVALID_PARAMS).toJSON(),
+        })
+    })
+
+    it('should forward RpcErrors with application error codes thrown by listeners', async () => {
+        const adapter = new MockAdapter()
+        const rpcChannel = createRpcChannel(adapter)
+        const applicationError = new RpcError({ code: 4001, message: 'Insufficient funds', data: { balance: 0 } })
+
+        rpcChannel.addEventListener('onEvent', () => {
+            throw applicationError
+        })
+        await adapter.triggerMessageHandler({ id: 'event-id', jsonrpc: '2.0', method: 'onEvent', params: ['hi'] })
+
+        expect(adapter.sendMessage).toHaveBeenCalledWith({
+            id: 'event-id',
+            jsonrpc: '2.0',
+            error: { code: 4001, message: 'Insufficient funds', data: { balance: 0 } },
+        })
+    })
+
+    it.each([RpcErrorCode.METHOD_NOT_FOUND, RpcErrorCode.TIMEOUT_ERROR])(
+        'should wrap RpcErrors with non-application code %i in a server error',
+        async (code) => {
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel(adapter)
+
+            rpcChannel.addEventListener('onEvent', () => {
+                throw new RpcError(code)
+            })
+            await adapter.triggerMessageHandler({ id: 'event-id', jsonrpc: '2.0', method: 'onEvent', params: ['hi'] })
+
+            expect(adapter.sendMessage).toHaveBeenCalledWith({
+                id: 'event-id',
+                jsonrpc: '2.0',
+                error: {
+                    code: RpcErrorCode.SERVER_ERROR,
+                    message: RPC_ERROR_MESSAGE_MAP[RpcErrorCode.SERVER_ERROR],
+                    data: expect.objectContaining({ name: 'Error' }),
+                },
+            })
+        },
+    )
+
+    it('should include the stack trace in error responses if errorIncludeStack is set', async () => {
+        const adapter = new MockAdapter()
+        const rpcChannel = createRpcChannel(adapter, { errorIncludeStack: true })
+
+        rpcChannel.addEventListener('onEvent', () => {
+            throw new Error('Error')
+        })
+        await adapter.triggerMessageHandler({ id: 'event-id', jsonrpc: '2.0', method: 'onEvent', params: ['hi'] })
+
+        expect(adapter.sendMessage).toHaveBeenCalledWith(
+            expect.objectContaining({
+                error: expect.objectContaining({
+                    data: { message: 'Error', name: 'Error', stack: expect.any(String) },
+                }),
+            }),
+        )
+    })
+
+    it('should refuse to call reserved rpc. methods', () => {
+        const adapter = new MockAdapter<Record<string, () => void>>()
+        const rpcChannel = createRpcChannel(adapter) as unknown as Record<string, () => Promise<void>>
+
+        expect(() => rpcChannel['rpc.discover']?.()).toThrowError(
+            'Cannot call "rpc.discover": method names starting with "rpc." are reserved by JSON-RPC 2.0',
+        )
+        expect(adapter.sendMessage).not.toHaveBeenCalled()
+    })
+
+    it('should not be treated as thenable', async () => {
+        const adapter = new MockAdapter()
+        const rpcChannel = createRpcChannel(adapter)
+
+        expect((rpcChannel as unknown as Record<string, unknown>).then).toBeUndefined()
+        await expect(Promise.resolve(rpcChannel)).resolves.toBe(rpcChannel)
+        expect(adapter.sendMessage).not.toHaveBeenCalled()
+    })
+
+    it('should return undefined for unknown symbol properties', () => {
+        const adapter = new MockAdapter()
+        const rpcChannel = createRpcChannel(adapter)
+
+        expect((rpcChannel as unknown as Record<symbol, unknown>)[Symbol.toPrimitive]).toBeUndefined()
+        expect(adapter.sendMessage).not.toHaveBeenCalled()
     })
 
     it('should always return meta object when calling $', () => {

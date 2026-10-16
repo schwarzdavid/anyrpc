@@ -8,7 +8,7 @@ export interface RpcMessageBase {
 }
 
 export interface RpcSuccessResponse<Fn extends MethodFn> extends RpcMessageBase {
-    result: Awaited<ReturnType<Fn>> | undefined
+    result: Awaited<ReturnType<Fn>> | null
 }
 
 export interface RpcErrorData {
@@ -27,6 +27,16 @@ export interface RpcRequest<
 > extends RpcMessageBase {
     method: Name
     params: Parameters<Methods[Name]>
+}
+
+export type RpcNamedParams = Record<string, unknown>
+
+export interface RpcIncomingRequest<
+    Methods extends MethodMap<Methods>,
+    Name extends keyof Methods = keyof Methods,
+> extends RpcMessageBase {
+    method: Name
+    params: Parameters<Methods[Name]> | RpcNamedParams
 }
 
 export type RpcResponse<Methods extends MethodMap<Methods>, Name extends keyof Methods = keyof Methods> =

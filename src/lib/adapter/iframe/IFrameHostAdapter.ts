@@ -47,8 +47,7 @@ export class IFrameHostAdapter<
             ) {
                 return
             }
-            const targetName = result.message.params[0]
-            if (targetName !== adapter.name) {
+            if (!Array.isArray(result.message.params) || result.message.params[0] !== adapter.name) {
                 return
             }
 

@@ -194,4 +194,36 @@ describe(EventEmitter, () => {
             expect(passiveListener).toHaveBeenCalledWith('arg')
         })
     })
+
+    describe('hasEventListeners', () => {
+        it('should return false if no listener was ever registered', () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+
+            expect(eventEmitter.hasEventListeners('testEvent')).toBe(false)
+        })
+
+        it('should return true if a listener is registered', () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+
+            eventEmitter.addEventListener('testEvent', vi.fn<(arg: string) => string>(), { passive: true })
+
+            expect(eventEmitter.hasEventListeners('testEvent')).toBe(true)
+        })
+
+        it('should return false after all listeners were removed', () => {
+            const eventEmitter = new EventEmitter<TestEvents>()
+            const listener = vi.fn<(arg: string) => string>()
+
+            eventEmitter.addEventListener('testEvent', listener)
+            eventEmitter.removeEventListener('testEvent', listener)
+
+            expect(eventEmitter.hasEventListeners('testEvent')).toBe(false)
+        })
+
+        it('should not treat inherited object properties as listeners', () => {
+            const eventEmitter = new EventEmitter<Record<string, () => void>>()
+
+            expect(eventEmitter.hasEventListeners('constructor')).toBe(false)
+        })
+    })
 })

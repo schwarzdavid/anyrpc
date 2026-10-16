@@ -185,6 +185,39 @@ describe(IFrameHostAdapter, () => {
         expect(mockContentWindow.postMessage).not.toHaveBeenCalled()
     })
 
+    it('should ignore init messages with named params', () => {
+        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
+        adapter.connect()
+
+        global.window.dispatchEvent(
+            new MessageEvent('message', {
+                data: {
+                    jsonrpc: '2.0',
+                    id: 'init-id',
+                    method: InitMethodName,
+                    params: { name: 'anyrpc-iframe-adapter' },
+                },
+                source: mockContentWindow,
+            }),
+        )
+
+        expect(mockContentWindow.postMessage).not.toHaveBeenCalled()
+    })
+
+    it('should ignore init messages without params', () => {
+        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
+        adapter.connect()
+
+        global.window.dispatchEvent(
+            new MessageEvent('message', {
+                data: { jsonrpc: '2.0', id: 'init-id', method: InitMethodName },
+                source: mockContentWindow,
+            }),
+        )
+
+        expect(mockContentWindow.postMessage).not.toHaveBeenCalled()
+    })
+
     it('should ignore messages from other sources than iframe', () => {
         const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
         const initRequestMessage: RpcRequest<{ [InitMethodName](name: string): void }> = {

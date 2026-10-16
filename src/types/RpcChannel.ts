@@ -11,11 +11,13 @@ export interface RpcChannelMeta extends PublicEventEmitter<AnyRpcEvents> {
     destroy(): void
 }
 
+export type UncallableMethodName = 'then' | `rpc.${string}`
+
 export type RpcChannel<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > = PublicEventEmitter<Events> & {
-    [Method in keyof Methods]: RpcChannelMethod<Methods[Method]>
+    [Method in Exclude<keyof Methods, UncallableMethodName>]: RpcChannelMethod<Methods[Method]>
 } & {
     readonly $: RpcChannelMeta
 }

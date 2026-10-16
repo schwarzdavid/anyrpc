@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseRpcMessage, RpcMessageType } from '@/utils/rpc'
+import { isApplicationErrorCode, isReservedMethodName, parseRpcMessage, RpcMessageType } from '@/utils/rpc'
 import { RpcError } from '@/lib/RpcError'
 import { RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
 import type { RpcRequest } from '@/types/RpcMessages'
@@ -147,5 +147,94 @@ describe(parseRpcMessage, () => {
         }
 
         expect(() => parseRpcMessage(invalidResponse)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
+    })
+
+    it('should default missing params to an empty array', () => {
+        const result = parseRpcMessage({ jsonrpc: '2.0', id: '1', method: 'exampleMethod' })
+
+        expect(result.message).toStrictEqual({ jsonrpc: '2.0', id: '1', method: 'exampleMethod', params: [] })
+    })
+
+    it('should accept named params', () => {
+        const request = { jsonrpc: '2.0', id: '1', method: 'exampleMethod', params: { foo: 'arg' } }
+
+        expect(parseRpcMessage(request).message).toStrictEqual(request)
+    })
+
+    it('should throw an error for null params', () => {
+        const invalidRequest = { jsonrpc: '2.0', id: '1', method: 'exampleMethod', params: null }
+
+        expect(() => parseRpcMessage(invalidRequest)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
+    })
+
+    it('should throw an error for a non-string method', () => {
+        const invalidRequest = { jsonrpc: '2.0', id: '1', method: 42, params: [] }
+
+        expect(() => parseRpcMessage(invalidRequest)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
+    })
+
+    it.each([
+        ['null', null],
+        ['a number', 42],
+        ['an array', [validRequest]],
+        ['a JSON array string', JSON.stringify([validRequest])],
+        ['a JSON primitive string', '"text"'],
+    ])('should throw an error for %s instead of a message object', (_, message) => {
+        expect(() => parseRpcMessage(message as object)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
+    })
+
+    it('should throw an error for a response without id', () => {
+        const invalidResponse = { jsonrpc: '2.0', result: 'value' }
+
+        expect(() => parseRpcMessage(invalidResponse)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
+    })
+
+    it('should accept a response with null id', () => {
+        const response = { jsonrpc: '2.0', id: null, error: { code: RpcErrorCode.PARSE_ERROR, message: 'Parse error' } }
+
+        expect(parseRpcMessage(response).message).toStrictEqual(response)
+    })
+
+    it('should throw an error for a response containing result and error', () => {
+        const invalidResponse = { jsonrpc: '2.0', id: 1, result: 'value', error: { code: 1, message: 'error' } }
+
+        expect(() => parseRpcMessage(invalidResponse)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
+    })
+
+    it.each([
+        ['null', null],
+        ['a string', 'error'],
+        ['an array', [1, 'error']],
+    ])('should throw an error for a response with %s as error', (_, error) => {
+        const invalidResponse = { jsonrpc: '2.0', id: 1, error }
+
+        expect(() => parseRpcMessage(invalidResponse)).toThrowError(new RpcError(RpcErrorCode.INVALID_REQUEST))
+    })
+})
+
+describe(isReservedMethodName, () => {
+    it('should detect method names starting with rpc.', () => {
+        expect(isReservedMethodName('rpc.discover')).toBe(true)
+    })
+
+    it.each(['exampleMethod', 'rpcMethod', Symbol('rpc.')])('should not treat %s as reserved', (method) => {
+        expect(isReservedMethodName(method)).toBe(false)
+    })
+})
+
+describe(isApplicationErrorCode, () => {
+    it.each([-32768, -32700, -32603, -32000])('should treat reserved code %i as non-application code', (code) => {
+        expect(isApplicationErrorCode(code)).toBe(false)
+    })
+
+    it.each([RpcErrorCode.TIMEOUT_ERROR, RpcErrorCode.NOT_CONNECTED])(
+        'should treat local code %i as non-application code',
+        (code) => {
+            expect(isApplicationErrorCode(code)).toBe(false)
+        },
+    )
+
+    it.each([-32769, -31999, 0, 4001])('should treat code %i as application code', (code) => {
+        expect(isApplicationErrorCode(code)).toBe(true)
     })
 })
