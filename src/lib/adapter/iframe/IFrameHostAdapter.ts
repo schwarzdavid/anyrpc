@@ -1,80 +1,45 @@
 import type { MethodMap } from '@/types/MethodMap'
-import { AbstractIFrameAdapter, type IFrameAdapterOptions } from './AbstractIFrameAdapter'
-import { parseRpcMessage, RpcMessageType, type RpcParsingResult } from '@/utils/rpc'
-import type { RpcSuccessResponse } from '@/types/RpcMessages'
-
-/* eslint-disable @typescript-eslint/no-this-alias */
+import { AbstractMessagePortHostAdapter } from '@/lib/adapter/message-port/AbstractMessagePortHostAdapter'
+import type { HeartbeatOption } from '@/lib/Heartbeat'
+import type { InitResponse } from '@/utils/message-port/handshake'
+import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME, type IFrameAdapterOptions } from './iframeHandshake'
 
 export interface IFrameHostAdapterOptions extends IFrameAdapterOptions {
     reconnect: boolean
+    heartbeat: HeartbeatOption
 }
 
 export class IFrameHostAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
-> extends AbstractIFrameAdapter<Methods, Events> {
+> extends AbstractMessagePortHostAdapter<Methods, Events> {
+    private readonly postMessageOrigin: string
     private readonly reconnect: boolean
-
-    private messageEventListener: ((event: MessageEvent) => void) | null = null
 
     constructor(
         private readonly iframe: HTMLIFrameElement,
-        private readonly name: string = AbstractIFrameAdapter.DEFAULT_NAME,
+        name: string = DEFAULT_IFRAME_ADAPTER_NAME,
         options?: Partial<IFrameHostAdapterOptions>,
     ) {
-        super(options)
+        super(IFRAME_INIT_METHOD_NAME, name, options?.heartbeat ?? false)
+        this.postMessageOrigin = options?.postMessageOrigin ?? '*'
         this.reconnect = options?.reconnect ?? true
     }
 
-    connect() {
-        const adapter = this
-
-        this.messageEventListener = (event: MessageEvent) => {
-            if (event.source !== adapter.iframe.contentWindow) {
-                return
-            }
-
-            let result: RpcParsingResult<Methods, Events>
-            try {
-                result = parseRpcMessage<Methods, Events>(event.data as object)
-            } catch (_) {
-                // Ignore invalid messages as they might be sent for other purposes
-                return
-            }
-            if (
-                result.type !== RpcMessageType.REQUEST ||
-                result.message.method !== AbstractIFrameAdapter.INIT_METHOD_NAME
-            ) {
-                return
-            }
-            if (!Array.isArray(result.message.params) || result.message.params[0] !== adapter.name) {
-                return
-            }
-
-            const messageChannel = new MessageChannel()
-
-            adapter.port = messageChannel.port1
-            adapter.iframe.contentWindow?.postMessage(
-                {
-                    id: result.message.id,
-                    jsonrpc: '2.0',
-                    result: null,
-                } satisfies RpcSuccessResponse<() => null>,
-                adapter.postMessageOrigin,
-                [messageChannel.port2],
-            )
-            if (!adapter.reconnect) {
-                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                window.removeEventListener('message', this.messageEventListener!)
-            }
-        }
-
-        window.addEventListener('message', this.messageEventListener)
+    protected listenForInitRequests(signal: AbortSignal): void {
+        window.addEventListener('message', (event) => this.handleWindowMessage(event), { signal })
     }
 
-    override destroy(): void {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        window.removeEventListener('message', this.messageEventListener!)
-        super.destroy()
+    protected postInitResponse(response: InitResponse, transfer: Transferable[]): void {
+        this.iframe.contentWindow?.postMessage(response, this.postMessageOrigin, transfer)
+    }
+
+    private handleWindowMessage(event: MessageEvent): void {
+        if (event.source !== this.iframe.contentWindow) {
+            return
+        }
+        if (this.acceptInitRequest(event.data) && !this.reconnect) {
+            this.stopListening()
+        }
     }
 }

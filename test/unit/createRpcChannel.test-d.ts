@@ -1,6 +1,6 @@
 import { assertType, describe, expectTypeOf, it, vi } from 'vitest'
 import { createRpcChannel } from '@/createRpcChannel'
-import { AbstractRpcAdapter } from '@/lib/AbstractRpcAdapter'
+import { AbstractRpcAdapter } from '@/lib/adapter/AbstractRpcAdapter'
 import type { RpcMessage } from '@/types/RpcMessages'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import type { MethodMap } from '@/types/MethodMap'

@@ -1,4 +1,4 @@
-import { AbstractRpcAdapter } from './lib/AbstractRpcAdapter'
+import { AbstractRpcAdapter } from './lib/adapter/AbstractRpcAdapter'
 import { EventEmitter } from './lib/EventEmitter'
 import { HandlerRegistry } from './lib/HandlerRegistry'
 import {
@@ -138,6 +138,10 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         }
     }
 
+    adapter.connectionLostHandler = function rpcChannelConnectionLostHandler() {
+        rejectPendingMessages(new RpcError(RpcErrorCode.CONNECTION_LOST))
+    }
+
     if (mergedOptions.autoConnect) {
         adapter.connect()
     }
@@ -194,7 +198,10 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         }
     }
 
-    function wrapError(code: RpcErrorCode.SERVER_ERROR | RpcErrorCode.INTERNAL_ERROR, error: unknown): RpcError {
+    function wrapError(
+        code: typeof RpcErrorCode.SERVER_ERROR | typeof RpcErrorCode.INTERNAL_ERROR,
+        error: unknown,
+    ): RpcError {
         return new RpcError(
             { code, message: RPC_ERROR_MESSAGE_MAP[code], data: error },
             mergedOptions.errorIncludeStack,
@@ -321,6 +328,10 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
             delete pendingMessageRegistry[id]
         })
+    }
+
+    function rejectPendingMessages(error: RpcError): void {
+        Object.values(pendingMessageRegistry).forEach((pendingMessage) => pendingMessage.reject(error))
     }
 
     function sendNotification<Method extends keyof Methods>(method: Method, params: Parameters<Methods[Method]>): void {

@@ -7,10 +7,12 @@ import type { LogLevel } from '@/types/LogLevel'
 
 export type MessageHandler = (message: string | object) => Promisable<void>
 export type ConnectionHandler = (status: ConnectionStatus) => Promisable<unknown>
+export type ConnectionLostHandler = () => void
 
 export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> {
     private _messageHandler?: MessageHandler
     private _connectionHandler?: ConnectionHandler
+    private _connectionLostHandler?: ConnectionLostHandler
     private _connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED
     protected logger?: Logger
 
@@ -19,12 +21,19 @@ export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Eve
     }
 
     protected set connectionStatus(status: ConnectionStatus) {
+        if (this._connectionStatus === status) {
+            return
+        }
         this._connectionStatus = status
         this._connectionHandler?.(status)
     }
 
     set connectionHandler(handler: ConnectionHandler) {
         this._connectionHandler = handler
+    }
+
+    set connectionLostHandler(handler: ConnectionLostHandler) {
+        this._connectionLostHandler = handler
     }
 
     set messageHandler(handler: MessageHandler) {
@@ -39,11 +48,16 @@ export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Eve
         await this._messageHandler?.(rawMessage)
     }
 
+    protected closeConnection(): void {
+        this._connectionLostHandler?.()
+        this.connectionStatus = ConnectionStatus.DISCONNECTED
+    }
+
     initLogger(logLevel: LogLevel): void {
         this.logger = new Logger(this.constructor.name, logLevel)
     }
 
     destroy(): void {
-        this.connectionStatus = ConnectionStatus.DISCONNECTED
+        this.closeConnection()
     }
 }

@@ -256,7 +256,7 @@ describe(isApplicationErrorCode, () => {
         expect(isApplicationErrorCode(code)).toBe(false)
     })
 
-    it.each([RpcErrorCode.TIMEOUT_ERROR, RpcErrorCode.NOT_CONNECTED])(
+    it.each([RpcErrorCode.TIMEOUT_ERROR, RpcErrorCode.NOT_CONNECTED, RpcErrorCode.CONNECTION_LOST])(
         'should treat local code %i as non-application code',
         (code) => {
             expect(isApplicationErrorCode(code)).toBe(false)

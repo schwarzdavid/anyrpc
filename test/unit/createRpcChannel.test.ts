@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRpcChannel } from '@/createRpcChannel'
-import { AbstractRpcAdapter } from '@/lib/AbstractRpcAdapter'
+import { AbstractRpcAdapter } from '@/lib/adapter/AbstractRpcAdapter'
 import { RpcError } from '@/lib/RpcError'
 import { RPC_ERROR_MESSAGE_MAP, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
 import type { RpcMessage, RpcRequest, RpcResponse } from '@/types/RpcMessages'
@@ -38,6 +38,10 @@ class MockAdapter<M extends MethodMap<M> = TestMethods, E extends MethodMap<E> =
 
     triggerConnectionHandler(status: ConnectionStatus = ConnectionStatus.CONNECTED) {
         this.connectionStatus = status
+    }
+
+    triggerConnectionLost() {
+        this.closeConnection()
     }
 }
 
@@ -107,6 +111,41 @@ describe(createRpcChannel, () => {
             vi.runAllTimers()
 
             await expect(messagePromise).rejects.toThrowError(new RpcError(RpcErrorCode.TIMEOUT_ERROR))
+        })
+
+        it('should reject pending requests immediately when the connection is lost', async () => {
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
+
+            const messagePromise = rpcChannel.add(2, 3)
+            adapter.triggerConnectionLost()
+
+            await expect(messagePromise).rejects.toThrowError(new RpcError(RpcErrorCode.CONNECTION_LOST))
+        })
+
+        it('should keep pending requests waiting while the adapter only reports a disconnect', async () => {
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
+
+            const messagePromise = rpcChannel.add(2, 3)
+            adapter.triggerConnectionHandler(ConnectionStatus.DISCONNECTED)
+            const { id } = adapter.sendMessage.mock.calls[0]![0] as RpcRequest<TestMethods>
+            await adapter.triggerMessageHandler({ jsonrpc: '2.0', id, result: 5 })
+
+            await expect(messagePromise).resolves.toBe(5)
+        })
+
+        it('should not reject requests sent after the connection was lost and restored', async () => {
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
+
+            adapter.triggerConnectionHandler(ConnectionStatus.DISCONNECTED)
+            adapter.triggerConnectionHandler(ConnectionStatus.CONNECTED)
+            const messagePromise = rpcChannel.add(2, 3)
+            const { id } = adapter.sendMessage.mock.calls[0]![0] as RpcRequest<TestMethods>
+            await adapter.triggerMessageHandler({ jsonrpc: '2.0', id, result: 5 })
+
+            await expect(messagePromise).resolves.toBe(5)
         })
 
         it('should throw if not connected and the queue is disabled', () => {

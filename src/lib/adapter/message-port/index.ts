@@ -1,0 +1,5 @@
+export { AbstractMessagePortAdapter, type MessagePorts } from './AbstractMessagePortAdapter'
+export { AbstractMessagePortHostAdapter } from './AbstractMessagePortHostAdapter'
+export { AbstractMessagePortClientAdapter } from './AbstractMessagePortClientAdapter'
+export type { InitRequest, InitResponse } from '@/utils/message-port/handshake'
+export type { HeartbeatOption, HeartbeatOptions } from '@/lib/Heartbeat'

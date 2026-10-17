@@ -4,8 +4,15 @@
 
 anyrpc is a small, fully typed, transport-agnostic RPC library for TypeScript. Consumers describe both directions of
 communication as interfaces and get back a typed proxy (`createRpcChannel`). Messages follow JSON-RPC 2.0, and the
-transport is pluggable through adapters that extend `AbstractRpcAdapter` (`src/lib/AbstractRpcAdapter.ts`). The iframe
-adapter (`src/lib/adapter/iframe/`) is the first one; more transports are planned (see README).
+transport is pluggable through adapters that extend `AbstractRpcAdapter` (`src/lib/adapter/AbstractRpcAdapter.ts`,
+exported from the package entry together with `ConnectionStatus`, `LogLevel`, `RpcError` and `RpcErrorCode`).
+Adapters for iframes (`src/lib/adapter/iframe/`) and web workers (`src/lib/adapter/web-worker/`) exist; more
+transports are planned (see README). Transports that exchange `MessagePort`s after a handshake extend
+`AbstractMessagePortHostAdapter` (the side that creates the `MessageChannel`) or `AbstractMessagePortClientAdapter`
+(the side that polls for it); both build on `AbstractMessagePortAdapter`, which owns the ports, the heartbeat and the
+control protocol (ping/pong/goodbye). They live in `src/lib/adapter/message-port/` and ship as
+`anyrpc/adapters/message-port`. Enumerations are `as const` objects with a same-named union type, never `enum`, so
+they stay usable for consumers with `isolatedModules`.
 
 ## Guiding principles
 
@@ -38,6 +45,8 @@ adapter (`src/lib/adapter/iframe/`) is the first one; more transports are planne
   with tests that keep it there; verify with `npm run coverage`. Never reach coverage with ignore comments or by
   excluding files. If code is hard to cover, simplify the code.
 - Tests live in `test/unit/`, mirroring the `src/` structure. Runtime tests use `*.test.ts`, type tests use `*.test-d.ts`.
+- End-to-end tests against real browser APIs (e.g. real workers) live in `test/browser/` and run in Chromium via Vitest
+  browser mode. Code running inside a worker is not counted by coverage, so cover it with unit tests in `test/unit/`.
 - Use `describe(ClassOrFunction, ...)` and Vitest mocks (`vi.fn`) as the existing tests do.
 - Public types are part of the DX. When changing inference or signatures, add or update type tests.
 
@@ -58,9 +67,14 @@ Before reporting work as done, run `npm run coverage`, `npm run check`, `npm run
 ## Adding an adapter
 
 1. Create `src/lib/adapter/<name>/` with an `index.ts` that exports the adapter classes and their option types.
-2. Extend `AbstractRpcAdapter` and implement `connect` and `sendMessage`; report connection state via `connectionStatus`
-   and forward incoming messages via `onMessage`. Override `destroy` to release resources.
-3. Add a build entry in `vite.config.ts` and a matching subpath export in `package.json`.
+2. Extend `AbstractRpcAdapter` and implement `connect` and `sendMessage`; report connection state via `connectionStatus`,
+   call `closeConnection()` when the transport is definitively closed (this rejects in-flight calls with
+   `CONNECTION_LOST`, a mere status change does not) and forward incoming messages via `onMessage`. Override `destroy`
+   to release resources. Handshake-based `MessagePort` transports extend `AbstractMessagePortHostAdapter` or
+   `AbstractMessagePortClientAdapter` instead and only implement how handshake messages are listened for and posted.
+3. Add a build entry in `vite.config.ts` and a matching subpath export in `package.json`. Code that runs in a
+   different global scope than the DOM (e.g. inside a worker) gets its own entry point and tsconfig with the matching
+   `lib` (see `tsconfig.lib.webworker.json`). Its public types must stay lib-neutral.
 4. Add tests, an example under `examples/`, and update the README adapter list.
 
 ## Git
