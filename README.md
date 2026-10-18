@@ -36,7 +36,7 @@ anyrpc takes care of all of this. You describe both directions of communication 
 ## Adapters
 
 - [x] **iframe** (`anyrpc/adapters/iframe`). Uses a dedicated `MessageChannel` after a handshake, with origin allow-listing on both sides, optional heartbeat and automatic reconnects (e.g. after the iframe reloads).
-- [x] **Web Worker** (`anyrpc/adapters/web-worker/host` and `anyrpc/adapters/web-worker/client`). Dedicated workers only, with a `MessageChannel` per channel, optional heartbeat and error logging.
+- [x] **Web Worker** (`anyrpc/adapters/web-worker`). Dedicated workers only, with a `MessageChannel` per channel, optional heartbeat and error logging.
 - [ ] `SharedWorker` / `ServiceWorker`
 - [ ] `BroadcastChannel` (cross-tab)
 - [ ] `window.open` / popup
@@ -191,12 +191,12 @@ A remote method cannot be named `$`, `then`, `toJSON`, anything starting with `r
 
 ### Web Worker adapter
 
-The host side creates the worker and passes it to `WebWorkerHostAdapter`. Inside the worker, `WebWorkerClientAdapter` connects to it. Both sides are separate entry points, so the worker bundle does not contain host code and each side can be type-checked with its own `lib` (`DOM` or `WebWorker`).
+The host side creates the worker and passes it to `WebWorkerHostAdapter`. Inside the worker, `WebWorkerClientAdapter` connects to it. Both come from the same entry point, and bundlers drop the side you do not import. Creating `WebWorkerClientAdapter` outside of a worker throws an error that points you to `WebWorkerHostAdapter`.
 
 ```ts
 // main.ts
 import { createRpcChannel } from 'anyrpc'
-import { WebWorkerHostAdapter } from 'anyrpc/adapters/web-worker/host'
+import { WebWorkerHostAdapter } from 'anyrpc/adapters/web-worker'
 import type { MainToWorker, WorkerToMain } from './messages'
 
 const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
@@ -208,7 +208,7 @@ const result = await channel.compute(42)
 ```ts
 // worker.ts
 import { createRpcChannel } from 'anyrpc'
-import { WebWorkerClientAdapter } from 'anyrpc/adapters/web-worker/client'
+import { WebWorkerClientAdapter } from 'anyrpc/adapters/web-worker'
 import type { MainToWorker, WorkerToMain } from './messages'
 
 const channel = createRpcChannel<WorkerToMain, MainToWorker>(new WebWorkerClientAdapter('my-app'))

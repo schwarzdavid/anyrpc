@@ -43,17 +43,13 @@
       "import": "./dist/message-port.js",
       "require": "./dist/message-port.cjs"
     },
-    "./adapters/web-worker/host": {
-      "types": "./dist/lib/adapter/web-worker/host/index.d.ts",
-      "import": "./dist/web-worker-host.js",
-      "require": "./dist/web-worker-host.cjs"
-    },
-    "./adapters/web-worker/client": {
-      "types": "./dist/lib/adapter/web-worker/client/index.d.ts",
-      "import": "./dist/web-worker-client.js",
-      "require": "./dist/web-worker-client.cjs"
+    "./adapters/web-worker": {
+      "types": "./dist/lib/adapter/web-worker/index.d.ts",
+      "import": "./dist/web-worker.js",
+      "require": "./dist/web-worker.cjs"
     }
   },
+  "sideEffects": false,
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",

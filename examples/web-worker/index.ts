@@ -1,7 +1,7 @@
 import { onReady } from '../__helper/onReady'
 import { createHtmlLogger, MessageType } from '../__helper/createHtmlLogger'
 import { createRpcChannel } from '@/createRpcChannel'
-import { WebWorkerHostAdapter } from '@/lib/adapter/web-worker/host'
+import { WebWorkerHostAdapter } from '@/lib/adapter/web-worker'
 import type { HostToWorker, WorkerToHost } from './WebWorkerMessages'
 
 onReady(() => {

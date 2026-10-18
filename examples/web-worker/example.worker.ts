@@ -1,5 +1,5 @@
 import { createRpcChannel } from '@/createRpcChannel'
-import { WebWorkerClientAdapter } from '@/lib/adapter/web-worker/client'
+import { WebWorkerClientAdapter } from '@/lib/adapter/web-worker'
 import type { HostToWorker, WorkerToHost } from './WebWorkerMessages'
 
 const channel = createRpcChannel<WorkerToHost, HostToWorker>(new WebWorkerClientAdapter('example'))

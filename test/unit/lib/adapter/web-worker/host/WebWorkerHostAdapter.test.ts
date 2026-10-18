@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { type HeartbeatOption, WebWorkerHostAdapter, type WebWorkerLike } from '@/lib/adapter/web-worker/host'
+import { type HeartbeatOption, WebWorkerHostAdapter, type WebWorkerLike } from '@/lib/adapter/web-worker'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import { confirmHandshake } from '../../../../__helper/confirmHandshake'

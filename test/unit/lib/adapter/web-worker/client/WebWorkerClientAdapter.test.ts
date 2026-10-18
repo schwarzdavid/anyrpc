@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest'
-import { WebWorkerClientAdapter } from '@/lib/adapter/web-worker/client'
+import { WebWorkerClientAdapter } from '@/lib/adapter/web-worker'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 
@@ -24,6 +24,7 @@ describe(WebWorkerClientAdapter, () => {
     let adapter: WebWorkerClientAdapter<TestMethods, TestMethods>
 
     beforeEach(() => {
+        vi.stubGlobal('window', undefined)
         vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
         vi.spyOn(console, 'warn').mockImplementation(() => undefined)
         vi.spyOn(console, 'log').mockImplementation(() => undefined)
@@ -39,7 +40,17 @@ describe(WebWorkerClientAdapter, () => {
         dataChannel.port2.close()
         controlChannel.port2.close()
         vi.useRealTimers()
+        vi.unstubAllGlobals()
         vi.restoreAllMocks()
+    })
+
+    it('should refuse to be created outside of a web worker', () => {
+        vi.stubGlobal('window', globalThis)
+
+        expect(() => new WebWorkerClientAdapter()).toThrowError(
+            'WebWorkerClientAdapter must be created inside the web worker. ' +
+                'Use WebWorkerHostAdapter on the page that starts the worker.',
+        )
     })
 
     it('should send an init request with its name to the parent when connecting', () => {

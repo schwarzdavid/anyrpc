@@ -4,7 +4,6 @@ import { resolve } from 'node:path'
 import dts from 'vite-plugin-dts'
 import { playwright } from '@vitest/browser-playwright'
 
-const WEB_WORKER_CLIENT_SOURCES = 'src/lib/adapter/web-worker/client'
 const WEB_WORKER_CLIENT_TESTS = 'test/unit/lib/adapter/web-worker/client'
 
 export default defineConfig({
@@ -20,8 +19,7 @@ export default defineConfig({
                 index: resolve(__dirname, 'src/index.ts'),
                 iframe: resolve(__dirname, 'src/lib/adapter/iframe/index.ts'),
                 'message-port': resolve(__dirname, 'src/lib/adapter/message-port/index.ts'),
-                'web-worker-host': resolve(__dirname, 'src/lib/adapter/web-worker/host/index.ts'),
-                'web-worker-client': resolve(__dirname, `${WEB_WORKER_CLIENT_SOURCES}/index.ts`),
+                'web-worker': resolve(__dirname, 'src/lib/adapter/web-worker/index.ts'),
             },
         },
         rollupOptions: {

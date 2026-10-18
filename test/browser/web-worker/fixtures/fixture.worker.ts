@@ -1,5 +1,5 @@
 import { createRpcChannel } from '@/createRpcChannel'
-import { WebWorkerClientAdapter } from '@/lib/adapter/web-worker/client'
+import { WebWorkerClientAdapter } from '@/lib/adapter/web-worker'
 import { RpcError } from '@/lib/RpcError'
 import { LogLevel } from '@/types/LogLevel'
 import type { HostToSecondChannel, HostToWorker, WorkerToHost } from './FixtureMessages'

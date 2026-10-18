@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRpcChannel, type RpcChannelOptions } from '@/createRpcChannel'
-import { WebWorkerHostAdapter, type WebWorkerHostAdapterOptions } from '@/lib/adapter/web-worker/host'
+import { WebWorkerHostAdapter, type WebWorkerHostAdapterOptions } from '@/lib/adapter/web-worker'
 import { RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
 import { RpcError } from '@/lib/RpcError'
 import { ConnectionStatus } from '@/types/ConnectionStatus'

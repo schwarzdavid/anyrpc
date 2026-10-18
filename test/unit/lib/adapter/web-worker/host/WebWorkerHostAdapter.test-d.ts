@@ -1,6 +1,6 @@
 import { assertType, describe, expectTypeOf, it } from 'vitest'
 import { createRpcChannel } from '@/createRpcChannel'
-import { WebWorkerHostAdapter } from '@/lib/adapter/web-worker/host'
+import { WebWorkerHostAdapter } from '@/lib/adapter/web-worker'
 
 interface HostToWorker {
     compute(input: number): number

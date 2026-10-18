@@ -7,11 +7,21 @@ export interface WebWorkerClientAdapterOptions {
     pollingInterval: number
 }
 
+function isRunningInWindow(): boolean {
+    return Reflect.get(globalThis, 'window') === globalThis
+}
+
 export class WebWorkerClientAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractMessagePortClientAdapter<Methods, Events> {
     constructor(name: string = DEFAULT_WEB_WORKER_ADAPTER_NAME, options?: Partial<WebWorkerClientAdapterOptions>) {
+        if (isRunningInWindow()) {
+            throw new Error(
+                'WebWorkerClientAdapter must be created inside the web worker. ' +
+                    'Use WebWorkerHostAdapter on the page that starts the worker.',
+            )
+        }
         super(WEB_WORKER_INIT_METHOD_NAME, name, options?.pollingInterval ?? 1000)
     }
 
