@@ -99,6 +99,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     const pendingMessageRegistry: PendingMessageRegistry = {}
     const queuedMessages: QueueEntry[] = []
     let isProcessingQueue = false
+    let isDestroyed = false
 
     const meta: RpcChannelMeta<Events> = {
         get status() {
@@ -116,6 +117,10 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             return callEvents.on(name as RpcHandleableName<Events>, untypedListener)
         },
         destroy() {
+            if (isDestroyed) {
+                return
+            }
+            isDestroyed = true
             boundAdapters.delete(adapter)
             adapter.destroy()
             discardQueuedMessages()
@@ -178,6 +183,12 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             throw new Error(
                 `Cannot ${action} "${String(name)}": method names starting with "rpc." are reserved by JSON-RPC 2.0`,
             )
+        }
+    }
+
+    function assertNotDestroyed(): void {
+        if (isDestroyed) {
+            throw new RpcError({ code: RpcErrorCode.NOT_CONNECTED, message: 'The channel was destroyed' })
         }
     }
 
@@ -297,6 +308,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         params: Parameters<Methods[Method]>,
     ): Promise<unknown> {
         assertNotReserved(method, 'call')
+        assertNotDestroyed()
 
         if (adapter.connectionStatus === ConnectionStatus.CONNECTED) {
             return sendRequest(method, params)
@@ -312,6 +324,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         params: Parameters<Methods[Method]>,
     ): void {
         assertNotReserved(method, 'notify')
+        assertNotDestroyed()
 
         if (adapter.connectionStatus === ConnectionStatus.CONNECTED) {
             sendNotification(method, params)
@@ -353,6 +366,13 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         Object.values(pendingMessageRegistry).forEach((pendingMessage) => pendingMessage.reject(error))
     }
 
+    async function sendQueuedRequest<Method extends keyof Methods>(
+        method: Method,
+        params: Parameters<Methods[Method]>,
+    ): Promise<unknown> {
+        return await sendRequest(method, params)
+    }
+
     function sendNotification<Method extends keyof Methods>(method: Method, params: Parameters<Methods[Method]>): void {
         adapter.sendMessage({ jsonrpc: '2.0', method, params })
     }
@@ -374,7 +394,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     ): Promise<unknown> {
         return new Promise((resolve, reject) => {
             enqueue({
-                send: () => sendRequest(method, params).then(resolve, reject),
+                send: () => sendQueuedRequest(method, params).then(resolve, reject),
                 expire: () => reject(new RpcError(RpcErrorCode.TIMEOUT_ERROR)),
                 discard: () => reject(new RpcError(RpcErrorCode.CONNECTION_LOST)),
             })
@@ -430,21 +450,22 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             return
         }
         isProcessingQueue = true
+        try {
+            while (adapter.connectionStatus === ConnectionStatus.CONNECTED) {
+                const queuedMessage = takeQueuedMessage()
+                if (!queuedMessage) {
+                    break
+                }
 
-        while (adapter.connectionStatus === ConnectionStatus.CONNECTED) {
-            const queuedMessage = takeQueuedMessage()
-            if (!queuedMessage) {
-                break
+                const sending = queuedMessage.send()
+
+                if (mergedOptions.queueAwait) {
+                    await sending
+                }
             }
-
-            const sending = queuedMessage.send()
-
-            if (mergedOptions.queueAwait) {
-                await sending
-            }
+        } finally {
+            isProcessingQueue = false
         }
-
-        isProcessingQueue = false
         if (adapter.connectionStatus === ConnectionStatus.CONNECTED) {
             channelEvents.emit('rpc.connected', [])
         }

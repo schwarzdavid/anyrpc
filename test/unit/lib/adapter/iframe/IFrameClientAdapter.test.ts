@@ -197,6 +197,16 @@ describe(IFrameClientAdapter, () => {
             expect(console.warn).toHaveBeenCalledWith('[IFrameClientAdapter]', expect.stringContaining('any origin'))
         })
 
+        it('should accept any origin with the wildcard and warn about it', () => {
+            createAdapter({ origin: '*' })
+            adapter.connect()
+
+            receiveInitResponse({ origin: 'https://evil.example' })
+
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+            expect(console.warn).toHaveBeenCalledWith('[IFrameClientAdapter]', expect.stringContaining('any origin'))
+        })
+
         it('should not warn when an origin is configured', () => {
             createAdapter({ origin: PARENT_ORIGIN })
 

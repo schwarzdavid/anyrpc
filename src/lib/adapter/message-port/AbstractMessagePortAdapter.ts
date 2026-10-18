@@ -34,10 +34,6 @@ export abstract class AbstractMessagePortAdapter<
     }
 
     sendMessage(message: RpcMessage<Methods, Events>): void {
-        this.postToDataPort(message)
-    }
-
-    protected postToDataPort(message: object): void {
         this.ports?.data.postMessage(message)
     }
 

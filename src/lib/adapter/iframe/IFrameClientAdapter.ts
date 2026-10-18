@@ -2,7 +2,7 @@ import type { MethodMap } from '@/types/MethodMap'
 import { AbstractMessagePortClientAdapter } from '@/lib/adapter/message-port/AbstractMessagePortClientAdapter'
 import type { InitRequest } from '@/utils/message-port/handshake'
 import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME, type IFrameAdapterOptions } from './iframeHandshake'
-import { assertValidOriginOption, type IFrameOriginOption, isOriginAllowed } from './iframeOrigin'
+import { allowsAnyOrigin, assertValidOriginOption, type IFrameOriginOption, isOriginAllowed } from './iframeOrigin'
 
 export type IFrameClientAdapterOriginOption = IFrameOriginOption
 
@@ -30,7 +30,7 @@ export class IFrameClientAdapter<
         if (window.parent === window) {
             this.logger?.warn('This page is not embedded in an iframe, so no host can answer the handshake.')
         }
-        if (this.allowedOrigin === true) {
+        if (allowsAnyOrigin(this.allowedOrigin)) {
             this.logger?.warn(
                 'Accepting handshake responses from any origin. Set the "origin" option for production use.',
             )

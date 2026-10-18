@@ -58,6 +58,10 @@ function errorResponse(code: RpcErrorCode) {
     return { jsonrpc: '2.0', id: 'request-id', error: new RpcError(code).toJSON() }
 }
 
+function channelDestroyedError() {
+    return new RpcError({ code: RpcErrorCode.NOT_CONNECTED, message: 'The channel was destroyed' })
+}
+
 describe(createRpcChannel, () => {
     beforeEach(() => {
         vi.spyOn(console, 'warn').mockImplementation(() => undefined)
@@ -172,7 +176,19 @@ describe(createRpcChannel, () => {
 
             rpcChannel.$.destroy()
 
-            expect(() => rpcChannel.add(2, 3)).toThrowError(new RpcError(RpcErrorCode.NOT_CONNECTED))
+            expect(() => rpcChannel.add(2, 3)).toThrowError(channelDestroyedError())
+        })
+
+        it('should throw if called after the channel was destroyed even if the queue is enabled', () => {
+            vi.useFakeTimers()
+
+            const adapter = new MockAdapter(ConnectionStatus.DISCONNECTED)
+            const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter, { queueEnabled: true })
+
+            rpcChannel.$.destroy()
+
+            expect(() => rpcChannel.add(2, 3)).toThrowError(channelDestroyedError())
+            expect(vi.getTimerCount()).toBe(0)
         })
 
         it('should timeout if no response is received', async () => {
@@ -258,6 +274,18 @@ describe(createRpcChannel, () => {
 
             expect(() => rpcChannel.log.notify('hello')).toThrowError(new RpcError(RpcErrorCode.NOT_CONNECTED))
             expect(adapter.sendMessage).not.toHaveBeenCalled()
+        })
+
+        it('should throw if notified after the channel was destroyed even if the queue is enabled', () => {
+            vi.useFakeTimers()
+
+            const adapter = new MockAdapter(ConnectionStatus.DISCONNECTED)
+            const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter, { queueEnabled: true })
+
+            rpcChannel.$.destroy()
+
+            expect(() => rpcChannel.log.notify('hello')).toThrowError(channelDestroyedError())
+            expect(vi.getTimerCount()).toBe(0)
         })
 
         it('should throw the error of the adapter if the notification cannot be sent', () => {
@@ -442,6 +470,29 @@ describe(createRpcChannel, () => {
                 'Could not send the queued notification "log"',
                 cloneError,
             )
+            expect(connectedListener).toHaveBeenCalledWith()
+        })
+
+        it('should reject a queued request whose id cannot be generated and keep sending the queue', async () => {
+            const adapter = new MockAdapter(ConnectionStatus.DISCONNECTED)
+            const rpcChannel = createRpcChannel(adapter, { queueEnabled: true })
+            const connectedListener = vi.fn<() => void>()
+            const idError = new Error('No entropy available')
+            rpcChannel.$.on('rpc.connected', connectedListener)
+            vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementationOnce(() => {
+                throw idError
+            })
+            const addPromise = rpcChannel.add(2, 3)
+            rpcChannel.log.notify('second')
+
+            adapter.triggerConnectionHandler(ConnectionStatus.CONNECTED)
+
+            await expect(addPromise).rejects.toBe(idError)
+            expect(adapter.sendMessage).toHaveBeenCalledExactlyOnceWith({
+                jsonrpc: '2.0',
+                method: 'log',
+                params: ['second'],
+            })
             expect(connectedListener).toHaveBeenCalledWith()
         })
 
@@ -1086,6 +1137,17 @@ describe(createRpcChannel, () => {
             rpcChannel.$.destroy()
 
             expect(destroySpy).toHaveBeenCalledWith()
+        })
+
+        it('should destroy the adapter only once', () => {
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel(adapter)
+            const destroySpy = vi.spyOn(adapter, 'destroy')
+
+            rpcChannel.$.destroy()
+            rpcChannel.$.destroy()
+
+            expect(destroySpy).toHaveBeenCalledTimes(1)
         })
 
         it('should throw if the adapter is already used by another channel', () => {

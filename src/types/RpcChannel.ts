@@ -10,14 +10,21 @@ export interface RpcNotifiable<Fn extends MethodFn> {
 
 type ResolvedReturnType<Fn extends MethodFn> = Awaited<ReturnType<Fn>>
 
+type IsAny<T> = 0 extends 1 & T ? true : false
+
+type ResolvesToUndefined<Fn extends MethodFn> =
+    IsAny<ResolvedReturnType<Fn>> extends true ? false : [ResolvedReturnType<Fn>] extends [undefined] ? true : false
+
 type ResolvesToVoid<Fn extends MethodFn> = [Promise<ResolvedReturnType<Fn>>] extends [Promise<void>] ? true : false
 
 export type RpcResult<Fn extends MethodFn> =
-    ResolvesToVoid<Fn> extends true
-        ? ResolvedReturnType<Fn>
-        : undefined extends ResolvedReturnType<Fn>
-          ? Exclude<ResolvedReturnType<Fn>, undefined> | null
-          : ResolvedReturnType<Fn>
+    ResolvesToUndefined<Fn> extends true
+        ? null
+        : ResolvesToVoid<Fn> extends true
+          ? ResolvedReturnType<Fn>
+          : undefined extends ResolvedReturnType<Fn>
+            ? Exclude<ResolvedReturnType<Fn>, undefined> | null
+            : ResolvedReturnType<Fn>
 
 export type RpcChannelMethod<Fn extends MethodFn> = ((...args: Parameters<Fn>) => Promise<RpcResult<Fn>>) &
     (ResolvesToVoid<Fn> extends true ? RpcNotifiable<Fn> : unknown)

@@ -5,6 +5,7 @@ import type { ConnectionHandler, ConnectionLostHandler, MessageHandler } from '@
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import type { RpcRequest } from '@/types/RpcMessages'
+import { nextMessage } from '../../../__helper/nextMessage'
 
 interface TestMethods {
     foo(value: string): void
@@ -37,13 +38,6 @@ class TestAdapter extends AbstractMessagePortAdapter<TestMethods, TestMethods> {
 }
 
 const request: RpcRequest<TestMethods> = { jsonrpc: '2.0', id: 'request-id', method: 'foo', params: ['bar'] }
-
-function nextMessage(port: MessagePort): Promise<unknown> {
-    return new Promise((resolve) => {
-        port.addEventListener('message', (event) => resolve(event.data), { once: true })
-        port.start()
-    })
-}
 
 describe(AbstractMessagePortAdapter, () => {
     let dataChannel: MessageChannel

@@ -201,6 +201,17 @@ describe(IFrameHostAdapter, () => {
             expect(console.warn).toHaveBeenCalledWith('[IFrameHostAdapter]', expect.stringContaining('any origin'))
         })
 
+        it('should accept any origin with the wildcard and warn about it', async () => {
+            createAdapter({ origin: '*' })
+            adapter.connect()
+
+            receiveFromIframe(initRequest(), { origin: 'https://evil.example' })
+            await confirmFromIframe()
+
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+            expect(console.warn).toHaveBeenCalledWith('[IFrameHostAdapter]', expect.stringContaining('any origin'))
+        })
+
         it('should not warn when an origin is configured', () => {
             createAdapter({ origin: IFRAME_ORIGIN })
 

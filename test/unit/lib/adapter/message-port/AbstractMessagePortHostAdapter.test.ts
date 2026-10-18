@@ -6,6 +6,7 @@ import type { ConnectionHandler, ConnectionLostHandler } from '@/lib/adapter/Abs
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import { confirmHandshake } from '../../../__helper/confirmHandshake'
+import { nextMessage } from '../../../__helper/nextMessage'
 
 interface TestMethods {
     foo(value: string): void
@@ -41,13 +42,6 @@ class TestHostAdapter extends AbstractMessagePortHostAdapter<TestMethods, TestMe
 
 function initRequest(id = 'init-id', name = 'my-app') {
     return { jsonrpc: '2.0', id, method: METHOD, params: [name] }
-}
-
-function nextMessage(port: MessagePort): Promise<unknown> {
-    return new Promise((resolve) => {
-        port.addEventListener('message', (event) => resolve(event.data), { once: true })
-        port.start()
-    })
 }
 
 describe(AbstractMessagePortHostAdapter, () => {

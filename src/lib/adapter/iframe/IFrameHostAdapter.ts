@@ -3,7 +3,7 @@ import { AbstractMessagePortHostAdapter } from '@/lib/adapter/message-port/Abstr
 import type { HeartbeatOption } from '@/lib/Heartbeat'
 import type { InitResponse } from '@/utils/message-port/handshake'
 import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME, type IFrameAdapterOptions } from './iframeHandshake'
-import { assertValidOriginOption, type IFrameOriginOption, isOriginAllowed } from './iframeOrigin'
+import { allowsAnyOrigin, assertValidOriginOption, type IFrameOriginOption, isOriginAllowed } from './iframeOrigin'
 
 export interface IFrameHostAdapterOptions extends IFrameAdapterOptions {
     reconnect: boolean
@@ -33,7 +33,7 @@ export class IFrameHostAdapter<
     }
 
     override connect(): void {
-        if (this.allowedOrigin === true) {
+        if (allowsAnyOrigin(this.allowedOrigin)) {
             this.logger?.warn(
                 'Accepting handshake requests from any origin. Set the "origin" option for production use.',
             )

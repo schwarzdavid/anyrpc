@@ -13,6 +13,8 @@ interface TestMethods {
     log(message: string): void
     flush(): Promise<void>
     find(id?: string): string | undefined
+    probe(): undefined
+    anything(): any
 }
 
 interface TestEvents {
@@ -99,9 +101,14 @@ describe(createRpcChannel, () => {
             expectTypeOf(rpcChannel.find).returns.toEqualTypeOf<Promise<string | null>>()
         })
 
-        it('should keep void and defined results unchanged', () => {
+        it('should resolve results declared as undefined as null', () => {
+            expectTypeOf(rpcChannel.probe).returns.toEqualTypeOf<Promise<null>>()
+        })
+
+        it('should keep void, any and defined results unchanged', () => {
             expectTypeOf(rpcChannel.log).returns.toEqualTypeOf<Promise<void>>()
             expectTypeOf(rpcChannel.flush).returns.toEqualTypeOf<Promise<void>>()
+            expectTypeOf(rpcChannel.anything).returns.toEqualTypeOf<Promise<any>>()
             expectTypeOf(rpcChannel.add).returns.toEqualTypeOf<Promise<number>>()
         })
     })
@@ -109,6 +116,10 @@ describe(createRpcChannel, () => {
     describe('notify', () => {
         it('should offer notify on methods returning void', () => {
             expectTypeOf(rpcChannel.log.notify).toEqualTypeOf<(message: string) => void>()
+        })
+
+        it('should offer notify on methods returning undefined', () => {
+            expectTypeOf(rpcChannel.probe.notify).toEqualTypeOf<() => void>()
         })
 
         it('should offer notify on methods returning Promise<void>', () => {

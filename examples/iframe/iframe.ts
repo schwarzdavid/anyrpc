@@ -16,13 +16,26 @@ onReady(() => {
         log(MessageType.INFO, `Connection status ${status}`)
     })
 
-    document.querySelector('#send-pong')?.addEventListener('click', () => {
+    async function sendPong(): Promise<void> {
         log(MessageType.SENT, 'pong')
-        void channel.pong()
-    })
+        try {
+            await channel.pong()
+            log(MessageType.RECEIVED, 'pong answered')
+        } catch (error) {
+            log(MessageType.INFO, 'pong failed', String(error))
+        }
+    }
 
-    document.querySelector('#send-size')?.addEventListener('click', () => {
+    function sendSize(): void {
         log(MessageType.SENT, 'size (notification)', window.innerWidth, window.innerHeight)
-        channel.size.notify(window.innerWidth, window.innerHeight)
-    })
+        try {
+            channel.size.notify(window.innerWidth, window.innerHeight)
+        } catch (error) {
+            log(MessageType.INFO, 'size failed', String(error))
+        }
+    }
+
+    document.querySelector('#send-pong')?.addEventListener('click', () => void sendPong())
+
+    document.querySelector('#send-size')?.addEventListener('click', sendSize)
 })

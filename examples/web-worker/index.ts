@@ -21,18 +21,27 @@ onReady(() => {
         log(MessageType.INFO, `Connection status ${status}`)
     })
 
-    document.querySelector('#send-fibonacci')?.addEventListener('click', () => {
+    async function computeFibonacci(): Promise<void> {
         log(MessageType.SENT, 'fibonacci', 40)
-        channel.fibonacci(40).then(
-            (result) => log(MessageType.RECEIVED, 'fibonacci result', result),
-            (error: unknown) => log(MessageType.INFO, 'fibonacci failed', String(error)),
-        )
-    })
+        try {
+            log(MessageType.RECEIVED, 'fibonacci result', await channel.fibonacci(40))
+        } catch (error) {
+            log(MessageType.INFO, 'fibonacci failed', String(error))
+        }
+    }
 
-    document.querySelector('#send-block')?.addEventListener('click', () => {
-        log(MessageType.SENT, 'block', 3000)
-        channel.block.notify(3000)
-    })
+    function blockWorker(): void {
+        log(MessageType.SENT, 'block (notification)', 3000)
+        try {
+            channel.block.notify(3000)
+        } catch (error) {
+            log(MessageType.INFO, 'block failed', String(error))
+        }
+    }
+
+    document.querySelector('#send-fibonacci')?.addEventListener('click', () => void computeFibonacci())
+
+    document.querySelector('#send-block')?.addEventListener('click', blockWorker)
 
     document.querySelector('#terminate')?.addEventListener('click', () => {
         log(MessageType.INFO, 'Terminating worker')

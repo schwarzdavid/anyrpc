@@ -3,6 +3,7 @@ import { AbstractMessagePortClientAdapter } from '@/lib/adapter/message-port/Abs
 import type { InitRequest } from '@/utils/message-port/handshake'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
+import { nextMessage } from '../../../__helper/nextMessage'
 
 interface TestMethods {
     foo(value: string): void
@@ -34,13 +35,6 @@ class TestClientAdapter extends AbstractMessagePortClientAdapter<TestMethods, Te
 
 function responseTo(request: Pick<InitRequest, 'id'>, ports: MessagePort[]): MessageEvent {
     return new MessageEvent('message', { data: { jsonrpc: '2.0', id: request.id, result: null }, ports })
-}
-
-function nextMessage(port: MessagePort): Promise<unknown> {
-    return new Promise((resolve) => {
-        port.addEventListener('message', (event) => resolve(event.data), { once: true })
-        port.start()
-    })
 }
 
 describe(AbstractMessagePortClientAdapter, () => {

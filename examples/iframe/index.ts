@@ -21,8 +21,15 @@ onReady(() => {
         log(MessageType.INFO, `Connection status ${status}`)
     })
 
-    document.querySelector('#send-ping')?.addEventListener('click', () => {
+    async function sendPing(): Promise<void> {
         log(MessageType.SENT, 'ping')
-        void channel.ping()
-    })
+        try {
+            await channel.ping()
+            log(MessageType.RECEIVED, 'ping answered')
+        } catch (error) {
+            log(MessageType.INFO, 'ping failed', String(error))
+        }
+    }
+
+    document.querySelector('#send-ping')?.addEventListener('click', () => void sendPing())
 })

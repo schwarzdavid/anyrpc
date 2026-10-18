@@ -1,10 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
-import { assertValidOriginOption, type IFrameOriginOption, isOriginAllowed } from '@/lib/adapter/iframe/iframeOrigin'
+import {
+    allowsAnyOrigin,
+    assertValidOriginOption,
+    type IFrameOriginOption,
+    isOriginAllowed,
+} from '@/lib/adapter/iframe/iframeOrigin'
 
 const ORIGIN = 'https://example.com'
 
 const originCases: [description: string, option: IFrameOriginOption, origin: string, allowed: boolean][] = [
     ['a matching string', ORIGIN, ORIGIN, true],
+    ['the wildcard', '*', 'https://evil.example', true],
+    ['an array containing the wildcard', ['https://example.at', '*'], 'https://evil.example', true],
     ['a string with different casing and whitespace', ' HTTPS://Example.com ', ORIGIN, true],
     ['a string with a trailing slash', 'https://example.com/', ORIGIN, true],
     ['a string with the default port', 'https://example.com:443', ORIGIN, true],
@@ -30,6 +37,16 @@ const validOptions: [description: string, option: IFrameOriginOption | undefined
     ['a non-empty array', [ORIGIN]],
 ]
 
+const anyOriginCases: [description: string, option: IFrameOriginOption, allowsAny: boolean][] = [
+    ['true', true, true],
+    ['the wildcard', '*', true],
+    ['an array containing the wildcard', [ORIGIN, '*'], true],
+    ['a string', ORIGIN, false],
+    ['an array without the wildcard', [ORIGIN, /\.cloud$/u], false],
+    ['a regex', /.*/u, false],
+    ['a function', () => true, false],
+]
+
 describe(isOriginAllowed, () => {
     it.each(originCases)('should handle %s', (_, option, origin, allowed) => {
         expect(isOriginAllowed(option, origin)).toBe(allowed)
@@ -41,6 +58,19 @@ describe(isOriginAllowed, () => {
         isOriginAllowed(predicate, ORIGIN)
 
         expect(predicate).toHaveBeenCalledWith(ORIGIN)
+    })
+
+    it('should match the same origin repeatedly with a global regex', () => {
+        const pattern = /^https:\/\/.*\.com$/gu
+
+        expect(isOriginAllowed(pattern, ORIGIN)).toBe(true)
+        expect(isOriginAllowed(pattern, ORIGIN)).toBe(true)
+    })
+})
+
+describe(allowsAnyOrigin, () => {
+    it.each(anyOriginCases)('should handle %s', (_, option, allowsAny) => {
+        expect(allowsAnyOrigin(option)).toBe(allowsAny)
     })
 })
 
