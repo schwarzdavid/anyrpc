@@ -26,8 +26,8 @@ class TestAdapter extends AbstractMessagePortAdapter<TestMethods, TestMethods> {
 
     connect = vi.fn<() => void>()
 
-    attach(ports: MessagePorts) {
-        this.attachPorts(ports)
+    attach(ports: MessagePorts, options?: { awaitRemote: boolean }) {
+        this.attachPorts(ports, options)
     }
 
     protected override onRemoteGoodbye(): void {
@@ -182,6 +182,27 @@ describe(AbstractMessagePortAdapter, () => {
             expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
         })
 
+        it('should ping the remote side and stay disconnected when attaching with awaitRemote', async () => {
+            const received = nextMessage(controlChannel.port2)
+
+            adapter.attach({ data: dataChannel.port1, control: controlChannel.port1 }, { awaitRemote: true })
+
+            await expect(received).resolves.toStrictEqual({ jsonrpc: '2.0', method: 'anyrpc::ping', params: [] })
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+            expect(adapter.connectionHandlerMock).not.toHaveBeenCalled()
+        })
+
+        it('should connect once the remote side answers the ping after attaching with awaitRemote', async () => {
+            adapter.attach({ data: dataChannel.port1, control: controlChannel.port1 }, { awaitRemote: true })
+
+            controlChannel.port2.postMessage({ jsonrpc: '2.0', method: 'anyrpc::pong', params: [] })
+
+            await vi.waitFor(() => expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED))
+
+            expect(adapter.connectionLostHandlerMock).not.toHaveBeenCalled()
+            expect(console.log).toHaveBeenCalledWith('[TestAdapter]', 'The remote side accepted the connection')
+        })
+
         it('should not change the status when a pong arrives while connected', async () => {
             adapter.attach({ data: dataChannel.port1, control: controlChannel.port1 })
             adapter.connectionHandlerMock.mockClear()
@@ -313,6 +334,24 @@ describe(AbstractMessagePortAdapter, () => {
             controlChannel.port2.postMessage({ jsonrpc: '2.0', method: 'anyrpc::pong', params: [] })
 
             await vi.waitFor(() => expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED))
+        })
+
+        it('should restart the heartbeat for new ports', async () => {
+            vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'] })
+            adapter = new TestAdapter(heartbeatOptions)
+            adapter.attach({ data: dataChannel.port1, control: controlChannel.port1 })
+            vi.advanceTimersByTime(200)
+            const newControlChannel = new MessageChannel()
+            const messages = pingMessages(newControlChannel.port2)
+
+            adapter.attach({ data: new MessageChannel().port1, control: newControlChannel.port1 })
+            vi.advanceTimersByTime(340)
+
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+
+            await vi.waitFor(() =>
+                expect(messages).toContainEqual({ jsonrpc: '2.0', method: 'anyrpc::ping', params: [] }),
+            )
         })
 
         it('should stop the heartbeat when destroyed', () => {

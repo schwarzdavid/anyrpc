@@ -23,12 +23,12 @@ export default defineConfig({
                 'web-worker-host': resolve(__dirname, 'src/lib/adapter/web-worker/host/index.ts'),
                 'web-worker-client': resolve(__dirname, `${WEB_WORKER_CLIENT_SOURCES}/index.ts`),
             },
-            formats: ['es', 'cjs'],
         },
         rollupOptions: {
-            output: {
-                chunkFileNames: 'chunks/[name]-[hash].js',
-            },
+            output: [
+                { format: 'es', chunkFileNames: 'chunks/[name]-[hash].js' },
+                { format: 'cjs', chunkFileNames: 'chunks/[name]-[hash].cjs' },
+            ],
         },
     },
     test: {
@@ -64,6 +64,14 @@ export default defineConfig({
                         tsconfig: './tsconfig.vitest.webworker.json',
                         include: [`${WEB_WORKER_CLIENT_TESTS}/**/*.test-d.ts`],
                     },
+                },
+            },
+            {
+                extends: true,
+                test: {
+                    name: 'build',
+                    environment: 'node',
+                    include: ['test/build/**/*.test.ts'],
                 },
             },
             {

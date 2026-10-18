@@ -2,7 +2,7 @@ import { AbstractMessagePortAdapter } from '@/lib/adapter/message-port/AbstractM
 import type { MethodMap } from '@/types/MethodMap'
 import type { RpcId } from '@/types/RpcMessages'
 import { type HeartbeatOption, resolveHeartbeatOptions } from '@/lib/Heartbeat'
-import { createInitResponse, type InitResponse, isInitRequest } from '@/utils/message-port/handshake'
+import { createInitResponse, type InitRequest, type InitResponse, isInitRequest } from '@/utils/message-port/handshake'
 
 export abstract class AbstractMessagePortHostAdapter<
     Methods extends MethodMap<Methods>,
@@ -30,7 +30,14 @@ export abstract class AbstractMessagePortHostAdapter<
     protected abstract postInitResponse(response: InitResponse, transfer: Transferable[]): void
 
     protected acceptInitRequest(data: unknown): boolean {
-        if (!isInitRequest(data, this.initMethod, this.name) || data.id === this.answeredInitId) {
+        if (!this.isExpectedInitRequest(data)) {
+            return false
+        }
+        if (data.id === this.answeredInitId) {
+            this.logger?.warn(
+                'Ignored a repeated handshake request that was already answered. ' +
+                    'If the connection never gets established, check the origin options on both sides.',
+            )
             return false
         }
         this.answeredInitId = data.id
@@ -38,9 +45,13 @@ export abstract class AbstractMessagePortHostAdapter<
         const dataChannel = new MessageChannel()
         const controlChannel = new MessageChannel()
 
-        this.attachPorts({ data: dataChannel.port1, control: controlChannel.port1 })
+        this.attachPorts({ data: dataChannel.port1, control: controlChannel.port1 }, { awaitRemote: true })
         this.postInitResponse(createInitResponse(data), [dataChannel.port2, controlChannel.port2])
         return true
+    }
+
+    protected isExpectedInitRequest(data: unknown): data is InitRequest {
+        return isInitRequest(data, this.initMethod, this.name)
     }
 
     protected stopListening(): void {

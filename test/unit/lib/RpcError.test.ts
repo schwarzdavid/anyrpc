@@ -86,6 +86,16 @@ describe(RpcError, () => {
         expect(errorJson.data.stack).toStrictEqual(expect.any(String))
     })
 
+    it('should keep the name of error subclasses and drop their other properties', () => {
+        const error = new RpcError({
+            code: RpcErrorCode.SERVER_ERROR,
+            message: 'test',
+            data: Object.assign(new TypeError('wrong type'), { code: 42 }),
+        })
+
+        expect(error.toJSON().data).toStrictEqual({ message: 'wrong type', name: 'TypeError', stack: undefined })
+    })
+
     it('should set data if it is not an error', () => {
         const data = { foo: 'bar' }
         const error = new RpcError({ code: RpcErrorCode.SERVER_ERROR, message: 'test', data })

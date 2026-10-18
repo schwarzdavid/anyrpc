@@ -1,0 +1,14 @@
+import { ControlMethod, createControlMessage, readControlMethod } from '@/utils/message-port/controlMessages'
+
+export function confirmHandshake(controlPort: MessagePort): Promise<void> {
+    return new Promise((resolve) => {
+        controlPort.addEventListener('message', (event) => {
+            if (readControlMethod(event.data) === ControlMethod.PONG) {
+                resolve()
+            }
+        })
+        controlPort.start()
+        controlPort.postMessage(createControlMessage(ControlMethod.PONG))
+        controlPort.postMessage(createControlMessage(ControlMethod.PING))
+    })
+}

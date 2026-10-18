@@ -29,6 +29,8 @@ const originCases: [
 ][] = [
     ['a matching string', PARENT_ORIGIN, PARENT_ORIGIN, true],
     ['a string with different casing', ' HTTPS://Example.com ', PARENT_ORIGIN, true],
+    ['a string with a trailing slash', 'https://example.com/', PARENT_ORIGIN, true],
+    ['a string with the default port', 'https://example.com:443', PARENT_ORIGIN, true],
     ['a string with another scheme', 'http://example.com', PARENT_ORIGIN, false],
     ['a string with another host', 'https://examples.com', PARENT_ORIGIN, false],
     ['a matching regex', /^https:\/\/.*\.com$/u, PARENT_ORIGIN, true],
@@ -154,6 +156,29 @@ describe(IFrameClientAdapter, () => {
 
             expect(connectionHandler).toHaveBeenCalledTimes(1)
         })
+
+        it('should warn if the page is not embedded in an iframe', () => {
+            vi.stubGlobal('parent', window)
+
+            adapter.connect()
+
+            expect(console.warn).toHaveBeenCalledWith(
+                '[IFrameClientAdapter]',
+                expect.stringContaining('not embedded in an iframe'),
+            )
+        })
+
+        it('should connect again after it was destroyed', () => {
+            adapter.connect()
+            receiveInitResponse()
+            adapter.destroy()
+
+            adapter.connect()
+            receiveInitResponse({ ports: [new MessageChannel().port1, new MessageChannel().port1] })
+
+            expect(parentWindow.postMessage).toHaveBeenCalledTimes(2)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+        })
     })
 
     describe('origin option', () => {
@@ -189,6 +214,28 @@ describe(IFrameClientAdapter, () => {
 
             expect(originCheck).toHaveBeenCalledWith('https://other.example')
             expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+        })
+
+        it('should warn about handshake responses from a disallowed origin', () => {
+            createAdapter({ origin: PARENT_ORIGIN })
+            adapter.connect()
+
+            receiveInitResponse({ origin: 'https://other.example' })
+
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+            expect(console.warn).toHaveBeenCalledWith(
+                '[IFrameClientAdapter]',
+                'Ignored the handshake response from "https://other.example": origin not allowed',
+            )
+        })
+
+        it('should not warn about unrelated messages from a disallowed origin', () => {
+            createAdapter({ origin: PARENT_ORIGIN })
+            adapter.connect()
+
+            receiveFromParent({ type: 'resize' }, { origin: 'https://other.example' })
+
+            expect(console.warn).not.toHaveBeenCalled()
         })
 
         it.each(originCases)('should handle %s', (_, origin, eventOrigin, connects) => {

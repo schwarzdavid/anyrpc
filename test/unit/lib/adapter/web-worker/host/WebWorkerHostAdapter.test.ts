@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type HeartbeatOption, WebWorkerHostAdapter, type WebWorkerLike } from '@/lib/adapter/web-worker/host'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
+import { confirmHandshake } from '../../../../__helper/confirmHandshake'
 
 interface TestMethods {
     foo(value: string): void
@@ -24,7 +25,13 @@ describe(WebWorkerHostAdapter, () => {
     let worker: FakeWorker
     let adapter: WebWorkerHostAdapter<TestMethods, TestMethods>
 
+    function confirmFromWorker(call = 0): Promise<void> {
+        const [, [, controlPort]] = worker.postMessage.mock.calls[call]! as [unknown, [MessagePort, MessagePort]]
+        return confirmHandshake(controlPort)
+    }
+
     beforeEach(() => {
+        vi.spyOn(console, 'log').mockImplementation(() => undefined)
         vi.spyOn(console, 'error').mockImplementation(() => undefined)
         worker = new FakeWorker()
         adapter = new WebWorkerHostAdapter(worker)
@@ -38,10 +45,11 @@ describe(WebWorkerHostAdapter, () => {
     })
 
     describe('handshake', () => {
-        it('should answer init requests of the worker with a data and a control port', () => {
+        it('should answer init requests of the worker with a data and a control port', async () => {
             adapter.connect()
 
             worker.receive(initRequest())
+            await confirmFromWorker()
 
             expect(worker.postMessage).toHaveBeenCalledWith({ jsonrpc: '2.0', id: 'init-id', result: null }, [
                 expect.any(MessagePort),
@@ -115,25 +123,27 @@ describe(WebWorkerHostAdapter, () => {
     })
 
     describe('heartbeat', () => {
-        function connectWithHeartbeat(heartbeat: HeartbeatOption) {
+        async function connectWithHeartbeat(heartbeat: HeartbeatOption) {
             vi.useFakeTimers()
             adapter = new WebWorkerHostAdapter(worker, undefined, { heartbeat })
             adapter.connect()
             worker.receive(initRequest())
+            await confirmFromWorker()
         }
 
-        it('should be disabled by default', () => {
+        it('should be disabled by default', async () => {
             vi.useFakeTimers()
             adapter.connect()
             worker.receive(initRequest())
+            await confirmFromWorker()
 
             vi.advanceTimersByTime(60_000)
 
             expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
         })
 
-        it('should use the default interval and timeout when enabled with true', () => {
-            connectWithHeartbeat(true)
+        it('should use the default interval and timeout when enabled with true', async () => {
+            await connectWithHeartbeat(true)
 
             vi.advanceTimersByTime(14_999)
 
@@ -144,8 +154,8 @@ describe(WebWorkerHostAdapter, () => {
             expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
         })
 
-        it('should merge partial options with the defaults', () => {
-            connectWithHeartbeat({ timeout: 100 })
+        it('should merge partial options with the defaults', async () => {
+            await connectWithHeartbeat({ timeout: 100 })
 
             vi.advanceTimersByTime(5099)
 

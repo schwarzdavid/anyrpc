@@ -2,17 +2,13 @@ import type { MethodMap } from '@/types/MethodMap'
 import { AbstractMessagePortClientAdapter } from '@/lib/adapter/message-port/AbstractMessagePortClientAdapter'
 import type { InitRequest } from '@/utils/message-port/handshake'
 import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME, type IFrameAdapterOptions } from './iframeHandshake'
+import { assertValidOriginOption, type IFrameOriginOption, isOriginAllowed } from './iframeOrigin'
 
-export type IFrameClientAdapterOriginOption =
-    | string
-    | RegExp
-    | (string | RegExp)[]
-    | ((origin: string) => boolean)
-    | true
+export type IFrameClientAdapterOriginOption = IFrameOriginOption
 
 export interface IFrameClientAdapterOptions extends IFrameAdapterOptions {
     pollingInterval: number
-    origin: IFrameClientAdapterOriginOption
+    origin: IFrameOriginOption
 }
 
 export class IFrameClientAdapter<
@@ -20,12 +16,10 @@ export class IFrameClientAdapter<
     Events extends MethodMap<Events>,
 > extends AbstractMessagePortClientAdapter<Methods, Events> {
     private readonly postMessageOrigin: string
-    private readonly allowedOrigin: IFrameClientAdapterOriginOption
+    private readonly allowedOrigin: IFrameOriginOption
 
     constructor(name: string = DEFAULT_IFRAME_ADAPTER_NAME, options?: Partial<IFrameClientAdapterOptions>) {
-        if (Array.isArray(options?.origin) && !options.origin.length) {
-            throw new Error('Origin option cannot be an empty array')
-        }
+        assertValidOriginOption(options?.origin)
 
         super(IFRAME_INIT_METHOD_NAME, name, options?.pollingInterval ?? 1000)
         this.postMessageOrigin = options?.postMessageOrigin ?? '*'
@@ -33,6 +27,9 @@ export class IFrameClientAdapter<
     }
 
     override connect(): void {
+        if (window.parent === window) {
+            this.logger?.warn('This page is not embedded in an iframe, so no host can answer the handshake.')
+        }
         if (this.allowedOrigin === true) {
             this.logger?.warn(
                 'Accepting handshake responses from any origin. Set the "origin" option for production use.',
@@ -50,24 +47,15 @@ export class IFrameClientAdapter<
     }
 
     private handleWindowMessage(event: MessageEvent): void {
-        if (event.source === window.parent && this.isOriginAllowed(event.origin)) {
+        if (event.source !== window.parent) {
+            return
+        }
+        if (isOriginAllowed(this.allowedOrigin, event.origin)) {
             this.acceptInitResponse(event)
+            return
         }
-    }
-
-    private isOriginAllowed(origin: string): boolean {
-        if (this.allowedOrigin === true) {
-            return true
+        if (this.isExpectedInitResponse(event.data)) {
+            this.logger?.warn(`Ignored the handshake response from "${event.origin}": origin not allowed`)
         }
-        if (typeof this.allowedOrigin === 'function') {
-            return this.allowedOrigin(origin)
-        }
-        const allowedOrigins = Array.isArray(this.allowedOrigin) ? this.allowedOrigin : [this.allowedOrigin]
-
-        return allowedOrigins.some((allowedOrigin) =>
-            allowedOrigin instanceof RegExp
-                ? allowedOrigin.test(origin)
-                : allowedOrigin.toLowerCase().trim() === origin.toLowerCase().trim(),
-        )
     }
 }

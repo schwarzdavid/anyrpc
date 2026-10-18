@@ -5,12 +5,16 @@ import type { HeartbeatOption } from '@/lib/Heartbeat'
 import type { ConnectionHandler, ConnectionLostHandler } from '@/lib/adapter/AbstractRpcAdapter'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
+import { confirmHandshake } from '../../../__helper/confirmHandshake'
 
 interface TestMethods {
     foo(value: string): void
 }
 
 const METHOD = 'anyrpc::test-init'
+
+const ping = { jsonrpc: '2.0', method: 'anyrpc::ping', params: [] }
+const pong = { jsonrpc: '2.0', method: 'anyrpc::pong', params: [] }
 
 class TestHostAdapter extends AbstractMessagePortHostAdapter<TestMethods, TestMethods> {
     readonly listenForInitRequests = vi.fn<(signal: AbortSignal) => void>()
@@ -23,6 +27,15 @@ class TestHostAdapter extends AbstractMessagePortHostAdapter<TestMethods, TestMe
 
     accept(data: unknown): boolean {
         return this.acceptInitRequest(data)
+    }
+
+    get transferredPorts(): [MessagePort, MessagePort] {
+        const [, ports] = this.postInitResponse.mock.calls.at(-1)!
+        return ports as [MessagePort, MessagePort]
+    }
+
+    get transferredControlPort(): MessagePort {
+        return this.transferredPorts[1]
     }
 }
 
@@ -69,10 +82,24 @@ describe(AbstractMessagePortHostAdapter, () => {
             expect(previousSignal.aborted).toBe(true)
             expect(adapter.listenForInitRequests.mock.calls[1]![0].aborted).toBe(false)
         })
+
+        it('should answer init requests again after it was destroyed and reconnected', async () => {
+            adapter.connect()
+            adapter.accept(initRequest('first-id'))
+            adapter.destroy()
+
+            adapter.connect()
+            const accepted = adapter.accept(initRequest('second-id'))
+            await confirmHandshake(adapter.transferredControlPort)
+
+            expect(accepted).toBe(true)
+            expect(adapter.listenForInitRequests).toHaveBeenCalledTimes(2)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+        })
     })
 
     describe('init requests', () => {
-        it('should answer an init request with a data and a control port and connect', () => {
+        it('should answer an init request with a data and a control port', () => {
             const accepted = adapter.accept(initRequest())
 
             expect(accepted).toBe(true)
@@ -80,23 +107,32 @@ describe(AbstractMessagePortHostAdapter, () => {
                 expect.any(MessagePort),
                 expect.any(MessagePort),
             ])
+        })
+
+        it('should ping the transferred control port and stay disconnected until the remote side answers', async () => {
+            adapter.accept(initRequest())
+            const controlPort = adapter.transferredControlPort
+
+            await expect(nextMessage(controlPort)).resolves.toStrictEqual(ping)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+
+            await confirmHandshake(controlPort)
+
             expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
         })
 
         it('should communicate through the transferred ports', async () => {
             adapter.accept(initRequest())
-            const [, [dataPort, controlPort]] = adapter.postInitResponse.mock.calls[0]! as [
-                InitResponse,
-                [MessagePort, MessagePort],
-            ]
+            const [dataPort, controlPort] = adapter.transferredPorts
+            await confirmHandshake(controlPort)
 
             const receivedData = nextMessage(dataPort)
             adapter.sendMessage({ jsonrpc: '2.0', method: 'foo', params: ['bar'] })
             const receivedPong = nextMessage(controlPort)
-            controlPort.postMessage({ jsonrpc: '2.0', method: 'anyrpc::ping', params: [] })
+            controlPort.postMessage(ping)
 
             await expect(receivedData).resolves.toStrictEqual({ jsonrpc: '2.0', method: 'foo', params: ['bar'] })
-            await expect(receivedPong).resolves.toStrictEqual({ jsonrpc: '2.0', method: 'anyrpc::pong', params: [] })
+            await expect(receivedPong).resolves.toStrictEqual(pong)
         })
 
         it.each([
@@ -112,7 +148,7 @@ describe(AbstractMessagePortHostAdapter, () => {
             expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
         })
 
-        it('should ignore an init request it has already answered', () => {
+        it('should ignore an init request it has already answered and warn about it', () => {
             adapter.accept(initRequest())
             const connectionHandler = vi.fn<ConnectionHandler>()
             adapter.connectionHandler = connectionHandler
@@ -122,14 +158,20 @@ describe(AbstractMessagePortHostAdapter, () => {
             expect(accepted).toBe(false)
             expect(adapter.postInitResponse).toHaveBeenCalledTimes(1)
             expect(connectionHandler).not.toHaveBeenCalled()
+            expect(console.warn).toHaveBeenCalledWith(
+                '[TestHostAdapter]',
+                expect.stringContaining('repeated handshake request'),
+            )
         })
 
-        it('should answer a new init request and replace the previous connection', () => {
+        it('should answer a new init request and replace the previous connection', async () => {
             adapter.accept(initRequest('first-id'))
+            await confirmHandshake(adapter.transferredControlPort)
             const connectionLostHandler = vi.fn<ConnectionLostHandler>()
             adapter.connectionLostHandler = connectionLostHandler
 
             const accepted = adapter.accept(initRequest('second-id'))
+            await confirmHandshake(adapter.transferredControlPort)
 
             expect(accepted).toBe(true)
             expect(adapter.postInitResponse).toHaveBeenLastCalledWith(
@@ -142,36 +184,36 @@ describe(AbstractMessagePortHostAdapter, () => {
     })
 
     describe('heartbeat', () => {
-        it('should be disabled by default', () => {
+        it('should be disabled by default', async () => {
             vi.useFakeTimers()
-
             adapter.accept(initRequest())
+            await confirmHandshake(adapter.transferredControlPort)
+
             vi.advanceTimersByTime(60_000)
 
             expect(vi.getTimerCount()).toBe(0)
             expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
         })
 
-        it('should ping the transferred control port when enabled', async () => {
+        it('should keep pinging the transferred control port when enabled', async () => {
             adapter = new TestHostAdapter('my-app', { interval: 10, timeout: 50 })
             adapter.accept(initRequest())
-            const [, [, controlPort]] = adapter.postInitResponse.mock.calls[0]! as [
-                InitResponse,
-                [MessagePort, MessagePort],
-            ]
+            const controlPort = adapter.transferredControlPort
+            await confirmHandshake(controlPort)
+            const pings: unknown[] = []
+            controlPort.addEventListener('message', (event) => pings.push(event.data))
 
-            await expect(nextMessage(controlPort)).resolves.toStrictEqual({
-                jsonrpc: '2.0',
-                method: 'anyrpc::ping',
-                params: [],
-            })
+            await vi.waitFor(() => expect(pings.length).toBeGreaterThan(1))
+
+            expect(pings).toContainEqual(ping)
         })
 
-        it('should disconnect when the remote side does not answer in time', () => {
+        it('should disconnect when the remote side does not answer in time', async () => {
             vi.useFakeTimers()
             adapter = new TestHostAdapter('my-app', { interval: 100, timeout: 250 })
-
             adapter.accept(initRequest())
+            await confirmHandshake(adapter.transferredControlPort)
+
             vi.advanceTimersByTime(350)
 
             expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
@@ -179,10 +221,11 @@ describe(AbstractMessagePortHostAdapter, () => {
     })
 
     describe('destroy', () => {
-        it('should stop listening and disconnect', () => {
+        it('should stop listening and disconnect', async () => {
             adapter.connect()
             const [signal] = adapter.listenForInitRequests.mock.calls[0]!
             adapter.accept(initRequest())
+            await confirmHandshake(adapter.transferredControlPort)
 
             adapter.destroy()
 

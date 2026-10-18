@@ -1,5 +1,6 @@
 import { createRpcChannel } from '@/createRpcChannel'
 import { WebWorkerClientAdapter } from '@/lib/adapter/web-worker/client'
+import { RpcError } from '@/lib/RpcError'
 import { LogLevel } from '@/types/LogLevel'
 import type { HostToSecondChannel, HostToWorker, WorkerToHost } from './FixtureMessages'
 
@@ -17,6 +18,16 @@ channel.$.handle('block', (milliseconds) => {
     }
 })
 channel.$.handle('wait', (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)))
+channel.$.handle('fail', (message) => {
+    throw new Error(message)
+})
+channel.$.handle('failWithCode', (code, message) => {
+    throw new RpcError({ code, message })
+})
+channel.$.handle('unclonable', () => () => undefined)
+channel.$.handle('report', (value) => {
+    channel.reported.notify(`reported: ${value}`)
+})
 channel.$.handle('throwUncaught', (message) => {
     setTimeout(() => {
         throw new Error(message)
@@ -24,6 +35,9 @@ channel.$.handle('throwUncaught', (message) => {
 })
 channel.$.handle('destroyChannel', () => {
     setTimeout(() => channel.$.destroy())
+})
+channel.$.handle('close', () => {
+    setTimeout(() => self.close())
 })
 
 const secondChannel = createRpcChannel<Record<never, never>, HostToSecondChannel>(

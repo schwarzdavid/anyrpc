@@ -1,5 +1,5 @@
 export * from './createRpcChannel'
-export type { RpcChannel, RpcChannelMeta, RpcChannelMethod } from './types/RpcChannel'
+export type { RpcChannel, RpcChannelMeta, RpcChannelMethod, RpcResult } from './types/RpcChannel'
 export type { RpcChannelEvents } from './types/RpcChannelEvents'
 export type { MethodMap, MethodFn } from './types/MethodMap'
 export type { RpcErrorData, RpcId, RpcMessage, RpcNotification, RpcRequest, RpcResponse } from './types/RpcMessages'

@@ -10,11 +10,16 @@ export interface MessagePorts {
     control?: MessagePort
 }
 
+export interface AttachPortsOptions {
+    awaitRemote: boolean
+}
+
 export abstract class AbstractMessagePortAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractRpcAdapter<Methods, Events> {
     private ports: MessagePorts | undefined
+    private awaitingRemote = false
     private readonly heartbeat: Heartbeat | undefined
 
     protected constructor(heartbeatOptions?: HeartbeatOptions) {
@@ -36,7 +41,7 @@ export abstract class AbstractMessagePortAdapter<
         this.ports?.data.postMessage(message)
     }
 
-    protected attachPorts(ports: MessagePorts): void {
+    protected attachPorts(ports: MessagePorts, { awaitRemote = false }: Partial<AttachPortsOptions> = {}): void {
         if (this.ports) {
             this.closePorts()
             this.closeConnection()
@@ -51,7 +56,12 @@ export abstract class AbstractMessagePortAdapter<
         ports.control?.addEventListener('message', (event) => this.onControlMessage(event.data))
         ports.control?.start()
 
-        this.connectionStatus = ConnectionStatus.CONNECTED
+        if (awaitRemote) {
+            this.awaitingRemote = true
+            this.sendControlMessage(ControlMethod.PING)
+        } else {
+            this.connectionStatus = ConnectionStatus.CONNECTED
+        }
         if (ports.control) {
             this.heartbeat?.start()
         }
@@ -91,10 +101,14 @@ export abstract class AbstractMessagePortAdapter<
 
     private markResponsive(): void {
         this.heartbeat?.acknowledge()
-        if (this.connectionStatus === ConnectionStatus.DISCONNECTED) {
-            this.logger?.info('The remote side is responding again')
-            this.connectionStatus = ConnectionStatus.CONNECTED
+        if (this.connectionStatus === ConnectionStatus.CONNECTED) {
+            return
         }
+        this.logger?.info(
+            this.awaitingRemote ? 'The remote side accepted the connection' : 'The remote side is responding again',
+        )
+        this.awaitingRemote = false
+        this.connectionStatus = ConnectionStatus.CONNECTED
     }
 
     private markUnresponsive(): void {
@@ -106,6 +120,7 @@ export abstract class AbstractMessagePortAdapter<
 
     private closePorts(): void {
         this.heartbeat?.stop()
+        this.awaitingRemote = false
         this.ports?.data.close()
         this.ports?.control?.close()
         this.ports = undefined

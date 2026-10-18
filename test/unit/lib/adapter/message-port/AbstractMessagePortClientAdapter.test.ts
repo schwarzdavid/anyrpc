@@ -36,6 +36,13 @@ function responseTo(request: Pick<InitRequest, 'id'>, ports: MessagePort[]): Mes
     return new MessageEvent('message', { data: { jsonrpc: '2.0', id: request.id, result: null }, ports })
 }
 
+function nextMessage(port: MessagePort): Promise<unknown> {
+    return new Promise((resolve) => {
+        port.addEventListener('message', (event) => resolve(event.data), { once: true })
+        port.start()
+    })
+}
+
 describe(AbstractMessagePortClientAdapter, () => {
     let dataChannel: MessageChannel
     let controlChannel: MessageChannel
@@ -122,13 +129,29 @@ describe(AbstractMessagePortClientAdapter, () => {
             adapter.connect()
             adapter.accept(responseTo(adapter.postedRequest, [dataChannel.port1, controlChannel.port1]))
 
-            const received = new Promise((resolve) => {
-                dataChannel.port2.addEventListener('message', (event) => resolve(event.data), { once: true })
-                dataChannel.port2.start()
-            })
+            const received = nextMessage(dataChannel.port2)
             adapter.sendMessage({ jsonrpc: '2.0', method: 'foo', params: ['bar'] })
 
             await expect(received).resolves.toStrictEqual({ jsonrpc: '2.0', method: 'foo', params: ['bar'] })
+        })
+
+        it('should decline a second response to the same request with a goodbye', async () => {
+            const declinedDataChannel = new MessageChannel()
+            const declinedControlChannel = new MessageChannel()
+            const closeSpy = vi.spyOn(declinedDataChannel.port1, 'close')
+            adapter.connect()
+            adapter.accept(responseTo(adapter.postedRequest, [dataChannel.port1, controlChannel.port1]))
+
+            const received = nextMessage(declinedControlChannel.port2)
+            adapter.accept(responseTo(adapter.postedRequest, [declinedDataChannel.port1, declinedControlChannel.port1]))
+
+            await expect(received).resolves.toStrictEqual({ jsonrpc: '2.0', method: 'anyrpc::goodbye', params: [] })
+            expect(closeSpy).toHaveBeenCalledWith()
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+            expect(console.warn).toHaveBeenCalledWith(
+                '[TestClientAdapter]',
+                expect.stringContaining('another host adapter using the same name'),
+            )
         })
 
         it('should ignore responses to other requests', () => {
@@ -174,6 +197,19 @@ describe(AbstractMessagePortClientAdapter, () => {
             expect(adapter.postInitRequest).toHaveBeenCalledWith(expect.objectContaining({ method: METHOD }))
             expect(adapter.postedRequest.id).not.toBe(previousRequest.id)
         })
+
+        it('should connect again after it was destroyed', () => {
+            adapter.connect()
+            adapter.accept(responseTo(adapter.postedRequest, [dataChannel.port1, controlChannel.port1]))
+            adapter.destroy()
+
+            adapter.connect()
+            const [request] = adapter.postInitRequest.mock.calls[1]!
+            adapter.accept(responseTo(request, [new MessageChannel().port1, new MessageChannel().port1]))
+
+            expect(adapter.listenForInitResponses).toHaveBeenCalledTimes(2)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+        })
     })
 
     describe('destroy', () => {
@@ -188,6 +224,18 @@ describe(AbstractMessagePortClientAdapter, () => {
 
             expect(adapter.postInitRequest).toHaveBeenCalledTimes(1)
             expect(signal.aborted).toBe(true)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+        })
+
+        it('should decline a response that arrives after destroy with a goodbye', async () => {
+            adapter.connect()
+            const request = adapter.postedRequest
+            adapter.destroy()
+
+            const received = nextMessage(controlChannel.port2)
+            adapter.accept(responseTo(request, [dataChannel.port1, controlChannel.port1]))
+
+            await expect(received).resolves.toStrictEqual({ jsonrpc: '2.0', method: 'anyrpc::goodbye', params: [] })
             expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
         })
     })

@@ -18,7 +18,6 @@ interface TestMethods {
 interface TestEvents {
     divide(a: number, b: number): number
     multiply(a: number, b: number): Promise<number>
-    'rpc.custom'(): void
 }
 
 class TestAdapter<M extends MethodMap<M> = TestMethods, E extends MethodMap<E> = TestEvents> extends AbstractRpcAdapter<
@@ -58,18 +57,52 @@ describe(createRpcChannel, () => {
             assertType(rpcChannel.doSomething())
         })
 
-        it('should not expose then, $ or reserved rpc. methods as callable methods', () => {
-            interface UncallableMethods {
+        it('should reject method maps that use uncallable method names', () => {
+            interface WithThen {
                 then(): void
-                'rpc.discover'(): void
                 regular(): void
             }
+            interface WithReserved {
+                'rpc.discover'(): void
+            }
+            interface WithToString {
+                toString(): string
+            }
+            interface WithToJSON {
+                toJSON(): string
+            }
+            interface WithDollar {
+                $(): void
+            }
 
-            const channel = createRpcChannel(new TestAdapter<UncallableMethods>())
+            // @ts-expect-error
+            assertType(createRpcChannel(new TestAdapter<WithThen>()))
+            // @ts-expect-error
+            assertType(createRpcChannel(new TestAdapter<WithReserved>()))
+            // @ts-expect-error
+            assertType(createRpcChannel(new TestAdapter<WithToString>()))
+            // @ts-expect-error
+            assertType(createRpcChannel(new TestAdapter<WithToJSON>()))
+            // @ts-expect-error
+            assertType(createRpcChannel(new TestAdapter<WithDollar>()))
+            // @ts-expect-error
+            assertType(createRpcChannel(new TestAdapter<TestMethods, WithToString>()))
+        })
 
-            expectTypeOf(channel).toHaveProperty('regular')
-            expectTypeOf(channel).not.toHaveProperty('then')
-            expectTypeOf(channel).not.toHaveProperty('rpc.discover')
+        it('should accept method maps with index signatures', () => {
+            const channel = createRpcChannel(new TestAdapter<Record<string, () => void>>())
+
+            expectTypeOf(channel.anything).returns.toEqualTypeOf<Promise<void>>()
+        })
+
+        it('should resolve results that may be undefined as null', () => {
+            expectTypeOf(rpcChannel.find).returns.toEqualTypeOf<Promise<string | null>>()
+        })
+
+        it('should keep void and defined results unchanged', () => {
+            expectTypeOf(rpcChannel.log).returns.toEqualTypeOf<Promise<void>>()
+            expectTypeOf(rpcChannel.flush).returns.toEqualTypeOf<Promise<void>>()
+            expectTypeOf(rpcChannel.add).returns.toEqualTypeOf<Promise<number>>()
         })
     })
 

@@ -26,13 +26,21 @@ describe(IFrameHostAdapter, () => {
             }),
         ).toBeObject()
         expectTypeOf(new IFrameHostAdapter(iframe, 'my-app', { heartbeat: true })).toBeObject()
+        expectTypeOf(
+            new IFrameHostAdapter(iframe, 'my-app', { origin: ['https://example.com', /\.example\.com$/u] }),
+        ).toBeObject()
+        expectTypeOf(
+            new IFrameHostAdapter(iframe, 'my-app', { origin: (origin: string) => origin.length > 0 }),
+        ).toBeObject()
     })
 
     it('should reject invalid options', () => {
         // @ts-expect-error
         assertType(new IFrameHostAdapter(iframe, 'my-app', { heartbeat: { interval: '1000' } }))
         // @ts-expect-error
-        assertType(new IFrameHostAdapter(iframe, 'my-app', { origin: 'https://example.com' }))
+        assertType(new IFrameHostAdapter(iframe, 'my-app', { origin: [(origin: string) => origin.length > 0] }))
+        // @ts-expect-error
+        assertType(new IFrameHostAdapter(iframe, 'my-app', { pollingInterval: 100 }))
     })
 
     it('should infer the channel methods', () => {

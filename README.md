@@ -35,7 +35,7 @@ anyrpc takes care of all of this. You describe both directions of communication 
 
 ## Adapters
 
-- [x] **iframe** (`anyrpc/adapters/iframe`). Uses a dedicated `MessageChannel` after a handshake, with origin allow-listing, optional heartbeat and automatic reconnects (e.g. after the iframe reloads).
+- [x] **iframe** (`anyrpc/adapters/iframe`). Uses a dedicated `MessageChannel` after a handshake, with origin allow-listing on both sides, optional heartbeat and automatic reconnects (e.g. after the iframe reloads).
 - [x] **Web Worker** (`anyrpc/adapters/web-worker/host` and `anyrpc/adapters/web-worker/client`). Dedicated workers only, with a `MessageChannel` per channel, optional heartbeat and error logging.
 - [ ] `SharedWorker` / `ServiceWorker`
 - [ ] `BroadcastChannel` (cross-tab)
@@ -122,18 +122,18 @@ Both adapters must use the same **name** (`'my-app'` above). This lets several i
 
 ### Channel API
 
-| Member                                                                    | Description                                                                                                                                                         |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `channel.<method>(...args)`                                               | Calls a remote method (JSON-RPC request). Always returns a `Promise` of the method's return type.                                                                   |
-| `channel.<method>.notify(...args)`                                        | Sends a JSON-RPC notification: fire-and-forget, returns `void`. Only available for methods returning `void` or `Promise<void>`.                                     |
-| `channel.$.handle(name, fn)`                                              | Answers incoming calls of `name`. Only **one** handler per method; its return value is the response. Returns a function that removes the handler.                   |
-| `channel.$.on(name, fn)`                                                  | Observes incoming calls and notifications of `name`. Any number of listeners; return values are ignored. Returns a function that removes the listener.              |
-| `channel.$.on('rpc.connected' \| 'rpc.disconnected' \| 'rpc.status', fn)` | Listens for connection events. `rpc.status` receives the new `ConnectionStatus`.                                                                                    |
-| `channel.$.on('rpc.error', fn)`                                           | Receives an `RpcError` for every invalid incoming message and for error responses the other side could not assign to a request (`id: null`). Useful for monitoring. |
-| `channel.$.status`                                                        | Current `ConnectionStatus` (`'connected'` or `'disconnected'`).                                                                                                     |
-| `channel.$.destroy()`                                                     | Closes the connection, notifies the other side if the transport supports it, rejects pending calls with `-31003` and removes all listeners from the transport.      |
+| Member                                                                    | Description                                                                                                                                                                                           |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `channel.<method>(...args)`                                               | Calls a remote method (JSON-RPC request). Always returns a `Promise` of the method's return type.                                                                                                     |
+| `channel.<method>.notify(...args)`                                        | Sends a JSON-RPC notification: fire-and-forget, returns `void`. Only available for methods returning `void` or `Promise<void>`.                                                                       |
+| `channel.$.handle(name, fn)`                                              | Answers incoming calls of `name`. Only **one** handler per method; its return value is the response. Returns a function that removes the handler.                                                     |
+| `channel.$.on(name, fn)`                                                  | Observes incoming calls and notifications of `name`. Any number of listeners; return values are ignored. Returns a function that removes the listener.                                                |
+| `channel.$.on('rpc.connected' \| 'rpc.disconnected' \| 'rpc.status', fn)` | Listens for connection events. `rpc.status` receives the new `ConnectionStatus`.                                                                                                                      |
+| `channel.$.on('rpc.error', fn)`                                           | Receives an `RpcError` for every invalid incoming message and for error responses the other side could not assign to a request (`id: null`). Useful for monitoring.                                   |
+| `channel.$.status`                                                        | Current `ConnectionStatus` (`'connected'` or `'disconnected'`).                                                                                                                                       |
+| `channel.$.destroy()`                                                     | Closes the connection, notifies the other side if the transport supports it, rejects pending and queued calls with `-31003`, drops queued notifications and removes all listeners from the transport. |
 
-The only property names a remote method cannot have are `$`, `then` and names starting with `rpc.` (reserved by JSON-RPC 2.0, used here for channel events).
+A remote method cannot be named `$`, `then`, `toJSON`, anything starting with `rpc.` (reserved by JSON-RPC 2.0, used here for channel events) or a member of `Object.prototype` such as `toString`, `valueOf` or `hasOwnProperty`. The runtime and many libraries probe objects for exactly these names (string coercion, `JSON.stringify`, `await`, duck typing), so a proxy method that sends a request would get called by accident. `createRpcChannel` therefore rejects interfaces on either side that declare one of them with a type error naming the offending methods (`ForbiddenMethodNames<"toString">`). At runtime the proxy returns the built-in for these names, or `undefined` for `then` and `toJSON`, instead of sending a request.
 
 ### Requests, notifications and listeners
 
@@ -142,6 +142,8 @@ The only property names a remote method cannot have are `$`, `then` and names st
 - **Listeners** registered with `$.on` run for every incoming call, before the handler. Each listener is isolated: if one throws, the error is logged and neither other listeners nor the response are affected.
 - For **requests without a handler**, listeners do not run by default, because the call failed for the caller. Set `unhandledRequests: 'observe'` to run them anyway (the caller still receives `-32601`).
 - When the queue is enabled, notifications made while disconnected are queued as well. If no connection is established within `queueTimeout`, they are dropped with a warning.
+- Queued calls survive a lost connection and are sent once the next connection is established. `channel.$.destroy()` rejects them with `-31003`. If the connection drops while the queue is being sent, the remaining calls stay queued.
+- `rpc.status` is emitted as soon as the adapter reports a change. `rpc.connected` follows once the queued calls have been sent (with `queueAwait`, once they have been answered), so calls made in a `rpc.connected` listener go out after the queued ones. `rpc.disconnected` is emitted right after `rpc.status`.
 
 ### Channel options
 
@@ -162,11 +164,12 @@ The only property names a remote method cannot have are `$`, `then` and names st
 
 **`new IFrameHostAdapter(iframe, name?, options?)`**
 
-| Option              | Default | Description                                                                                                                                |
-| ------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `reconnect`         | `true`  | Keep listening for new handshakes, e.g. after the iframe navigates or reloads.                                                             |
-| `heartbeat`         | `false` | `true` or `{ interval?, timeout? }` to ping the iframe. Defaults: ping every `5000` ms, report `disconnected` after `10000` ms of silence. |
-| `postMessageOrigin` | `'*'`   | Target origin used for the handshake `postMessage`.                                                                                        |
+| Option              | Default | Description                                                                                                                                                |
+| ------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `origin`            | `true`  | Allowed iframe origin(s): a string, `RegExp`, an array of both, a predicate function, or `true` to allow any origin.                                       |
+| `reconnect`         | `true`  | Keep listening for new handshakes, e.g. after the iframe navigates or reloads.                                                                             |
+| `heartbeat`         | `false` | `true` or `{ interval?, timeout? }` to ping the iframe. Defaults: ping every `5000` ms, report `disconnected` if a ping is not answered within `10000` ms. |
+| `postMessageOrigin` | `'*'`   | Target origin used for the handshake `postMessage`.                                                                                                        |
 
 **`new IFrameClientAdapter(name?, options?)`**
 
@@ -176,12 +179,14 @@ The only property names a remote method cannot have are `$`, `then` and names st
 | `pollingInterval`   | `1000`  | Milliseconds between handshake attempts until the host answers.                                                      |
 | `postMessageOrigin` | `'*'`   | Target origin used for the handshake `postMessage`.                                                                  |
 
-> ⚠️ For production use, set `origin` (client) and `postMessageOrigin` (both sides) to explicit origins instead of the permissive defaults. The client logs a warning while it accepts any origin.
+> ⚠️ For production use, set `origin` and `postMessageOrigin` on both sides to explicit origins instead of the permissive defaults. Both adapters log a warning while they accept any origin, and they log every handshake message they ignore because of the origin. String origins are compared as URL origins, so casing, a trailing slash or a default port do not matter.
 
 **Connection lifecycle**
 
+- The host reports `connected` only once the iframe has accepted the handshake (it answers a ping on the control port). An iframe that rejects the host's origin keeps repeating its handshake request, which the host logs, and the host stays `disconnected`.
 - When one side calls `channel.$.destroy()`, the other side is told right away: it switches to `disconnected` and rejects its pending calls with `-31003`. The iframe side then starts a new handshake, so a new host channel connects automatically.
 - When the iframe reloads, the host emits `rpc.disconnected` followed by `rpc.connected`, and calls that were still waiting for the old document are rejected with `-31003`.
+- If two host adapters with the same name answer the handshake, the iframe keeps the first connection and declines the second with a goodbye. That host reports `disconnected`, and the iframe logs a warning.
 - An iframe that navigates to a page without anyrpc cannot say goodbye. Enable the `heartbeat` to detect this: the host reports the channel as `disconnected` once the iframe stops answering pings, see the notes on the [Web Worker heartbeat](#web-worker-adapter) for how in-flight calls behave.
 
 ### Web Worker adapter
@@ -215,17 +220,19 @@ As with iframes, both sides must use the same **name**, so one worker can serve 
 
 **Connection lifecycle**
 
+- The host reports `connected` only once the worker has accepted the handshake (it answers a ping on the control port).
 - When one side calls `channel.$.destroy()`, the other side is told right away: it switches to `disconnected` and rejects its pending calls with `-31003`. The worker side then starts a new handshake, so a new host channel for the same worker connects automatically.
+- If two host adapters with the same name answer the handshake, the worker keeps the first connection and declines the second with a goodbye. That host reports `disconnected`, and the worker logs a warning.
 - `worker.terminate()` and `self.close()` cannot be observed directly. Enable the `heartbeat` to detect them: the host pings the worker and reports it as `disconnected` if it does not answer within `timeout`. Calls that are still in flight are not rejected by the heartbeat; they fail with `-31001` once their own `timeout` expires.
 - A worker that is busy with a long synchronous task cannot answer pings either. It is reported as `disconnected` as well, and as `connected` again as soon as it answers. In the meantime, in-flight calls keep waiting for their response, and new calls are queued or rejected with `-31002` as usual.
 - Uncaught errors in the worker and workers that fail to load (e.g. a wrong script URL) are logged by the host adapter.
 
 **`new WebWorkerHostAdapter(worker, name?, options?)`**
 
-| Option               | Default | Description                                                                                                                                |
-| -------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `heartbeat`          | `false` | `true` or `{ interval?, timeout? }` to ping the worker. Defaults: ping every `5000` ms, report `disconnected` after `10000` ms of silence. |
-| `terminateOnDestroy` | `false` | Call `worker.terminate()` when the channel is destroyed.                                                                                   |
+| Option               | Default | Description                                                                                                                                                |
+| -------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `heartbeat`          | `false` | `true` or `{ interval?, timeout? }` to ping the worker. Defaults: ping every `5000` ms, report `disconnected` if a ping is not answered within `10000` ms. |
+| `terminateOnDestroy` | `false` | Call `worker.terminate()` when the channel is destroyed.                                                                                                   |
 
 **`new WebWorkerClientAdapter(name?, options?)`**
 
@@ -262,11 +269,13 @@ try {
 | `-31002` | local  | The method was called while disconnected and the queue is disabled.                                                                                                           |
 | `-31003` | local  | The connection was closed before the response arrived: one side called `destroy()` or the other side established a new connection. A heartbeat timeout does not trigger this. |
 
-The local codes lie outside the range JSON-RPC reserves for protocol and server errors (`-32768` to `-32000`) and are never sent over the wire. If a handler throws an `RpcError` with an application-defined code (any code outside that range, except the local codes), the caller receives it unchanged. Every other error is wrapped in a `-32000` server error.
+The local codes lie outside the range JSON-RPC reserves for protocol and server errors (`-32768` to `-32000`) and are never sent over the wire. If a handler throws an `RpcError` with an application-defined code (any code outside that range, except the local codes), the caller receives it unchanged. Every other error is wrapped in a `-32000` server error. Thrown `Error` instances are serialized to their `name` and `message` (plus `stack` with `errorIncludeStack`); other properties are dropped. Thrown values that are no errors, such as strings, are sent as `data` unchanged.
+
+If the transport cannot send a request at all, for example because an argument is a function that `postMessage` cannot clone, the call rejects with the transport's own error (a `DataCloneError` in browsers) instead of an `RpcError`, and `notify()` throws it synchronously. A queued notification that cannot be sent is logged and dropped.
 
 ### Custom adapters
 
-Everything a transport needs is exported from `anyrpc`. Extend `AbstractRpcAdapter`, implement `connect()` and `sendMessage()`, hand incoming messages to `this.onMessage()`, report the state through `this.connectionStatus`, and call `this.closeConnection()` once the transport is definitively gone. The latter rejects in-flight calls with `-31003`; a plain status change does not, so a transport that is merely unresponsive can still deliver late responses.
+Everything a transport needs is exported from `anyrpc`. Extend `AbstractRpcAdapter`, implement `connect()` and `sendMessage()`, hand incoming messages to `this.onMessage()`, report the state through `this.connectionStatus`, and call `this.closeConnection()` once the transport is definitively gone. The latter rejects in-flight calls with `-31003`; a plain status change does not, so a transport that is merely unresponsive can still deliver late responses. `connect()` may return a promise; if it rejects, the channel logs the error and stays `disconnected`. An adapter instance serves exactly one channel, so `createRpcChannel` throws if the adapter is already in use, until that channel is destroyed.
 
 ```ts
 import { AbstractRpcAdapter, ConnectionStatus, type MethodMap, type RpcMessage } from 'anyrpc'
@@ -293,7 +302,7 @@ class WebSocketAdapter<Methods extends MethodMap<Methods>, Events extends Method
 }
 ```
 
-Transports that hand over `MessagePort`s after a handshake, like the iframe and Web Worker adapters, build on `anyrpc/adapters/message-port` instead. Extend `AbstractMessagePortHostAdapter` (the side that creates the `MessageChannel`) or `AbstractMessagePortClientAdapter` (the side that polls for it) and implement only how handshake messages are listened for and posted; ports, heartbeat, goodbye notifications and reconnects come with the base classes.
+Transports that hand over `MessagePort`s after a handshake, like the iframe and Web Worker adapters, build on `anyrpc/adapters/message-port` instead. Extend `AbstractMessagePortHostAdapter` (the side that creates the `MessageChannel`) or `AbstractMessagePortClientAdapter` (the side that polls for it) and implement only how handshake messages are listened for and posted; ports, heartbeat, goodbye notifications and reconnects come with the base classes. The host side reports `connected` only after the client answered the first ping on the control port.
 
 `ConnectionStatus`, `LogLevel` and `RpcErrorCode` are plain `as const` objects with a same-named union type, so `status === 'connected'` and `code === -31001` type-check as well.
 
@@ -303,9 +312,10 @@ Transports that hand over `MessagePort`s after a handshake, like the iframe and 
 - **Invalid incoming messages are answered with an error response.** Unparsable JSON gets `-32700`, a structurally invalid request or notification gets `-32600`, both with a `data.reason`. The response carries the message's `id` if it could be read, otherwise `id: null`. Invalid messages that look like responses (they contain `result` or `error`) are never answered, so two peers cannot end up in an error loop. Every invalid message is logged as a warning and emitted as `rpc.error`.
 - Error responses with `id: null` cannot be matched to a request. They are logged and emitted as `rpc.error`; the affected request rejects with a timeout.
 - Messages the transport receives from unrelated sources (e.g. other frames or browser extensions posting to `window`) are filtered by the adapter before they reach the channel and are never answered.
-- Handlers that return `undefined` (e.g. `void` methods) respond with `result: null`, because `undefined` is not a JSON value. The caller receives `null`.
+- Handlers that return `undefined` (e.g. `void` methods) respond with `result: null`, because `undefined` is not a JSON value. The caller receives `null`, and the channel types reflect this: a method declared as `find(): string | undefined` resolves to `string | null`.
+- `params` must be omitted or be an array or an object. A message that carries `params: undefined` as an own property (possible through structured cloning) is rejected with `-32600`.
 - Method names starting with `rpc.` are reserved by the specification. Calling them throws, and incoming calls to them are answered with `-32601`.
-- A channel is never a thenable, so it can safely be returned from `async` functions. As a consequence, interface members named `then` cannot be called.
+- A channel is never a thenable and has no `toJSON`, so it can safely be returned from `async` functions and passed to `JSON.stringify` (which yields the connection status). Interface members named `then` or `toJSON` are rejected by the types.
 
 ## Development
 
@@ -313,7 +323,7 @@ Transports that hand over `MessagePort`s after a handshake, like the iframe and 
 npm install
 npx playwright install chromium   # once, for the browser tests
 npm run dev        # Vite dev server. Open /examples/iframe/ or /examples/web-worker/ for the live demos
-npm test           # Unit and type tests (Vitest)
+npm test           # Unit, type and browser tests (Vitest). Also checks the built package in dist/ once npm run build was run
 npm run coverage   # Tests with coverage report
 npm run check      # TypeScript project build
 npm run lint       # ESLint

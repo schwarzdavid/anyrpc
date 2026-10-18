@@ -13,6 +13,7 @@ import {
     RpcError,
     RpcErrorCode,
     type RpcMessage,
+    type RpcResult,
 } from '@/index'
 
 interface Methods {
@@ -54,6 +55,11 @@ describe('anyrpc entry point', () => {
     it('should type the channel events with the exported status', () => {
         expectTypeOf<RpcChannelEvents['rpc.status']>().parameters.toEqualTypeOf<[status: ConnectionStatus]>()
         expectTypeOf<RpcChannelEvents['rpc.error']>().parameters.toEqualTypeOf<[error: RpcError]>()
+    })
+
+    it('should expose the result type of remote methods', () => {
+        expectTypeOf<RpcResult<() => string | undefined>>().toEqualTypeOf<string | null>()
+        expectTypeOf<RpcResult<() => Promise<void>>>().toEqualTypeOf<void>()
     })
 
     it('should let consumers write their own adapter', () => {

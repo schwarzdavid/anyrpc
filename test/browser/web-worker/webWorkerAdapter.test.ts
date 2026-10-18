@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRpcChannel, type RpcChannelOptions } from '@/createRpcChannel'
 import { WebWorkerHostAdapter, type WebWorkerHostAdapterOptions } from '@/lib/adapter/web-worker/host'
 import { RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
+import { RpcError } from '@/lib/RpcError'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import type { RpcChannel } from '@/types/RpcChannel'
@@ -59,6 +60,54 @@ describe(WebWorkerHostAdapter, () => {
         await expect(channel.echo('early')).resolves.toBe('early')
     })
 
+    it('should reject with the error thrown by the remote handler', async () => {
+        const channel = connect(workers[0]!)
+        await waitUntilConnected(channel)
+
+        await expect(channel.fail('boom')).rejects.toMatchObject({
+            code: RpcErrorCode.SERVER_ERROR,
+            data: { name: 'Error', message: 'boom' },
+        })
+    })
+
+    it('should pass application error codes of the remote handler through unchanged', async () => {
+        const channel = connect(workers[0]!)
+        await waitUntilConnected(channel)
+
+        await expect(channel.failWithCode(4001, 'Insufficient funds')).rejects.toMatchObject({
+            code: 4001,
+            message: 'Insufficient funds',
+        })
+    })
+
+    it('should answer with an internal error if the result of the remote handler cannot be cloned', async () => {
+        const channel = connect(workers[0]!)
+        await waitUntilConnected(channel)
+
+        await expect(channel.unclonable()).rejects.toMatchObject({
+            code: RpcErrorCode.INTERNAL_ERROR,
+            data: { name: 'DataCloneError' },
+        })
+    })
+
+    it('should deliver notifications in both directions', async () => {
+        const channel = connect(workers[0]!)
+        const listener = vi.fn<(value: string) => void>()
+        channel.$.on('reported', listener)
+        await waitUntilConnected(channel)
+
+        channel.report.notify('event')
+
+        await vi.waitFor(() => expect(listener).toHaveBeenCalledWith('reported: event'))
+    })
+
+    it('should time out if the worker does not answer in time', async () => {
+        const channel = connect(workers[0]!, {}, { timeout: 100 })
+        await waitUntilConnected(channel)
+
+        await expect(channel.wait(1000)).rejects.toMatchObject({ code: RpcErrorCode.TIMEOUT_ERROR })
+    })
+
     it('should run independent channels with different names over one worker', async () => {
         const channel = connect(workers[0]!)
         const secondChannel = createRpcChannel<HostToSecondChannel, Record<never, never>>(
@@ -104,6 +153,36 @@ describe(WebWorkerHostAdapter, () => {
         await vi.waitFor(() => expect(channel.$.status).toBe(ConnectionStatus.DISCONNECTED))
 
         await expect(pendingCall).rejects.toMatchObject({ code: RpcErrorCode.TIMEOUT_ERROR })
+    })
+
+    it('should report a worker that closed itself as disconnected with the heartbeat', async () => {
+        const channel = connect(workers[0]!, { heartbeat: { interval: 50, timeout: 100 } })
+        await waitUntilConnected(channel)
+
+        channel.close.notify()
+
+        await vi.waitFor(() => expect(channel.$.status).toBe(ConnectionStatus.DISCONNECTED))
+    })
+
+    it('should reject new calls while a busy worker is reported as disconnected', async () => {
+        const channel = connect(workers[0]!, { heartbeat: { interval: 50, timeout: 100 } })
+        await waitUntilConnected(channel)
+
+        const blockingCall = channel.block(500)
+        await vi.waitFor(() => expect(channel.$.status).toBe(ConnectionStatus.DISCONNECTED))
+
+        expect(() => channel.echo('busy')).toThrowError(new RpcError(RpcErrorCode.NOT_CONNECTED))
+        await expect(blockingCall).resolves.toBeNull()
+    })
+
+    it('should queue new calls while a busy worker is reported as disconnected', async () => {
+        const channel = connect(workers[0]!, { heartbeat: { interval: 50, timeout: 100 } }, { queueEnabled: true })
+        await waitUntilConnected(channel)
+
+        void channel.block(500)
+        await vi.waitFor(() => expect(channel.$.status).toBe(ConnectionStatus.DISCONNECTED))
+
+        await expect(channel.echo('queued')).resolves.toBe('queued')
     })
 
     it('should report a busy worker as disconnected and recover once it answers again', async () => {
