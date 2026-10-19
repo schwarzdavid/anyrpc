@@ -44,7 +44,8 @@ anyrpc takes care of all of this. You describe both directions of communication 
 - [ ] `window.open` / popup
 - [ ] WebSocket
 - [ ] WebRTC
-- [ ] Node.js (e.g. `worker_threads`, child processes)
+- [x] **Node.js worker threads** (`anyrpc/adapters/node-worker`). A `MessageChannel` per channel, optional heartbeat, errors of the worker are logged and its exit disconnects the channel.
+- [ ] Node.js child processes
 
 ## Getting started
 
@@ -307,6 +308,43 @@ The worker side is shown in [Hubs](#hubs-one-to-many). Both sides must use the s
 | ----------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `heartbeat` | `true`  | `true` or `{ interval?, timeout? }` to ping every page, `false` to disable. Defaults: ping every `5000` ms, remove a page that does not answer within `10000` ms. |
 
+### Node.js worker adapter
+
+The thread that starts the worker passes it to `NodeWorkerHostAdapter`. Inside the worker, `NodeWorkerClientAdapter` accepts the connection. The entry point imports `node:worker_threads`, so it only works in Node.js (and runtimes compatible with it).
+
+```ts
+// main.ts
+import { Worker } from 'node:worker_threads'
+import { createRpcChannel } from 'anyrpc'
+import { NodeWorkerHostAdapter } from 'anyrpc/adapters/node-worker'
+
+const worker = new Worker(new URL('./worker.js', import.meta.url))
+const channel = createRpcChannel<MainToWorker, WorkerToMain>(new NodeWorkerHostAdapter(worker, 'my-app'))
+```
+
+```ts
+// worker.ts
+import { createRpcChannel } from 'anyrpc'
+import { NodeWorkerClientAdapter } from 'anyrpc/adapters/node-worker'
+
+const channel = createRpcChannel<WorkerToMain, MainToWorker>(new NodeWorkerClientAdapter('my-app'))
+```
+
+- Both sides must use the same **name**, so one worker can serve several channels. Messages the worker posts outside of anyrpc are ignored.
+- Uncaught errors in the worker are logged. Once the worker exits, the channel is `disconnected`, pending calls reject with `-31003` and the adapter does not reconnect.
+- Open message ports keep the Node.js process alive. Destroy the channel (or terminate the worker) when you are done; `terminateOnDestroy` does both at once.
+- Creating `NodeWorkerClientAdapter` outside of a worker thread throws an error that points you to `NodeWorkerHostAdapter`.
+
+**`new NodeWorkerHostAdapter(worker, name?, options?)`**
+
+| Option               | Default | Description                                                                |
+| -------------------- | ------- | -------------------------------------------------------------------------- |
+| `pollingInterval`    | `1000`  | Milliseconds between handshake attempts until the worker answers.          |
+| `heartbeat`          | `false` | `true` or `{ interval, timeout }` to detect a worker that stops answering. |
+| `terminateOnDestroy` | `false` | Terminate the worker when the channel is destroyed.                        |
+
+**`new NodeWorkerClientAdapter(name?)`** has no options: the main thread configures the connection.
+
 ### Error handling
 
 Errors thrown in a remote handler reject the caller's promise with an `RpcError`. The `RpcError` has a JSON-RPC `code`, a `message` and the original error details in `data`:
@@ -394,6 +432,7 @@ For one-to-many transports, extend `AbstractRpcHubAdapter` instead. Implement `c
 npm install
 npx playwright install chromium   # once, for the browser tests
 npm run dev        # Vite dev server. Open /examples/iframe/, /examples/web-worker/ or /examples/shared-worker/ for the live demos
+node examples/node-worker/main.ts   # Node.js worker demo, run npm run build first
 npm test           # Unit, type and browser tests (Vitest). Also checks the built package in dist/ once npm run build was run
 npm run coverage   # Tests with coverage report
 npm run check      # TypeScript project build

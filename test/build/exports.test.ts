@@ -30,6 +30,7 @@ const EXPECTED_EXPORTS: Record<string, string[]> = {
         'AbstractMessagePortClientAdapter',
     ],
     './adapters/web-worker': ['WebWorkerHostAdapter', 'WebWorkerClientAdapter', 'SharedWorkerHubAdapter'],
+    './adapters/node-worker': ['NodeWorkerHostAdapter', 'NodeWorkerClientAdapter'],
 }
 
 function readPackageExports(): Record<string, PackageExport> {
