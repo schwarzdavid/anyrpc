@@ -129,23 +129,17 @@ describe(AbstractMessagePortClientAdapter, () => {
             await expect(received).resolves.toStrictEqual({ jsonrpc: '2.0', method: 'foo', params: ['bar'] })
         })
 
-        it('should decline a second response to the same request with a goodbye', async () => {
-            const declinedDataChannel = new MessageChannel()
-            const declinedControlChannel = new MessageChannel()
-            const closeSpy = vi.spyOn(declinedDataChannel.port1, 'close')
+        it('should ignore another response once the handshake is finished', async () => {
+            const otherDataChannel = new MessageChannel()
             adapter.connect()
             adapter.accept(responseTo(adapter.postedRequest, [dataChannel.port1, controlChannel.port1]))
+            adapter.accept(responseTo(adapter.postedRequest, [otherDataChannel.port1, new MessageChannel().port1]))
 
-            const received = nextMessage(declinedControlChannel.port2)
-            adapter.accept(responseTo(adapter.postedRequest, [declinedDataChannel.port1, declinedControlChannel.port1]))
+            const received = nextMessage(dataChannel.port2)
+            adapter.sendMessage({ jsonrpc: '2.0', method: 'foo', params: ['bar'] })
 
-            await expect(received).resolves.toStrictEqual({ jsonrpc: '2.0', method: 'anyrpc::goodbye', params: [] })
-            expect(closeSpy).toHaveBeenCalledWith()
+            await expect(received).resolves.toStrictEqual({ jsonrpc: '2.0', method: 'foo', params: ['bar'] })
             expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
-            expect(console.warn).toHaveBeenCalledWith(
-                '[TestClientAdapter]',
-                expect.stringContaining('another host adapter using the same name'),
-            )
         })
 
         it('should ignore responses to other requests', () => {
@@ -218,18 +212,6 @@ describe(AbstractMessagePortClientAdapter, () => {
 
             expect(adapter.postInitRequest).toHaveBeenCalledTimes(1)
             expect(signal.aborted).toBe(true)
-            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
-        })
-
-        it('should decline a response that arrives after destroy with a goodbye', async () => {
-            adapter.connect()
-            const request = adapter.postedRequest
-            adapter.destroy()
-
-            const received = nextMessage(controlChannel.port2)
-            adapter.accept(responseTo(request, [dataChannel.port1, controlChannel.port1]))
-
-            await expect(received).resolves.toStrictEqual({ jsonrpc: '2.0', method: 'anyrpc::goodbye', params: [] })
             expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
         })
     })

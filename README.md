@@ -184,7 +184,7 @@ A remote method cannot be named `$`, `then`, `toJSON`, anything starting with `r
 - The host reports `connected` only once the iframe has accepted the handshake (it answers a ping on the control port). An iframe that rejects the host's origin keeps repeating its handshake request, which the host logs, and the host stays `disconnected`.
 - When one side calls `channel.$.destroy()`, the other side is told right away: it switches to `disconnected` and rejects its pending calls with `-31003`. The iframe side then starts a new handshake, so a new host channel connects automatically.
 - When the iframe reloads, the host emits `rpc.disconnected` followed by `rpc.connected`, and calls that were still waiting for the old document are rejected with `-31003`.
-- If two host adapters with the same name answer the handshake, the iframe keeps the first connection and declines the second with a goodbye. That host stays `disconnected`, and the iframe logs a warning.
+- If two host adapters with the same name answer the handshake, the iframe keeps the first connection and ignores the second. That host stays `disconnected`.
 - An iframe that navigates to a page without anyrpc cannot say goodbye. Enable the `heartbeat` to detect this: the host reports the channel as `disconnected` once the iframe stops answering pings, see the notes on the [Web Worker heartbeat](#web-worker-adapter) for how in-flight calls behave.
 
 ### Web Worker adapter
@@ -220,7 +220,7 @@ As with iframes, both sides must use the same **name**, so one worker can serve 
 
 - The host reports `connected` only once the worker has accepted the handshake (it answers a ping on the control port).
 - When one side calls `channel.$.destroy()`, the other side is told right away: it switches to `disconnected` and rejects its pending calls with `-31003`. The worker side then starts a new handshake, so a new host channel for the same worker connects automatically.
-- If two host adapters with the same name answer the handshake, the worker keeps the first connection and declines the second with a goodbye. That host stays `disconnected`, and the worker logs a warning.
+- If two host adapters with the same name answer the handshake, the worker keeps the first connection and ignores the second. That host stays `disconnected`.
 - `worker.terminate()` and `self.close()` cannot be observed directly. Enable the `heartbeat` to detect them: the host pings the worker and reports it as `disconnected` if it does not answer within `timeout`. Calls that are still in flight are not rejected by the heartbeat; they fail with `-31001` once their own `timeout` expires.
 - A worker that is busy with a long synchronous task cannot answer pings either. It is reported as `disconnected` as well, and as `connected` again as soon as it answers. In the meantime, in-flight calls keep waiting for their response, and new calls are queued or throw `-31002` as usual.
 - Uncaught errors in the worker and workers that fail to load (e.g. a wrong script URL) are logged by the host adapter.
