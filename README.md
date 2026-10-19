@@ -166,7 +166,7 @@ A remote method cannot be named `$`, `then`, `toJSON`, anything starting with `r
 
 | Option      | Default | Description                                                                                                                                                |
 | ----------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `origin`    | `true`  | Allowed iframe origin(s): a string, `RegExp`, an array of both, a predicate function, or `true` or `'*'` to allow any origin.                              |
+| `origin`    | `'*'`   | Allowed iframe origin(s): a string, `RegExp`, an array of both, a predicate function, or `true` or `'*'` to allow any origin.                              |
 | `reconnect` | `true`  | Keep listening for new handshakes, e.g. after the iframe navigates or reloads.                                                                             |
 | `heartbeat` | `false` | `true` or `{ interval?, timeout? }` to ping the iframe. Defaults: ping every `5000` ms, report `disconnected` if a ping is not answered within `10000` ms. |
 
@@ -177,7 +177,7 @@ A remote method cannot be named `$`, `then`, `toJSON`, anything starting with `r
 | `origin`          | `true`  | Allowed parent origin(s): a string, `RegExp`, an array of both, a predicate function, or `true` or `'*'` to allow any origin. |
 | `pollingInterval` | `1000`  | Milliseconds between handshake attempts until the host answers.                                                               |
 
-> ⚠️ For production use, set `origin` on both sides to explicit origins instead of the permissive default. Both adapters log a warning while they accept any origin, and they log every handshake message they ignore because of the origin. String origins are compared as URL origins, so casing, a trailing slash or a default port do not matter.
+> ⚠️ For production use, set `origin` on the iframe side to the host's origin. The iframe adapter logs a warning while it accepts any origin. Setting `origin` on the host as well protects against pages the iframe navigates to on its own. Both adapters log every handshake message they ignore because of the origin. String origins are compared as URL origins, so casing, a trailing slash or a default port do not matter.
 
 **Connection lifecycle**
 
