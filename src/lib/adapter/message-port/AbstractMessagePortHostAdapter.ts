@@ -13,7 +13,7 @@ export abstract class AbstractMessagePortHostAdapter<
 
     protected constructor(
         private readonly initMethodName: string,
-        private readonly channelName: string,
+        private readonly adapterName: string,
         heartbeat: HeartbeatOption,
     ) {
         super(resolveHeartbeatOptions(heartbeat))
@@ -51,7 +51,7 @@ export abstract class AbstractMessagePortHostAdapter<
     }
 
     protected isExpectedInitRequest(data: unknown): data is InitRequest {
-        return isInitRequest(data, this.initMethodName, this.channelName)
+        return isInitRequest(data, this.initMethodName, this.adapterName)
     }
 
     protected stopListening(): void {
