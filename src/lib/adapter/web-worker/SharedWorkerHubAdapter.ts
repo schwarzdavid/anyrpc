@@ -3,7 +3,7 @@ import type { RpcId } from '@/types/RpcMessages'
 import { AbstractRpcHubAdapter } from '@/lib/adapter/AbstractRpcHubAdapter'
 import { type HeartbeatOption, type HeartbeatOptions, resolveHeartbeatOptions } from '@/lib/Heartbeat'
 import { createInitResponse, isInitRequest } from '@/lib/adapter/message-port/utils/handshake'
-import { DEFAULT_SHARED_WORKER_ADAPTER_NAME, SHARED_WORKER_INIT_METHOD_NAME } from './constants/sharedWorkerHandshake'
+import { DEFAULT_WEB_WORKER_ADAPTER_NAME, WEB_WORKER_INIT_METHOD_NAME } from './constants/webWorkerHandshake'
 import { GlobalScope, isRunningIn } from './utils/globalScope'
 import { SharedWorkerPeerAdapter } from './SharedWorkerPeerAdapter'
 
@@ -15,7 +15,7 @@ function assertSharedWorkerScope(): void {
     if (!isRunningIn(GlobalScope.SHARED_WORKER)) {
         throw new Error(
             'SharedWorkerHubAdapter must be created inside the shared worker. ' +
-                'Use SharedWorkerHostAdapter on the pages that connect to the worker.',
+                'Use WebWorkerHostAdapter on the pages that connect to the worker.',
         )
     }
 }
@@ -28,7 +28,7 @@ export class SharedWorkerHubAdapter<
     private listenersAbortController: AbortController | undefined
 
     constructor(
-        private readonly name: string = DEFAULT_SHARED_WORKER_ADAPTER_NAME,
+        private readonly name: string = DEFAULT_WEB_WORKER_ADAPTER_NAME,
         options?: Partial<SharedWorkerHubAdapterOptions>,
     ) {
         assertSharedWorkerScope()
@@ -66,7 +66,7 @@ export class SharedWorkerHubAdapter<
     }
 
     private acceptInitRequest(port: MessagePort, data: unknown, answeredInitIds: Set<RpcId>): void {
-        if (!isInitRequest(data, SHARED_WORKER_INIT_METHOD_NAME, this.name) || answeredInitIds.has(data.id)) {
+        if (!isInitRequest(data, WEB_WORKER_INIT_METHOD_NAME, this.name) || answeredInitIds.has(data.id)) {
             return
         }
         answeredInitIds.add(data.id)

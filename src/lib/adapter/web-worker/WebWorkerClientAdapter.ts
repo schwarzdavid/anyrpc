@@ -1,12 +1,8 @@
 import type { MethodMap } from '@/types/MethodMap'
-import { AbstractMessagePortClientAdapter } from '@/lib/adapter/message-port/AbstractMessagePortClientAdapter'
-import type { InitRequest } from '@/lib/adapter/message-port/utils/handshake'
+import { AbstractMessagePortHostAdapter } from '@/lib/adapter/message-port/AbstractMessagePortHostAdapter'
+import type { InitResponse } from '@/lib/adapter/message-port/utils/handshake'
 import { DEFAULT_WEB_WORKER_ADAPTER_NAME, WEB_WORKER_INIT_METHOD_NAME } from './constants/webWorkerHandshake'
 import { GlobalScope, isRunningIn, isRunningInWindow } from './utils/globalScope'
-
-export interface WebWorkerClientAdapterOptions {
-    pollingInterval: number
-}
 
 function assertDedicatedWorkerScope(): void {
     if (isRunningInWindow()) {
@@ -29,17 +25,21 @@ function assertDedicatedWorkerScope(): void {
 export class WebWorkerClientAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
-> extends AbstractMessagePortClientAdapter<Methods, Events> {
-    constructor(name: string = DEFAULT_WEB_WORKER_ADAPTER_NAME, options?: Partial<WebWorkerClientAdapterOptions>) {
+> extends AbstractMessagePortHostAdapter<Methods, Events> {
+    constructor(name: string = DEFAULT_WEB_WORKER_ADAPTER_NAME) {
         assertDedicatedWorkerScope()
-        super(WEB_WORKER_INIT_METHOD_NAME, name, options?.pollingInterval ?? 1000)
+        super(WEB_WORKER_INIT_METHOD_NAME, name, false)
     }
 
-    protected listenForInitResponses(signal: AbortSignal): void {
-        globalThis.addEventListener('message', (event) => this.acceptInitResponse(event), { signal })
+    protected listenForInitRequests(signal: AbortSignal): void {
+        globalThis.addEventListener('message', (event) => this.acceptInitRequest(event.data), { signal })
     }
 
-    protected postInitRequest(request: InitRequest): void {
-        globalThis.postMessage(request)
+    protected postInitResponse(response: InitResponse, transfer: Transferable[]): void {
+        globalThis.postMessage(response, { transfer })
+    }
+
+    protected override onRepeatedInitRequest(): void {
+        this.logger?.debug('Ignored a repeated handshake request that was already answered')
     }
 }

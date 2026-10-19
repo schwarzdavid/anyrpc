@@ -15,13 +15,13 @@ describe(WebWorkerClientAdapter, () => {
         expectTypeOf(new WebWorkerClientAdapter<WorkerToHost, HostToWorker>()).toBeObject()
     })
 
-    it('should accept a name and a polling interval', () => {
-        expectTypeOf(new WebWorkerClientAdapter('my-app', { pollingInterval: 100 })).toBeObject()
+    it('should accept a name', () => {
+        expectTypeOf(new WebWorkerClientAdapter('my-app')).toBeObject()
     })
 
-    it('should reject host options', () => {
+    it('should reject options, since the page configures the connection', () => {
         // @ts-expect-error
-        assertType(new WebWorkerClientAdapter('my-app', { heartbeat: true }))
+        assertType(new WebWorkerClientAdapter('my-app', { pollingInterval: 100 }))
     })
 
     it('should infer the channel methods', () => {

@@ -11,6 +11,7 @@ interface WorkerToHost {
 }
 
 declare const worker: Worker
+declare const sharedWorker: SharedWorker
 
 describe(WebWorkerHostAdapter, () => {
     it('should accept a Worker without further configuration', () => {
@@ -25,6 +26,22 @@ describe(WebWorkerHostAdapter, () => {
             }),
         ).toBeObject()
         expectTypeOf(new WebWorkerHostAdapter(worker, 'my-app', { heartbeat: true })).toBeObject()
+    })
+
+    it('should accept a SharedWorker with its options', () => {
+        expectTypeOf(new WebWorkerHostAdapter<HostToWorker, WorkerToHost>(sharedWorker)).toBeObject()
+        expectTypeOf(
+            new WebWorkerHostAdapter(sharedWorker, 'my-app', { pollingInterval: 100, heartbeat: true }),
+        ).toBeObject()
+    })
+
+    it('should reject terminateOnDestroy for a SharedWorker, since it cannot be terminated', () => {
+        // @ts-expect-error
+        assertType(new WebWorkerHostAdapter(sharedWorker, 'my-app', { terminateOnDestroy: true }))
+    })
+
+    it('should accept a polling interval', () => {
+        expectTypeOf(new WebWorkerHostAdapter(worker, 'my-app', { pollingInterval: 100 })).toBeObject()
     })
 
     it('should reject invalid options', () => {

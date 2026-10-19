@@ -1,3 +1,7 @@
+export function isWorkerStartFailure(event: Event): boolean {
+    return !(event instanceof ErrorEvent)
+}
+
 export function describeWorkerError(event: Event, workerKind: string): string {
     if (event instanceof ErrorEvent) {
         return `Uncaught error in ${workerKind}: ${event.message} (${[event.filename, event.lineno, event.colno].join(':')})`

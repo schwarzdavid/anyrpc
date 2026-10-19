@@ -39,10 +39,7 @@ export abstract class AbstractMessagePortHostAdapter<
             return false
         }
         if (data.id === this.answeredInitId) {
-            this.logger?.warn(
-                'Ignored a repeated handshake request that was already answered. ' +
-                    'If the connection never gets established, check the origin options on both sides.',
-            )
+            this.onRepeatedInitRequest()
             return false
         }
         this.answeredInitId = data.id
@@ -53,6 +50,13 @@ export abstract class AbstractMessagePortHostAdapter<
         this.attachPorts({ data: dataChannel.port1, control: controlChannel.port1 }, { awaitRemote: true })
         this.postInitResponse(createInitResponse(data), [dataChannel.port2, controlChannel.port2])
         return true
+    }
+
+    protected onRepeatedInitRequest(): void {
+        this.logger?.warn(
+            'Ignored a repeated handshake request that was already answered. ' +
+                'If the connection never gets established, check the origin options on both sides.',
+        )
     }
 
     protected isExpectedInitRequest(data: unknown): data is InitRequest {

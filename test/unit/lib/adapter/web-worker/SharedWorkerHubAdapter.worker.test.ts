@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { stubGlobalScope } from '../../../__helper/stubGlobalScope'
 import {
-    SharedWorkerHostAdapter,
+    WebWorkerHostAdapter,
     SharedWorkerHubAdapter,
     type SharedWorkerHubAdapterOptions,
     type SharedWorkerLike,
@@ -22,8 +22,8 @@ interface PageToHub {
     getCount(): number
 }
 
-function initRequest(id = 'init-id', name = 'anyrpc-shared-worker-adapter') {
-    return { jsonrpc: '2.0', id, method: 'anyrpc::shared-worker-init', params: [name] }
+function initRequest(id = 'init-id', name = 'anyrpc-web-worker-adapter') {
+    return { jsonrpc: '2.0', id, method: 'anyrpc::web-worker-init', params: [name] }
 }
 
 function nextMessageEvent(port: MessagePort): Promise<MessageEvent> {
@@ -90,7 +90,7 @@ describe(SharedWorkerHubAdapter, () => {
 
         expect(() => new SharedWorkerHubAdapter()).toThrowError(
             'SharedWorkerHubAdapter must be created inside the shared worker. ' +
-                'Use SharedWorkerHostAdapter on the pages that connect to the worker.',
+                'Use WebWorkerHostAdapter on the pages that connect to the worker.',
         )
     })
 
@@ -198,14 +198,14 @@ describe(SharedWorkerHubAdapter, () => {
         expect(peerHandler).toHaveBeenCalledTimes(1)
     })
 
-    it('should connect pages to a hub through the SharedWorkerHostAdapter', async () => {
+    it('should connect pages to a hub through the WebWorkerHostAdapter', async () => {
         const hub = createRpcHub<HubToPage, PageToHub>(new SharedWorkerHubAdapter(), { logLevel: LogLevel.NONE })
         let count = 0
         hub.$.handle('getCount', () => ++count)
         const pages = ['first', 'second'].map((title) => {
             const pagePort = openConnection()
             const sharedWorker: SharedWorkerLike = { port: pagePort, addEventListener: () => undefined }
-            const page = createRpcChannel<PageToHub, HubToPage>(new SharedWorkerHostAdapter(sharedWorker), {
+            const page = createRpcChannel<PageToHub, HubToPage>(new WebWorkerHostAdapter(sharedWorker), {
                 logLevel: LogLevel.NONE,
                 queueEnabled: true,
             })

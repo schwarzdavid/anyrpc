@@ -1,14 +1,14 @@
 import { onReady } from '../__helper/onReady'
 import { createHtmlLogger, MessageType } from '../__helper/createHtmlLogger'
 import { createRpcChannel } from '@/createRpcChannel'
-import { SharedWorkerHostAdapter } from '@/lib/adapter/web-worker'
+import { WebWorkerHostAdapter } from '@/lib/adapter/web-worker'
 import type { PageToWorker, WorkerToPage } from './SharedWorkerMessages'
 
 onReady(() => {
     const log = createHtmlLogger(document.querySelector<HTMLUListElement>('#output')!)
     const title = `Tab ${String(Math.floor(Math.random() * 1000))}`
     const worker = new SharedWorker(new URL('./example.worker.ts', import.meta.url), { type: 'module' })
-    const channel = createRpcChannel<PageToWorker, WorkerToPage>(new SharedWorkerHostAdapter(worker, 'example'))
+    const channel = createRpcChannel<PageToWorker, WorkerToPage>(new WebWorkerHostAdapter(worker, 'example'))
 
     document.querySelector('#title')!.textContent = title
 

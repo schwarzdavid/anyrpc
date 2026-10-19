@@ -8,8 +8,11 @@ transport is pluggable through adapters that extend `AbstractRpcAdapter` (`src/l
 exported from the package entry together with `ConnectionStatus`, `LogLevel`, `RpcError` and `RpcErrorCode`).
 Adapters for iframes (`src/lib/adapter/iframe/`) and web workers (`src/lib/adapter/web-worker/`) exist; more
 transports are planned (see README). Transports that exchange `MessagePort`s after a handshake extend
-`AbstractMessagePortHostAdapter` (the side that creates the `MessageChannel`) or `AbstractMessagePortClientAdapter`
-(the side that polls for it); both build on `AbstractMessagePortAdapter`, which owns the ports, the heartbeat and the
+`AbstractMessagePortHostAdapter` (the side that answers the handshake and creates the `MessageChannel`s) or
+`AbstractMessagePortClientAdapter` (the side that starts the handshake and polls until it is answered). Which side
+starts depends on the transport: an iframe asks its parent, a page asks its worker. `Host`/`Client` in the public
+adapter names mean the embedding/embedded side, not the handshake role (`WebWorkerHostAdapter` extends the client
+base). Both build on `AbstractMessagePortAdapter`, which owns the ports, the heartbeat and the
 control protocol (ping/pong/goodbye). They live in `src/lib/adapter/message-port/` and ship as
 `anyrpc/adapters/message-port`. One-to-many transports (e.g. a `SharedWorker` serving many tabs) use `createRpcHub`
 with an adapter that extends `AbstractRpcHubAdapter` (`src/lib/adapter/AbstractRpcHubAdapter.ts`): the hub adapter

@@ -3,44 +3,36 @@ import { stubGlobalScope } from '../../../__helper/stubGlobalScope'
 import { WebWorkerClientAdapter } from '@/lib/adapter/web-worker'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
+import { ControlMethod, createControlMessage } from '@/lib/adapter/message-port/utils/controlMessages'
+import { confirmHandshake } from '../../../__helper/confirmHandshake'
 
 interface TestMethods {
     foo(value: string): void
 }
 
-vi.mock(import('@/utils/uuid'), () => ({
-    uuid: vi.fn<() => string>(() => 'init-id'),
-}))
+function initRequest(id = 'init-id', name = 'anyrpc-web-worker-adapter') {
+    return { jsonrpc: '2.0', id, method: 'anyrpc::web-worker-init', params: [name] }
+}
 
-const initResponse = { jsonrpc: '2.0', id: 'init-id', result: null }
-
-function receiveFromParent(data: unknown, ports: MessagePort[] = []) {
-    globalThis.dispatchEvent(new MessageEvent('message', { data, ports }))
+function receiveFromPage(data: unknown) {
+    globalThis.dispatchEvent(new MessageEvent('message', { data }))
 }
 
 describe(WebWorkerClientAdapter, () => {
     let postMessageSpy: MockInstance
-    let dataChannel: MessageChannel
-    let controlChannel: MessageChannel
     let adapter: WebWorkerClientAdapter<TestMethods, TestMethods>
 
     beforeEach(() => {
         vi.stubGlobal('window', undefined)
-        vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
         vi.spyOn(console, 'warn').mockImplementation(() => undefined)
         vi.spyOn(console, 'log').mockImplementation(() => undefined)
         postMessageSpy = vi.spyOn(globalThis, 'postMessage').mockImplementation(() => undefined)
-        dataChannel = new MessageChannel()
-        controlChannel = new MessageChannel()
         adapter = new WebWorkerClientAdapter()
         adapter.initLogger(LogLevel.DEBUG)
     })
 
     afterEach(() => {
         adapter.destroy()
-        dataChannel.port2.close()
-        controlChannel.port2.close()
-        vi.useRealTimers()
         vi.unstubAllGlobals()
         vi.restoreAllMocks()
     })
@@ -63,69 +55,85 @@ describe(WebWorkerClientAdapter, () => {
         expect(() => new WebWorkerClientAdapter()).toThrowError(hint)
     })
 
-    it('should send an init request with its name to the parent when connecting', () => {
-        adapter = new WebWorkerClientAdapter('my-app')
+    function answeredControlPort(call = 0): MessagePort {
+        const [, { transfer }] = postMessageSpy.mock.calls[call] as [unknown, { transfer: MessagePort[] }]
+        return transfer[1]!
+    }
 
+    it('should answer the init request of the page with a data and a control port', () => {
         adapter.connect()
 
-        expect(postMessageSpy).toHaveBeenCalledWith({
-            jsonrpc: '2.0',
-            id: 'init-id',
-            method: 'anyrpc::web-worker-init',
-            params: ['my-app'],
-        })
+        receiveFromPage(initRequest())
+
+        expect(postMessageSpy).toHaveBeenCalledExactlyOnceWith(
+            { jsonrpc: '2.0', id: 'init-id', result: null },
+            { transfer: [expect.any(MessagePort), expect.any(MessagePort)] },
+        )
     })
 
-    it('should use the configured polling interval', () => {
-        adapter = new WebWorkerClientAdapter(undefined, { pollingInterval: 100 })
-
+    it('should connect once the page answers the handshake ping', async () => {
         adapter.connect()
-        vi.advanceTimersByTime(300)
-
-        expect(postMessageSpy).toHaveBeenCalledTimes(4)
-    })
-
-    it('should connect with the ports of the init response from the parent', async () => {
-        adapter.connect()
-
-        receiveFromParent(initResponse, [dataChannel.port1, controlChannel.port1])
-
-        expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
-
-        const received = new Promise((resolve) => dataChannel.port2.addEventListener('message', resolve))
-        dataChannel.port2.start()
-        adapter.sendMessage({ jsonrpc: '2.0', method: 'foo', params: ['bar'] })
-
-        await expect(received).resolves.toMatchObject({ data: { method: 'foo', params: ['bar'] } })
-    })
-
-    it('should ignore unrelated messages from the parent', () => {
-        adapter.connect()
-
-        receiveFromParent({ type: 'progress' }, [dataChannel.port1, controlChannel.port1])
+        receiveFromPage(initRequest())
 
         expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+
+        await confirmHandshake(answeredControlPort())
+
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+    })
+
+    it('should only answer init requests with a matching name', () => {
+        adapter = new WebWorkerClientAdapter('my-app')
+        adapter.connect()
+
+        receiveFromPage(initRequest('init-id', 'other-app'))
+        receiveFromPage({ type: 'progress' })
+
+        expect(postMessageSpy).not.toHaveBeenCalled()
+    })
+
+    it('should answer a repeated init request only once', () => {
+        adapter.connect()
+
+        receiveFromPage(initRequest())
+        receiveFromPage(initRequest())
+
+        expect(postMessageSpy).toHaveBeenCalledTimes(1)
+        expect(console.log).toHaveBeenCalledWith(
+            '[WebWorkerClientAdapter]',
+            'Ignored a repeated handshake request that was already answered',
+        )
+    })
+
+    it('should answer a new handshake after the page said goodbye', async () => {
+        adapter.connect()
+        receiveFromPage(initRequest())
+        const controlPort = answeredControlPort()
+        await confirmHandshake(controlPort)
+
+        controlPort.postMessage(createControlMessage(ControlMethod.GOODBYE))
+        await vi.waitFor(() => expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED))
+        receiveFromPage(initRequest('next-id'))
+
+        expect(postMessageSpy).toHaveBeenCalledTimes(2)
     })
 
     it('should not listen twice when connecting twice', () => {
         adapter.connect()
         adapter.connect()
-        const connectionHandler = vi.fn<(status: ConnectionStatus) => void>()
-        adapter.connectionHandler = connectionHandler
 
-        receiveFromParent(initResponse, [dataChannel.port1, controlChannel.port1])
+        receiveFromPage(initRequest())
 
-        expect(connectionHandler).toHaveBeenCalledTimes(1)
+        expect(postMessageSpy).toHaveBeenCalledTimes(1)
     })
 
-    it('should stop listening to the parent when destroyed', () => {
+    it('should stop listening to the page when destroyed', () => {
         adapter.connect()
 
         adapter.destroy()
-        vi.advanceTimersByTime(3000)
-        receiveFromParent(initResponse, [dataChannel.port1, controlChannel.port1])
+        receiveFromPage(initRequest())
 
-        expect(postMessageSpy).toHaveBeenCalledTimes(1)
+        expect(postMessageSpy).not.toHaveBeenCalled()
         expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
     })
 })

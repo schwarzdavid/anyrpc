@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRpcChannel } from '@/createRpcChannel'
-import { SharedWorkerHostAdapter, SharedWorkerHubAdapter } from '@/lib/adapter/web-worker'
+import { SharedWorkerHubAdapter, WebWorkerHostAdapter } from '@/lib/adapter/web-worker'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import type { RpcChannel } from '@/types/RpcChannel'
@@ -19,10 +19,9 @@ describe(SharedWorkerHubAdapter, () => {
                 type: 'module',
                 name: workerName,
             })
-            const channel = createRpcChannel<PageToWorker, WorkerToPage>(
-                new SharedWorkerHostAdapter(worker, 'fixture'),
-                { logLevel: LogLevel.NONE },
-            )
+            const channel = createRpcChannel<PageToWorker, WorkerToPage>(new WebWorkerHostAdapter(worker, 'fixture'), {
+                logLevel: LogLevel.NONE,
+            })
             channel.$.handle('getName', () => name)
             channels.push(channel)
             return channel
