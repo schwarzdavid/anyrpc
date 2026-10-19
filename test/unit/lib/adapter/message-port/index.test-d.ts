@@ -7,6 +7,7 @@ import {
     type HeartbeatOptions,
     type InitRequest,
     type InitResponse,
+    type MessagePortLike,
     type MessagePorts,
 } from '@/lib/adapter/message-port'
 
@@ -58,7 +59,8 @@ describe('anyrpc/adapters/message-port entry point', () => {
     })
 
     it('should expose the port and heartbeat types', () => {
-        expectTypeOf<MessagePorts>().toEqualTypeOf<{ data: MessagePort; control?: MessagePort }>()
+        expectTypeOf<MessagePorts>().toEqualTypeOf<{ data: MessagePortLike; control?: MessagePortLike }>()
+        expectTypeOf<MessagePort>().toExtend<MessagePortLike>()
         expectTypeOf<HeartbeatOptions>().toEqualTypeOf<{ interval: number; timeout: number }>()
         expectTypeOf<HeartbeatOption>().toEqualTypeOf<boolean | Partial<HeartbeatOptions>>()
     })
