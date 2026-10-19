@@ -1,7 +1,7 @@
 import type { MethodMap } from '@/types/MethodMap'
 import { AbstractMessagePortClientAdapter } from '@/lib/adapter/message-port/AbstractMessagePortClientAdapter'
-import type { InitRequest } from '@/utils/message-port/handshake'
-import { DEFAULT_WEB_WORKER_ADAPTER_NAME, WEB_WORKER_INIT_METHOD_NAME } from '../webWorkerHandshake'
+import type { InitRequest } from '@/lib/adapter/message-port/utils/handshake'
+import { DEFAULT_WEB_WORKER_ADAPTER_NAME, WEB_WORKER_INIT_METHOD_NAME } from './constants/webWorkerHandshake'
 
 export interface WebWorkerClientAdapterOptions {
     pollingInterval: number

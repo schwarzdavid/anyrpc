@@ -1,9 +1,9 @@
 import type { MethodMap } from '@/types/MethodMap'
 import { AbstractMessagePortHostAdapter } from '@/lib/adapter/message-port/AbstractMessagePortHostAdapter'
 import type { HeartbeatOption } from '@/lib/Heartbeat'
-import type { InitResponse } from '@/utils/message-port/handshake'
-import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME } from './iframeHandshake'
-import { assertValidOriginOption, type IFrameOriginOption, isOriginAllowed } from './iframeOrigin'
+import type { InitResponse } from '@/lib/adapter/message-port/utils/handshake'
+import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME } from './constants/iframeHandshake'
+import { assertValidOriginOption, type IFrameOriginOption, isOriginAllowed } from './utils/iframeOrigin'
 
 export interface IFrameHostAdapterOptions {
     reconnect: boolean

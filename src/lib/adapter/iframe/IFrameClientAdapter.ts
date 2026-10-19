@@ -1,8 +1,13 @@
 import type { MethodMap } from '@/types/MethodMap'
 import { AbstractMessagePortClientAdapter } from '@/lib/adapter/message-port/AbstractMessagePortClientAdapter'
-import type { InitRequest } from '@/utils/message-port/handshake'
-import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME } from './iframeHandshake'
-import { allowsAnyOrigin, assertValidOriginOption, type IFrameOriginOption, isOriginAllowed } from './iframeOrigin'
+import type { InitRequest } from '@/lib/adapter/message-port/utils/handshake'
+import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME } from './constants/iframeHandshake'
+import {
+    allowsAnyOrigin,
+    assertValidOriginOption,
+    type IFrameOriginOption,
+    isOriginAllowed,
+} from './utils/iframeOrigin'
 
 export interface IFrameClientAdapterOptions {
     pollingInterval: number

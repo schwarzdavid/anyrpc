@@ -6,5 +6,10 @@
         "types": ["node", "vite/client"]
     },
     "include": ["src", "test"],
-    "exclude": ["src/lib/adapter/web-worker/client", "test/unit/lib/adapter/web-worker/client", "test/**/*.worker.ts"]
+    "exclude": [
+        "src/lib/adapter/web-worker/WebWorkerClientAdapter.ts",
+        "test/unit/**/*.worker.test.ts",
+        "test/unit/**/*.worker.test-d.ts",
+        "test/**/*.worker.ts"
+    ]
 }

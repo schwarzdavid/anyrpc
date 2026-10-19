@@ -8,5 +8,5 @@
             "@/*": ["./src/*"]
         }
     },
-    "include": ["src/lib/adapter/web-worker/client", "examples/**/*.worker.ts"]
+    "include": ["src/lib/adapter/web-worker/WebWorkerClientAdapter.ts", "examples/**/*.worker.ts"]
 }

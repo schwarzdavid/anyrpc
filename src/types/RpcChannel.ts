@@ -15,7 +15,9 @@ type IsAny<T> = 0 extends 1 & T ? true : false
 type ResolvesToUndefined<Fn extends MethodFn> =
     IsAny<ResolvedReturnType<Fn>> extends true ? false : [ResolvedReturnType<Fn>] extends [undefined] ? true : false
 
-type ResolvesToVoid<Fn extends MethodFn> = [Promise<ResolvedReturnType<Fn>>] extends [Promise<void>] ? true : false
+export type ResolvesToVoid<Fn extends MethodFn> = [Promise<ResolvedReturnType<Fn>>] extends [Promise<void>]
+    ? true
+    : false
 
 export type RpcResult<Fn extends MethodFn> =
     ResolvesToUndefined<Fn> extends true

@@ -13,7 +13,16 @@ interface PackageExport {
 const ROOT = fileURLToPath(new URL('../../', import.meta.url))
 
 const EXPECTED_EXPORTS: Record<string, string[]> = {
-    '.': ['createRpcChannel', 'AbstractRpcAdapter', 'ConnectionStatus', 'LogLevel', 'RpcError', 'RpcErrorCode'],
+    '.': [
+        'createRpcChannel',
+        'createRpcHub',
+        'AbstractRpcHubAdapter',
+        'AbstractRpcAdapter',
+        'ConnectionStatus',
+        'LogLevel',
+        'RpcError',
+        'RpcErrorCode',
+    ],
     './adapters/iframe': ['IFrameHostAdapter', 'IFrameClientAdapter'],
     './adapters/message-port': [
         'AbstractMessagePortAdapter',

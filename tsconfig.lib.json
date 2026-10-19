@@ -10,5 +10,5 @@
         }
     },
     "include": ["src", "examples"],
-    "exclude": ["src/lib/adapter/web-worker/client", "examples/**/*.worker.ts"]
+    "exclude": ["src/lib/adapter/web-worker/WebWorkerClientAdapter.ts", "examples/**/*.worker.ts"]
 }

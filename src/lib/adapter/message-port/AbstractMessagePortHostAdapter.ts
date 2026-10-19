@@ -2,7 +2,12 @@ import { AbstractMessagePortAdapter } from '@/lib/adapter/message-port/AbstractM
 import type { MethodMap } from '@/types/MethodMap'
 import type { RpcId } from '@/types/RpcMessages'
 import { type HeartbeatOption, resolveHeartbeatOptions } from '@/lib/Heartbeat'
-import { createInitResponse, type InitRequest, type InitResponse, isInitRequest } from '@/utils/message-port/handshake'
+import {
+    createInitResponse,
+    type InitRequest,
+    type InitResponse,
+    isInitRequest,
+} from '@/lib/adapter/message-port/utils/handshake'
 
 export abstract class AbstractMessagePortHostAdapter<
     Methods extends MethodMap<Methods>,

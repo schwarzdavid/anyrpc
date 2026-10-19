@@ -2,6 +2,7 @@ import { AbstractRpcAdapter } from './lib/adapter/AbstractRpcAdapter'
 import { EventEmitter } from './lib/EventEmitter'
 import { HandlerRegistry } from './lib/HandlerRegistry'
 import {
+    assertNotReserved,
     isApplicationErrorCode,
     isReservedMethodName,
     isRpcErrorResponse,
@@ -175,14 +176,6 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             await adapter.connect()
         } catch (error) {
             logger.error('The adapter could not connect', error)
-        }
-    }
-
-    function assertNotReserved(name: PropertyKey, action: 'call' | 'notify' | 'handle'): void {
-        if (isReservedMethodName(name)) {
-            throw new Error(
-                `Cannot ${action} "${String(name)}": method names starting with "rpc." are reserved by JSON-RPC 2.0`,
-            )
         }
     }
 

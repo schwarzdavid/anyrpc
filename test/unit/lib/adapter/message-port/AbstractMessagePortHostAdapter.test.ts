@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AbstractMessagePortHostAdapter } from '@/lib/adapter/message-port/AbstractMessagePortHostAdapter'
-import type { InitResponse } from '@/utils/message-port/handshake'
+import type { InitResponse } from '@/lib/adapter/message-port/utils/handshake'
 import type { HeartbeatOption } from '@/lib/Heartbeat'
 import type { ConnectionHandler, ConnectionLostHandler } from '@/lib/adapter/AbstractRpcAdapter'
 import { ConnectionStatus } from '@/types/ConnectionStatus'

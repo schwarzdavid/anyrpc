@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createInitRequest, createInitResponse, isInitRequest, isInitResponse } from '@/utils/message-port/handshake'
+import {
+    createInitRequest,
+    createInitResponse,
+    isInitRequest,
+    isInitResponse,
+} from '@/lib/adapter/message-port/utils/handshake'
 import { parseRpcMessage } from '@/utils/rpc'
 
 vi.mock(import('@/utils/uuid'), () => ({

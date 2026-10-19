@@ -1,8 +1,8 @@
 import type { MethodMap } from '@/types/MethodMap'
 import { AbstractMessagePortHostAdapter } from '@/lib/adapter/message-port/AbstractMessagePortHostAdapter'
 import type { HeartbeatOption } from '@/lib/Heartbeat'
-import type { InitResponse } from '@/utils/message-port/handshake'
-import { DEFAULT_WEB_WORKER_ADAPTER_NAME, WEB_WORKER_INIT_METHOD_NAME } from '../webWorkerHandshake'
+import type { InitResponse } from '@/lib/adapter/message-port/utils/handshake'
+import { DEFAULT_WEB_WORKER_ADAPTER_NAME, WEB_WORKER_INIT_METHOD_NAME } from './constants/webWorkerHandshake'
 
 export interface WebWorkerHostAdapterOptions {
     terminateOnDestroy: boolean

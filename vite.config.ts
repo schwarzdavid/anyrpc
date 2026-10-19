@@ -4,7 +4,8 @@ import { resolve } from 'node:path'
 import dts from 'vite-plugin-dts'
 import { playwright } from '@vitest/browser-playwright'
 
-const WEB_WORKER_CLIENT_TESTS = 'test/unit/lib/adapter/web-worker/client'
+const WORKER_SCOPE_TESTS = 'test/unit/**/*.worker.test.ts'
+const WORKER_SCOPE_TYPE_TESTS = 'test/unit/**/*.worker.test-d.ts'
 
 export default defineConfig({
     plugins: [dts({ tsconfigPath: './tsconfig.lib.json', include: ['src'], exclude: ['node_modules/**'] })],
@@ -42,12 +43,12 @@ export default defineConfig({
                     name: 'unit',
                     environment: 'jsdom',
                     include: ['test/unit/**/*.test.ts'],
-                    exclude: [`${WEB_WORKER_CLIENT_TESTS}/**`],
+                    exclude: [WORKER_SCOPE_TESTS],
                     typecheck: {
                         enabled: true,
                         tsconfig: './tsconfig.vitest.json',
                         include: ['test/unit/**/*.test-d.ts'],
-                        exclude: [`${WEB_WORKER_CLIENT_TESTS}/**`],
+                        exclude: [WORKER_SCOPE_TYPE_TESTS],
                     },
                 },
             },
@@ -56,11 +57,11 @@ export default defineConfig({
                 test: {
                     name: 'unit-webworker',
                     environment: 'jsdom',
-                    include: [`${WEB_WORKER_CLIENT_TESTS}/**/*.test.ts`],
+                    include: [WORKER_SCOPE_TESTS],
                     typecheck: {
                         enabled: true,
                         tsconfig: './tsconfig.vitest.webworker.json',
-                        include: [`${WEB_WORKER_CLIENT_TESTS}/**/*.test-d.ts`],
+                        include: [WORKER_SCOPE_TYPE_TESTS],
                     },
                 },
             },

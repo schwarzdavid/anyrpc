@@ -1,6 +1,6 @@
 import { AbstractMessagePortAdapter } from '@/lib/adapter/message-port/AbstractMessagePortAdapter'
 import type { MethodMap } from '@/types/MethodMap'
-import { createInitRequest, type InitRequest, isInitResponse } from '@/utils/message-port/handshake'
+import { createInitRequest, type InitRequest, isInitResponse } from '@/lib/adapter/message-port/utils/handshake'
 
 interface Handshake {
     request: InitRequest
