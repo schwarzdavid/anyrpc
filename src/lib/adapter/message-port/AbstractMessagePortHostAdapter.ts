@@ -12,8 +12,8 @@ export abstract class AbstractMessagePortHostAdapter<
     private listenersAbortController: AbortController | undefined
 
     protected constructor(
-        private readonly initMethod: string,
-        private readonly name: string,
+        private readonly initMethodName: string,
+        private readonly channelName: string,
         heartbeat: HeartbeatOption,
     ) {
         super(resolveHeartbeatOptions(heartbeat))
@@ -51,7 +51,7 @@ export abstract class AbstractMessagePortHostAdapter<
     }
 
     protected isExpectedInitRequest(data: unknown): data is InitRequest {
-        return isInitRequest(data, this.initMethod, this.name)
+        return isInitRequest(data, this.initMethodName, this.channelName)
     }
 
     protected stopListening(): void {
