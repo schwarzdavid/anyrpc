@@ -24,6 +24,10 @@ they stay usable for consumers with `isolatedModules`.
   special cases in `createRpcChannel`.
 - **Keep it simple to use.** A consumer should get a working channel in a few lines. If a feature makes the common case
   harder, rethink it.
+- **No options for theoretical edge cases.** Every option is something a consumer has to read, understand and decide
+  on. Only add one when a real use case needs it, not because an API underneath offers a knob or a corner case is
+  conceivable. Two options that configure nearly the same thing are a design smell. When in doubt, pick a sensible
+  fixed behavior and leave the option out.
 - Treat everything reachable through `package.json` `exports` as public API. Changing it is a breaking change; call it
   out explicitly.
 

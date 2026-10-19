@@ -6,13 +6,11 @@ import type { HostToIFrame, IFrameToHost } from './FixtureMessages'
 
 const query = new URLSearchParams(window.location.search)
 const origin = query.get('origin')
-const postMessageOrigin = query.get('postMessageOrigin')
 
 const channel = createRpcChannel<IFrameToHost, HostToIFrame>(
     new IFrameClientAdapter('fixture', {
         pollingInterval: 50,
         ...(origin === null ? {} : { origin }),
-        ...(postMessageOrigin === null ? {} : { postMessageOrigin }),
     }),
     { logLevel: LogLevel.NONE },
 )

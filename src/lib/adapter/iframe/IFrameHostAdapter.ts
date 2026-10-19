@@ -2,10 +2,10 @@ import type { MethodMap } from '@/types/MethodMap'
 import { AbstractMessagePortHostAdapter } from '@/lib/adapter/message-port/AbstractMessagePortHostAdapter'
 import type { HeartbeatOption } from '@/lib/Heartbeat'
 import type { InitResponse } from '@/utils/message-port/handshake'
-import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME, type IFrameAdapterOptions } from './iframeHandshake'
+import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME } from './iframeHandshake'
 import { allowsAnyOrigin, assertValidOriginOption, type IFrameOriginOption, isOriginAllowed } from './iframeOrigin'
 
-export interface IFrameHostAdapterOptions extends IFrameAdapterOptions {
+export interface IFrameHostAdapterOptions {
     reconnect: boolean
     heartbeat: HeartbeatOption
     origin: IFrameOriginOption
@@ -15,7 +15,6 @@ export class IFrameHostAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractMessagePortHostAdapter<Methods, Events> {
-    private readonly postMessageOrigin: string
     private readonly reconnect: boolean
     private readonly allowedOrigin: IFrameOriginOption
 
@@ -27,7 +26,6 @@ export class IFrameHostAdapter<
         assertValidOriginOption(options?.origin)
 
         super(IFRAME_INIT_METHOD_NAME, name, options?.heartbeat ?? false)
-        this.postMessageOrigin = options?.postMessageOrigin ?? '*'
         this.reconnect = options?.reconnect ?? true
         this.allowedOrigin = options?.origin ?? true
     }
@@ -46,7 +44,7 @@ export class IFrameHostAdapter<
     }
 
     protected postInitResponse(response: InitResponse, transfer: Transferable[]): void {
-        this.iframe.contentWindow?.postMessage(response, this.postMessageOrigin, transfer)
+        this.iframe.contentWindow?.postMessage(response, '*', transfer)
     }
 
     private handleWindowMessage(event: MessageEvent): void {

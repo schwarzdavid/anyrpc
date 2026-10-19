@@ -20,7 +20,6 @@ describe(IFrameHostAdapter, () => {
     it('should accept a name and options', () => {
         expectTypeOf(
             new IFrameHostAdapter<HostToIFrame, IFrameToHost>(iframe, 'my-app', {
-                postMessageOrigin: 'https://example.com',
                 reconnect: false,
                 heartbeat: { interval: 1000 },
             }),

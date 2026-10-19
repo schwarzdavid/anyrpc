@@ -1,10 +1,10 @@
 import type { MethodMap } from '@/types/MethodMap'
 import { AbstractMessagePortClientAdapter } from '@/lib/adapter/message-port/AbstractMessagePortClientAdapter'
 import type { InitRequest } from '@/utils/message-port/handshake'
-import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME, type IFrameAdapterOptions } from './iframeHandshake'
+import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME } from './iframeHandshake'
 import { allowsAnyOrigin, assertValidOriginOption, type IFrameOriginOption, isOriginAllowed } from './iframeOrigin'
 
-export interface IFrameClientAdapterOptions extends IFrameAdapterOptions {
+export interface IFrameClientAdapterOptions {
     pollingInterval: number
     origin: IFrameOriginOption
 }
@@ -13,14 +13,12 @@ export class IFrameClientAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractMessagePortClientAdapter<Methods, Events> {
-    private readonly postMessageOrigin: string
     private readonly allowedOrigin: IFrameOriginOption
 
     constructor(name: string = DEFAULT_IFRAME_ADAPTER_NAME, options?: Partial<IFrameClientAdapterOptions>) {
         assertValidOriginOption(options?.origin)
 
         super(IFRAME_INIT_METHOD_NAME, name, options?.pollingInterval ?? 1000)
-        this.postMessageOrigin = options?.postMessageOrigin ?? '*'
         this.allowedOrigin = options?.origin ?? true
     }
 
@@ -41,7 +39,7 @@ export class IFrameClientAdapter<
     }
 
     protected postInitRequest(request: InitRequest): void {
-        window.parent.postMessage(request, this.postMessageOrigin)
+        window.parent.postMessage(request, '*')
     }
 
     private handleWindowMessage(event: MessageEvent): void {

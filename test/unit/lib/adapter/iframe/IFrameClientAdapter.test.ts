@@ -90,14 +90,6 @@ describe(IFrameClientAdapter, () => {
             )
         })
 
-        it('should post the init request to the configured postMessageOrigin', () => {
-            createAdapter({ postMessageOrigin: PARENT_ORIGIN })
-
-            adapter.connect()
-
-            expect(parentWindow.postMessage).toHaveBeenCalledWith(expect.anything(), PARENT_ORIGIN)
-        })
-
         it('should use the configured polling interval', () => {
             createAdapter({ pollingInterval: 100 })
 

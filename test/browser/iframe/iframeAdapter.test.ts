@@ -170,8 +170,6 @@ describe(IFrameHostAdapter, () => {
     it.each([
         ['the iframe does not accept the origin of the host', {}, { origin: 'https://other.example' }],
         ['the host does not accept the origin of the iframe', { origin: 'https://other.example' }, {}],
-        ['the iframe posts the handshake to another origin', {}, { postMessageOrigin: 'https://other.example' }],
-        ['the host posts the handshake to another origin', { postMessageOrigin: 'https://other.example' }, {}],
     ])('should never connect if %s', async (_, adapterOptions, query) => {
         const channel = connect(embed(query), adapterOptions)
 

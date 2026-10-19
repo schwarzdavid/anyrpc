@@ -92,15 +92,14 @@ describe(IFrameHostAdapter, () => {
             expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
         })
 
-        it('should post the response to the configured postMessageOrigin', () => {
-            createAdapter({ postMessageOrigin: 'https://example.com' })
+        it('should post the response to any origin', () => {
             adapter.connect()
 
             receiveFromIframe(initRequest())
 
             expect(contentWindow.postMessage).toHaveBeenCalledWith(
                 expect.objectContaining({ id: 'init-id' }),
-                'https://example.com',
+                '*',
                 expect.any(Array),
             )
         })

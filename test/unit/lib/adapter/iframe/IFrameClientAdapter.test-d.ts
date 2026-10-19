@@ -18,7 +18,6 @@ describe(IFrameClientAdapter, () => {
     it('should accept a name and options', () => {
         expectTypeOf(
             new IFrameClientAdapter('my-app', {
-                postMessageOrigin: 'https://example.com',
                 pollingInterval: 100,
                 origin: ['https://example.com', /\.example\.com$/u],
             }),
