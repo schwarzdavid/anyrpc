@@ -91,6 +91,8 @@ Before reporting work as done, run `npm run coverage`, `npm run check`, `npm run
    Code that runs in a different global scope than the DOM (e.g. inside a worker) is additionally type-checked by a
    tsconfig with the matching `lib` (see `tsconfig.lib.webworker.json`). Its public types must stay lib-neutral,
    since both sides share one entry point.
+   Code that runs in Node.js, the package core and the message-port base classes are type-checked without DOM by
+   `tsconfig.lib.node.json`; list Node-only files there.
 4. Add tests, an example under `examples/`, and update the README adapter list.
 
 ## Git

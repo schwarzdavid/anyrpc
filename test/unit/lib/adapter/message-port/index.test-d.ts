@@ -1,4 +1,5 @@
 import { describe, expectTypeOf, it } from 'vitest'
+import type { MessagePort as NodeMessagePort } from 'node:worker_threads'
 import {
     AbstractMessagePortAdapter,
     AbstractMessagePortClientAdapter,
@@ -58,9 +59,28 @@ describe('anyrpc/adapters/message-port entry point', () => {
         expectTypeOf(new CustomClientAdapter()).toExtend<AbstractMessagePortAdapter<Methods, Events>>()
     })
 
+    it('should let client adapters accept ports that arrive inside the message data', () => {
+        class PortsInDataClientAdapter extends AbstractMessagePortClientAdapter<Methods, Events> {
+            constructor() {
+                super('anyrpc::custom-init', 'custom', 1000)
+            }
+
+            protected listenForInitResponses(signal: AbortSignal): void {
+                port.addEventListener('message', (event) => this.acceptInitResponseData(event.data, []), { signal })
+            }
+
+            protected postInitRequest(request: InitRequest): void {
+                port.postMessage(request)
+            }
+        }
+
+        expectTypeOf(new PortsInDataClientAdapter()).toExtend<AbstractMessagePortAdapter<Methods, Events>>()
+    })
+
     it('should expose the port and heartbeat types', () => {
         expectTypeOf<MessagePorts>().toEqualTypeOf<{ data: MessagePortLike; control?: MessagePortLike }>()
         expectTypeOf<MessagePort>().toExtend<MessagePortLike>()
+        expectTypeOf<NodeMessagePort>().toExtend<MessagePortLike>()
         expectTypeOf<HeartbeatOptions>().toEqualTypeOf<{ interval: number; timeout: number }>()
         expectTypeOf<HeartbeatOption>().toEqualTypeOf<boolean | Partial<HeartbeatOptions>>()
     })

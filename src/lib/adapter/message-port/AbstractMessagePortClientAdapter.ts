@@ -1,4 +1,4 @@
-import { AbstractMessagePortAdapter } from '@/lib/adapter/message-port/AbstractMessagePortAdapter'
+import { AbstractMessagePortAdapter, type MessagePortLike } from '@/lib/adapter/message-port/AbstractMessagePortAdapter'
 import type { MethodMap } from '@/types/MethodMap'
 import { type HeartbeatOption, resolveHeartbeatOptions } from '@/lib/Heartbeat'
 import { createInitRequest, type InitRequest, isInitResponse } from '@/lib/adapter/message-port/utils/handshake'
@@ -43,9 +43,13 @@ export abstract class AbstractMessagePortClientAdapter<
 
     protected abstract postInitRequest(request: InitRequest): void
 
-    protected acceptInitResponse(event: MessageEvent): void {
-        if (this.isExpectedInitResponse(event.data)) {
-            this.completeHandshake(event.ports)
+    protected acceptInitResponse(event: { data: unknown; ports: readonly MessagePortLike[] }): void {
+        this.acceptInitResponseData(event.data, event.ports)
+    }
+
+    protected acceptInitResponseData(data: unknown, ports: readonly MessagePortLike[]): void {
+        if (this.isExpectedInitResponse(data)) {
+            this.completeHandshake(ports)
         }
     }
 
@@ -58,7 +62,7 @@ export abstract class AbstractMessagePortClientAdapter<
         this.connect()
     }
 
-    private completeHandshake([data, control]: readonly MessagePort[]): void {
+    private completeHandshake([data, control]: readonly MessagePortLike[]): void {
         if (!data || !control) {
             this.logger?.warn('Ignored a handshake response without the expected message ports')
             return

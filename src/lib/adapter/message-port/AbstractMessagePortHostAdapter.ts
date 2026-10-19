@@ -1,4 +1,4 @@
-import { AbstractMessagePortAdapter } from '@/lib/adapter/message-port/AbstractMessagePortAdapter'
+import { AbstractMessagePortAdapter, type MessagePortLike } from '@/lib/adapter/message-port/AbstractMessagePortAdapter'
 import type { MethodMap } from '@/types/MethodMap'
 import type { RpcId } from '@/types/RpcMessages'
 import { type HeartbeatOption, resolveHeartbeatOptions } from '@/lib/Heartbeat'
@@ -32,7 +32,7 @@ export abstract class AbstractMessagePortHostAdapter<
 
     protected abstract listenForInitRequests(signal: AbortSignal): void
 
-    protected abstract postInitResponse(response: InitResponse, transfer: Transferable[]): void
+    protected abstract postInitResponse(response: InitResponse, transfer: MessagePortLike[]): void
 
     protected acceptInitRequest(data: unknown): boolean {
         if (!this.isExpectedInitRequest(data)) {
