@@ -21,6 +21,8 @@ interface Events {
 }
 
 declare const port: MessagePort
+declare const nodePort: NodeMessagePort
+declare const nodePorts: NodeMessagePort[]
 
 describe('anyrpc/adapters/message-port entry point', () => {
     it('should let consumers write a host adapter by implementing the handshake transport', () => {
@@ -66,7 +68,9 @@ describe('anyrpc/adapters/message-port entry point', () => {
             }
 
             protected listenForInitResponses(signal: AbortSignal): void {
-                port.addEventListener('message', (event) => this.acceptInitResponseData(event.data, []), { signal })
+                port.addEventListener('message', (event) => this.acceptInitResponseData(event.data, nodePorts), {
+                    signal,
+                })
             }
 
             protected postInitRequest(request: InitRequest): void {
@@ -75,6 +79,46 @@ describe('anyrpc/adapters/message-port entry point', () => {
         }
 
         expectTypeOf(new PortsInDataClientAdapter()).toExtend<AbstractMessagePortAdapter<Methods, Events>>()
+    })
+
+    it('should let host adapters declare transfer as the port type of their transport', () => {
+        class NodeHostAdapter extends AbstractMessagePortHostAdapter<Methods, Events> {
+            constructor() {
+                super('anyrpc::custom-init', 'custom', false)
+            }
+
+            protected listenForInitRequests(signal: AbortSignal): void {
+                port.addEventListener('message', (event) => this.acceptInitRequest(event.data), { signal })
+            }
+
+            protected postInitResponse(response: InitResponse, transfer: NodeMessagePort[]): void {
+                nodePort.postMessage(response, transfer)
+            }
+        }
+
+        expectTypeOf(new NodeHostAdapter()).toExtend<AbstractMessagePortAdapter<Methods, Events>>()
+    })
+
+    it('should let client adapters keep overriding acceptInitResponse with the DOM message event', () => {
+        class OverridingClientAdapter extends AbstractMessagePortClientAdapter<Methods, Events> {
+            constructor() {
+                super('anyrpc::custom-init', 'custom', 1000)
+            }
+
+            protected override acceptInitResponse(event: MessageEvent): void {
+                super.acceptInitResponse(event)
+            }
+
+            protected listenForInitResponses(signal: AbortSignal): void {
+                port.addEventListener('message', (event) => this.acceptInitResponse(event), { signal })
+            }
+
+            protected postInitRequest(request: InitRequest): void {
+                port.postMessage(request)
+            }
+        }
+
+        expectTypeOf(new OverridingClientAdapter()).toExtend<AbstractMessagePortAdapter<Methods, Events>>()
     })
 
     it('should expose the port and heartbeat types', () => {
