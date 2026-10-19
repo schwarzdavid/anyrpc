@@ -111,10 +111,14 @@ export abstract class AbstractMessagePortAdapter<
         this.connectionStatus = ConnectionStatus.CONNECTED
     }
 
+    protected onRemoteUnresponsive(): void {
+        this.connectionStatus = ConnectionStatus.DISCONNECTED
+    }
+
     private markUnresponsive(): void {
         if (this.connectionStatus === ConnectionStatus.CONNECTED) {
             this.logger?.warn('The remote side did not answer the heartbeat in time')
-            this.connectionStatus = ConnectionStatus.DISCONNECTED
+            this.onRemoteUnresponsive()
         }
     }
 

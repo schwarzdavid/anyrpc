@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest'
+import { stubGlobalScope } from '../../../__helper/stubGlobalScope'
 import { WebWorkerClientAdapter } from '@/lib/adapter/web-worker'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
@@ -51,6 +52,15 @@ describe(WebWorkerClientAdapter, () => {
             'WebWorkerClientAdapter must be created inside the web worker. ' +
                 'Use WebWorkerHostAdapter on the page that starts the worker.',
         )
+    })
+
+    it.each([
+        ['SharedWorkerGlobalScope', 'In a shared worker, use SharedWorkerHubAdapter with createRpcHub.'],
+        ['ServiceWorkerGlobalScope', 'not in service workers.'],
+    ] as const)('should refuse to be created in a %s', (scope, hint) => {
+        stubGlobalScope(scope)
+
+        expect(() => new WebWorkerClientAdapter()).toThrowError(hint)
     })
 
     it('should send an init request with its name to the parent when connecting', () => {

@@ -11,7 +11,11 @@ transports are planned (see README). Transports that exchange `MessagePort`s aft
 `AbstractMessagePortHostAdapter` (the side that creates the `MessageChannel`) or `AbstractMessagePortClientAdapter`
 (the side that polls for it); both build on `AbstractMessagePortAdapter`, which owns the ports, the heartbeat and the
 control protocol (ping/pong/goodbye). They live in `src/lib/adapter/message-port/` and ship as
-`anyrpc/adapters/message-port`. Enumerations are `as const` objects with a same-named union type, never `enum`, so
+`anyrpc/adapters/message-port`. One-to-many transports (e.g. a `SharedWorker` serving many tabs) use `createRpcHub`
+with an adapter that extends `AbstractRpcHubAdapter` (`src/lib/adapter/AbstractRpcHubAdapter.ts`): the hub adapter
+reports peers via `addPeer(adapter)`/`removePeer(id)`, and the hub wraps every peer adapter in a regular channel, so
+the channel core stays 1:1. Channel and hub share the same proxy shape (`createMethodProxy`): methods on the object,
+everything else under `$`. Enumerations are `as const` objects with a same-named union type, never `enum`, so
 they stay usable for consumers with `isolatedModules`.
 
 ## Guiding principles

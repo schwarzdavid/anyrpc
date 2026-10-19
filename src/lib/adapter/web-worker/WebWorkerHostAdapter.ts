@@ -3,6 +3,7 @@ import { AbstractMessagePortHostAdapter } from '@/lib/adapter/message-port/Abstr
 import type { HeartbeatOption } from '@/lib/Heartbeat'
 import type { InitResponse } from '@/lib/adapter/message-port/utils/handshake'
 import { DEFAULT_WEB_WORKER_ADAPTER_NAME, WEB_WORKER_INIT_METHOD_NAME } from './constants/webWorkerHandshake'
+import { describeWorkerError } from './utils/describeWorkerError'
 
 export interface WebWorkerHostAdapterOptions {
     terminateOnDestroy: boolean
@@ -30,24 +31,13 @@ export class WebWorkerHostAdapter<
 
     protected listenForInitRequests(signal: AbortSignal): void {
         this.worker.addEventListener('message', (event) => this.acceptInitRequest(event.data), { signal })
-        this.worker.addEventListener('error', (event) => this.logWorkerError(event), { signal })
+        this.worker.addEventListener('error', (event) => this.logger?.error(describeWorkerError(event, 'web worker')), {
+            signal,
+        })
     }
 
     protected postInitResponse(response: InitResponse, transfer: Transferable[]): void {
         this.worker.postMessage(response, transfer)
-    }
-
-    private logWorkerError(event: Event): void {
-        if (event instanceof ErrorEvent) {
-            this.logger?.error(
-                `Uncaught error in web worker: ${event.message} (${[event.filename, event.lineno, event.colno].join(':')})`,
-            )
-            return
-        }
-        this.logger?.error(
-            'The web worker could not be started, so the channel will never connect. ' +
-                'Check that the script URL is correct and served with a JavaScript MIME type.',
-        )
     }
 
     override destroy(): void {

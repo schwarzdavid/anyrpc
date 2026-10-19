@@ -7,6 +7,8 @@
     },
     "include": [
         "src/lib/adapter/web-worker/WebWorkerClientAdapter.ts",
+        "src/lib/adapter/web-worker/SharedWorkerHubAdapter.ts",
+        "src/lib/adapter/web-worker/SharedWorkerPeerAdapter.ts",
         "test/unit/**/*.worker.test.ts",
         "test/unit/**/*.worker.test-d.ts",
         "test/**/*.worker.ts"
