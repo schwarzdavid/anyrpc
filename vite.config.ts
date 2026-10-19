@@ -6,6 +6,7 @@ import { playwright } from '@vitest/browser-playwright'
 
 const WORKER_SCOPE_TESTS = 'test/unit/**/*.worker.test.ts'
 const WORKER_SCOPE_TYPE_TESTS = 'test/unit/**/*.worker.test-d.ts'
+const NODE_SCOPE_TESTS = 'test/unit/**/*.node.test.ts'
 
 export default defineConfig({
     plugins: [dts({ tsconfigPath: './tsconfig.lib.json', include: ['src'], exclude: ['node_modules/**'] })],
@@ -43,7 +44,7 @@ export default defineConfig({
                     name: 'unit',
                     environment: 'jsdom',
                     include: ['test/unit/**/*.test.ts'],
-                    exclude: [WORKER_SCOPE_TESTS],
+                    exclude: [WORKER_SCOPE_TESTS, NODE_SCOPE_TESTS],
                     typecheck: {
                         enabled: true,
                         tsconfig: './tsconfig.vitest.json',
@@ -63,6 +64,14 @@ export default defineConfig({
                         tsconfig: './tsconfig.vitest.webworker.json',
                         include: [WORKER_SCOPE_TYPE_TESTS],
                     },
+                },
+            },
+            {
+                extends: true,
+                test: {
+                    name: 'node',
+                    environment: 'node',
+                    include: [NODE_SCOPE_TESTS, 'test/node/**/*.test.ts'],
                 },
             },
             {
