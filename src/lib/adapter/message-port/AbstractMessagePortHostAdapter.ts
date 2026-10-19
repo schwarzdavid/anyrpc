@@ -9,7 +9,7 @@ export abstract class AbstractMessagePortHostAdapter<
     Events extends MethodMap<Events>,
 > extends AbstractMessagePortAdapter<Methods, Events> {
     private answeredInitId: RpcId | undefined
-    private listeners: AbortController | undefined
+    private listenersAbortController: AbortController | undefined
 
     protected constructor(
         private readonly initMethod: string,
@@ -21,8 +21,8 @@ export abstract class AbstractMessagePortHostAdapter<
 
     connect(): void {
         this.stopListening()
-        this.listeners = new AbortController()
-        this.listenForInitRequests(this.listeners.signal)
+        this.listenersAbortController = new AbortController()
+        this.listenForInitRequests(this.listenersAbortController.signal)
     }
 
     protected abstract listenForInitRequests(signal: AbortSignal): void
@@ -55,8 +55,8 @@ export abstract class AbstractMessagePortHostAdapter<
     }
 
     protected stopListening(): void {
-        this.listeners?.abort()
-        this.listeners = undefined
+        this.listenersAbortController?.abort()
+        this.listenersAbortController = undefined
     }
 
     override destroy(): void {
