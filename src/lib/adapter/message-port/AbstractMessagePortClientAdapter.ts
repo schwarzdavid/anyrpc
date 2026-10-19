@@ -64,8 +64,7 @@ export abstract class AbstractMessagePortClientAdapter<
         this.connect()
     }
 
-    private completeHandshake(ports: readonly MessagePort[]): void {
-        const [data, control] = ports
+    private completeHandshake([data, control]: readonly MessagePort[]): void {
         if (!data || !control) {
             this.logger?.warn('Ignored a handshake response without the expected message ports')
             return

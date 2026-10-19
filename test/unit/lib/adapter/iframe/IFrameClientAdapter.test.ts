@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-    IFrameClientAdapter,
-    type IFrameClientAdapterOptions,
-    type IFrameClientAdapterOriginOption,
-} from '@/lib/adapter/iframe'
+import { IFrameClientAdapter, type IFrameClientAdapterOptions, type IFrameOriginOption } from '@/lib/adapter/iframe'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 
@@ -21,12 +17,7 @@ const initResponse = { jsonrpc: '2.0', id: 'init-id', result: null }
 
 type PostMessageMock = ReturnType<typeof vi.fn<(message: unknown, targetOrigin: string) => void>>
 
-const originCases: [
-    description: string,
-    origin: IFrameClientAdapterOriginOption,
-    eventOrigin: string,
-    connects: boolean,
-][] = [
+const originCases: [description: string, origin: IFrameOriginOption, eventOrigin: string, connects: boolean][] = [
     ['a matching string', PARENT_ORIGIN, PARENT_ORIGIN, true],
     ['a string with different casing', ' HTTPS://Example.com ', PARENT_ORIGIN, true],
     ['a string with a trailing slash', 'https://example.com/', PARENT_ORIGIN, true],

@@ -25,12 +25,12 @@ export abstract class AbstractMessagePortAdapter<
     protected constructor(heartbeatOptions?: HeartbeatOptions) {
         super()
 
-        this.heartbeat =
-            heartbeatOptions &&
-            new Heartbeat(heartbeatOptions, {
+        if (heartbeatOptions) {
+            this.heartbeat = new Heartbeat(heartbeatOptions, {
                 ping: () => this.sendControlMessage(ControlMethod.PING),
                 onTimeout: () => this.markUnresponsive(),
             })
+        }
     }
 
     sendMessage(message: RpcMessage<Methods, Events>): void {

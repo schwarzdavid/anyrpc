@@ -33,6 +33,7 @@ they stay usable for consumers with `isolatedModules`.
   naming, small functions and types instead. This applies to new code and to code you touch.
 - Match the surrounding code: 4-space indent, no semicolons, single quotes, max line length 120 (Prettier + EditorConfig).
 - Use `import type` for type-only imports (`verbatimModuleSyntax` is on) and the `@/` alias for `src/`.
+- Assign conditionally with an `if` statement, never with `x = condition && value`. `&&` is for boolean logic only.
 - The TypeScript config is strict (`exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noImplicitOverride`, ...).
   Do not weaken it, and avoid `any` and non-null assertions in library code.
 - **Never remove defensive code without asking**, even when it looks unreachable or blocks the coverage goal. Guards

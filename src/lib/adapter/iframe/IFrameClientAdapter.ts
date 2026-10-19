@@ -4,8 +4,6 @@ import type { InitRequest } from '@/utils/message-port/handshake'
 import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME, type IFrameAdapterOptions } from './iframeHandshake'
 import { allowsAnyOrigin, assertValidOriginOption, type IFrameOriginOption, isOriginAllowed } from './iframeOrigin'
 
-export type IFrameClientAdapterOriginOption = IFrameOriginOption
-
 export interface IFrameClientAdapterOptions extends IFrameAdapterOptions {
     pollingInterval: number
     origin: IFrameOriginOption
