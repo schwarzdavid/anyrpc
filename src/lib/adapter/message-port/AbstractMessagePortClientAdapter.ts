@@ -1,6 +1,7 @@
 import { AbstractMessagePortAdapter } from '@/lib/adapter/message-port/AbstractMessagePortAdapter'
 import type { MethodMap } from '@/types/MethodMap'
-import { createInitRequest, type InitRequest, isInitResponse } from '@/utils/message-port/handshake'
+import { type HeartbeatOption, resolveHeartbeatOptions } from '@/lib/Heartbeat'
+import { createInitRequest, type InitRequest, isInitResponse } from '@/lib/adapter/message-port/utils/handshake'
 
 interface Handshake {
     request: InitRequest
@@ -18,8 +19,9 @@ export abstract class AbstractMessagePortClientAdapter<
         private readonly initMethod: string,
         private readonly name: string,
         private readonly pollingInterval: number,
+        heartbeat: HeartbeatOption = false,
     ) {
-        super()
+        super(resolveHeartbeatOptions(heartbeat))
     }
 
     connect(): void {
@@ -65,7 +67,7 @@ export abstract class AbstractMessagePortClientAdapter<
         this.attachPorts({ data, control })
     }
 
-    private stopHandshake(): void {
+    protected stopHandshake(): void {
         this.handshake?.listeners.abort()
         clearInterval(this.handshake?.pollingIntervalId)
         this.handshake = undefined

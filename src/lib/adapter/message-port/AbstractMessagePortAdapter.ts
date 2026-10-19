@@ -2,7 +2,11 @@ import { AbstractRpcAdapter } from '@/lib/adapter/AbstractRpcAdapter'
 import type { MethodMap } from '@/types/MethodMap'
 import type { RpcMessage } from '@/types/RpcMessages'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
-import { ControlMethod, createControlMessage, readControlMethod } from '@/utils/message-port/controlMessages'
+import {
+    ControlMethod,
+    createControlMessage,
+    readControlMethod,
+} from '@/lib/adapter/message-port/utils/controlMessages'
 import { Heartbeat, type HeartbeatOptions } from '@/lib/Heartbeat'
 
 export interface MessagePorts {
@@ -107,10 +111,14 @@ export abstract class AbstractMessagePortAdapter<
         this.connectionStatus = ConnectionStatus.CONNECTED
     }
 
+    protected onRemoteUnresponsive(): void {
+        this.connectionStatus = ConnectionStatus.DISCONNECTED
+    }
+
     private markUnresponsive(): void {
         if (this.connectionStatus === ConnectionStatus.CONNECTED) {
             this.logger?.warn('The remote side did not answer the heartbeat in time')
-            this.connectionStatus = ConnectionStatus.DISCONNECTED
+            this.onRemoteUnresponsive()
         }
     }
 

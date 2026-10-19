@@ -176,3 +176,11 @@ export function isApplicationErrorCode(code: number): boolean {
     const isReservedCode = code >= RESERVED_ERROR_CODE_RANGE.min && code <= RESERVED_ERROR_CODE_RANGE.max
     return !isReservedCode && !LOCAL_ERROR_CODES.includes(code)
 }
+
+export function assertNotReserved(name: PropertyKey, action: 'call' | 'notify' | 'handle'): void {
+    if (isReservedMethodName(name)) {
+        throw new Error(
+            `Cannot ${action} "${String(name)}": method names starting with "rpc." are reserved by JSON-RPC 2.0`,
+        )
+    }
+}

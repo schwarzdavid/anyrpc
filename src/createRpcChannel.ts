@@ -2,6 +2,7 @@ import { AbstractRpcAdapter } from './lib/adapter/AbstractRpcAdapter'
 import { EventEmitter } from './lib/EventEmitter'
 import { HandlerRegistry } from './lib/HandlerRegistry'
 import {
+    assertNotReserved,
     isApplicationErrorCode,
     isReservedMethodName,
     isRpcErrorResponse,
@@ -12,6 +13,7 @@ import {
 import { RpcError } from './lib/RpcError'
 import type { RpcMessageError } from './lib/RpcMessageError'
 import { uuid } from './utils/uuid'
+import { createMethodProxy } from './utils/createMethodProxy'
 import type {
     RpcErrorResponse,
     RpcIncomingNotification,
@@ -59,8 +61,6 @@ interface QueueEntry {
     message: QueuedMessage
     timeoutId: ReturnType<typeof setTimeout>
 }
-
-const PROBED_PROPERTY_NAMES: ReadonlySet<PropertyKey> = new Set(['then', 'toJSON'])
 
 const boundAdapters = new WeakSet<object>()
 
@@ -175,14 +175,6 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             await adapter.connect()
         } catch (error) {
             logger.error('The adapter could not connect', error)
-        }
-    }
-
-    function assertNotReserved(name: PropertyKey, action: 'call' | 'notify' | 'handle'): void {
-        if (isReservedMethodName(name)) {
-            throw new Error(
-                `Cannot ${action} "${String(name)}": method names starting with "rpc." are reserved by JSON-RPC 2.0`,
-            )
         }
     }
 
@@ -479,15 +471,8 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         return Object.assign(call, { notify })
     }
 
-    return new Proxy<RpcChannel<Methods, Events>>({ $: meta } as unknown as RpcChannel<Methods, Events>, {
-        get(target, prop) {
-            if (prop in target) {
-                return target[prop as keyof typeof target]
-            }
-            if (typeof prop === 'symbol' || PROBED_PROPERTY_NAMES.has(prop)) {
-                return undefined
-            }
-            return createRemoteMethod(prop as keyof Methods)
-        },
-    })
+    return createMethodProxy(meta, (method) => createRemoteMethod(method as keyof Methods)) as RpcChannel<
+        Methods,
+        Events
+    >
 }

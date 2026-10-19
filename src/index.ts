@@ -13,3 +13,21 @@ export {
     type ConnectionLostHandler,
     type MessageHandler,
 } from './lib/adapter/AbstractRpcAdapter'
+export * from './createRpcHub'
+export type {
+    RpcHub,
+    RpcHubEvents,
+    RpcHubHandler,
+    RpcHubListener,
+    RpcPeer,
+    RpcPeerPromise,
+    RpcHubMeta,
+    RpcBroadcastMethod,
+    RpcCallContext,
+} from './types/RpcHub'
+export {
+    AbstractRpcHubAdapter,
+    type PeerHandler,
+    type PeerLostHandler,
+    type RpcPeerConnection,
+} from './lib/adapter/AbstractRpcHubAdapter'

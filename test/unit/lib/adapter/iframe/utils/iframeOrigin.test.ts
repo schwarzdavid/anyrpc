@@ -4,7 +4,7 @@ import {
     assertValidOriginOption,
     type IFrameOriginOption,
     isOriginAllowed,
-} from '@/lib/adapter/iframe/iframeOrigin'
+} from '@/lib/adapter/iframe/utils/iframeOrigin'
 
 const ORIGIN = 'https://example.com'
 

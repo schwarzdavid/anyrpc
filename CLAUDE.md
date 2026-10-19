@@ -8,10 +8,17 @@ transport is pluggable through adapters that extend `AbstractRpcAdapter` (`src/l
 exported from the package entry together with `ConnectionStatus`, `LogLevel`, `RpcError` and `RpcErrorCode`).
 Adapters for iframes (`src/lib/adapter/iframe/`) and web workers (`src/lib/adapter/web-worker/`) exist; more
 transports are planned (see README). Transports that exchange `MessagePort`s after a handshake extend
-`AbstractMessagePortHostAdapter` (the side that creates the `MessageChannel`) or `AbstractMessagePortClientAdapter`
-(the side that polls for it); both build on `AbstractMessagePortAdapter`, which owns the ports, the heartbeat and the
+`AbstractMessagePortHostAdapter` (the side that answers the handshake and creates the `MessageChannel`s) or
+`AbstractMessagePortClientAdapter` (the side that starts the handshake and polls until it is answered). Which side
+starts depends on the transport: an iframe asks its parent, a page asks its worker. `Host`/`Client` in the public
+adapter names mean the embedding/embedded side, not the handshake role (`WebWorkerHostAdapter` extends the client
+base). Both build on `AbstractMessagePortAdapter`, which owns the ports, the heartbeat and the
 control protocol (ping/pong/goodbye). They live in `src/lib/adapter/message-port/` and ship as
-`anyrpc/adapters/message-port`. Enumerations are `as const` objects with a same-named union type, never `enum`, so
+`anyrpc/adapters/message-port`. One-to-many transports (e.g. a `SharedWorker` serving many tabs) use `createRpcHub`
+with an adapter that extends `AbstractRpcHubAdapter` (`src/lib/adapter/AbstractRpcHubAdapter.ts`): the hub adapter
+reports peers via `addPeer(adapter)`/`removePeer(id)`, and the hub wraps every peer adapter in a regular channel, so
+the channel core stays 1:1. Channel and hub share the same proxy shape (`createMethodProxy`): methods on the object,
+everything else under `$`. Enumerations are `as const` objects with a same-named union type, never `enum`, so
 they stay usable for consumers with `isolatedModules`.
 
 ## Guiding principles
@@ -71,16 +78,19 @@ Before reporting work as done, run `npm run coverage`, `npm run check`, `npm run
 
 ## Adding an adapter
 
-1. Create `src/lib/adapter/<name>/` with an `index.ts` that exports the adapter classes and their option types.
+1. Create `src/lib/adapter/<name>/` with an `index.ts` that exports the adapter classes and their option types. Keep
+   the adapter classes flat in that folder (no `host/`/`client/` subfolders) and put helper functions into `utils/`
+   and constants into `constants/` below it. Tests mirror this structure. Files that run in a worker scope are listed
+   explicitly in the `tsconfig.*webworker.json` files; their tests are named `*.worker.test.ts`/`*.worker.test-d.ts`.
 2. Extend `AbstractRpcAdapter` and implement `connect` and `sendMessage`; report connection state via `connectionStatus`,
    call `closeConnection()` when the transport is definitively closed (this rejects in-flight calls with
    `CONNECTION_LOST`, a mere status change does not) and forward incoming messages via `onMessage`. Override `destroy`
    to release resources. Handshake-based `MessagePort` transports extend `AbstractMessagePortHostAdapter` or
    `AbstractMessagePortClientAdapter` instead and only implement how handshake messages are listened for and posted.
 3. Add one build entry in `vite.config.ts` and a matching subpath export in `package.json` that exports both sides.
-   Code that runs in a different global scope than the DOM (e.g. inside a worker) lives in its own directory that is
-   type-checked by a tsconfig with the matching `lib` (see `tsconfig.lib.webworker.json`). Its public types must
-   stay lib-neutral, since both sides share one entry point.
+   Code that runs in a different global scope than the DOM (e.g. inside a worker) is additionally type-checked by a
+   tsconfig with the matching `lib` (see `tsconfig.lib.webworker.json`). Its public types must stay lib-neutral,
+   since both sides share one entry point.
 4. Add tests, an example under `examples/`, and update the README adapter list.
 
 ## Git

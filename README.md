@@ -32,12 +32,14 @@ anyrpc takes care of all of this. You describe both directions of communication 
 - 🔌 **Pluggable transports.** Adapters implement a small abstract class (`connect`, `sendMessage`, `destroy`), see [Custom adapters](#custom-adapters).
 - 📡 **Connection events.** Listen for `rpc.connected`, `rpc.disconnected` and `rpc.status`. Pending calls reject immediately when the connection is lost.
 - 📣 **Notifications.** Fire-and-forget calls for `void` methods via `channel.method.notify(...)`, observable by any number of listeners.
+- 🕸️ **One-to-many hubs.** `createRpcHub` serves any number of peers (e.g. every tab connected to a `SharedWorker`) with one set of handlers, and calls or notifies all of them at once. See [Hubs](#hubs-one-to-many).
 
 ## Adapters
 
 - [x] **iframe** (`anyrpc/adapters/iframe`). Uses a dedicated `MessageChannel` after a handshake, with origin allow-listing on both sides, optional heartbeat and automatic reconnects (e.g. after the iframe reloads).
-- [x] **Web Worker** (`anyrpc/adapters/web-worker`). Dedicated workers only, with a `MessageChannel` per channel, optional heartbeat and error logging.
-- [ ] `SharedWorker` / `ServiceWorker`
+- [x] **Web Worker** (`anyrpc/adapters/web-worker`). Dedicated workers with a `MessageChannel` per channel, optional heartbeat and error logging.
+- [x] **SharedWorker** (`anyrpc/adapters/web-worker`). Every connected page becomes a peer of a [hub](#hubs-one-to-many) inside the worker, with a heartbeat that removes closed tabs.
+- [ ] `ServiceWorker`
 - [ ] `BroadcastChannel` (cross-tab)
 - [ ] `window.open` / popup
 - [ ] WebSocket
@@ -189,7 +191,7 @@ A remote method cannot be named `$`, `then`, `toJSON`, anything starting with `r
 
 ### Web Worker adapter
 
-The host side creates the worker and passes it to `WebWorkerHostAdapter`. Inside the worker, `WebWorkerClientAdapter` connects to it. Both come from the same entry point, and bundlers drop the side you do not import. Creating `WebWorkerClientAdapter` outside of a worker throws an error that points you to `WebWorkerHostAdapter`.
+The page creates the worker and passes it to `WebWorkerHostAdapter`. Inside the worker, `WebWorkerClientAdapter` accepts the connection. Both come from the same entry point, and bundlers drop the side you do not import. Creating `WebWorkerClientAdapter` outside of a dedicated worker throws an error that points you to the right adapter.
 
 ```ts
 // main.ts
@@ -214,29 +216,96 @@ const channel = createRpcChannel<WorkerToMain, MainToWorker>(new WebWorkerClient
 channel.$.handle('compute', (input) => expensiveCalculation(input))
 ```
 
-As with iframes, both sides must use the same **name**, so one worker can serve several independent channels. Messages the worker exchanges with `postMessage` outside of anyrpc are ignored.
+As with iframes, both sides must use the same **name**, so one worker can serve several independent channels. Messages the worker exchanges with `postMessage` outside of anyrpc are ignored. `WebWorkerHostAdapter` also accepts a `SharedWorker`, see [SharedWorker adapter](#sharedworker-adapter).
 
 **Connection lifecycle**
 
-- The host reports `connected` only once the worker has accepted the handshake (it answers a ping on the control port).
-- When one side calls `channel.$.destroy()`, the other side is told right away: it switches to `disconnected` and rejects its pending calls with `-31003`. The worker side then starts a new handshake, so a new host channel for the same worker connects automatically.
-- If two host adapters with the same name answer the handshake, the worker keeps the first connection and ignores the second. That host stays `disconnected`.
-- `worker.terminate()` and `self.close()` cannot be observed directly. Enable the `heartbeat` to detect them: the host pings the worker and reports it as `disconnected` if it does not answer within `timeout`. Calls that are still in flight are not rejected by the heartbeat; they fail with `-31001` once their own `timeout` expires.
+- The page starts the handshake and repeats it every `pollingInterval` until the worker answers, so it does not matter which side is ready first. The worker reports `connected` once the page has answered a ping on the control port.
+- When one side calls `channel.$.destroy()`, the other side is told right away: it switches to `disconnected` and rejects its pending calls with `-31003`. A page whose worker channel was destroyed starts a new handshake on its own, and the worker accepts new handshakes as long as its channel exists.
+- Use one host adapter per name and worker. A second page channel with the same name takes over the worker's connection; the first one is not told and its calls time out.
+- `worker.terminate()` and `self.close()` cannot be observed directly. Enable the `heartbeat` to detect them: the page pings the worker and reports it as `disconnected` if it does not answer within `timeout`. Calls that are still in flight are not rejected by the heartbeat; they fail with `-31001` once their own `timeout` expires.
 - A worker that is busy with a long synchronous task cannot answer pings either. It is reported as `disconnected` as well, and as `connected` again as soon as it answers. In the meantime, in-flight calls keep waiting for their response, and new calls are queued or throw `-31002` as usual.
-- Uncaught errors in the worker and workers that fail to load (e.g. a wrong script URL) are logged by the host adapter.
+- Uncaught errors in the worker are logged by the page adapter. A worker that fails to load (e.g. a wrong script URL) is logged as well, and the page stops its handshake attempts, since that worker will never answer.
 
 **`new WebWorkerHostAdapter(worker, name?, options?)`**
 
 | Option               | Default | Description                                                                                                                                                |
 | -------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pollingInterval`    | `1000`  | Milliseconds between handshake attempts until the worker answers.                                                                                          |
 | `heartbeat`          | `false` | `true` or `{ interval?, timeout? }` to ping the worker. Defaults: ping every `5000` ms, report `disconnected` if a ping is not answered within `10000` ms. |
-| `terminateOnDestroy` | `false` | Call `worker.terminate()` when the channel is destroyed.                                                                                                   |
+| `terminateOnDestroy` | `false` | Call `worker.terminate()` when the channel is destroyed. Not available for a `SharedWorker`.                                                               |
 
-**`new WebWorkerClientAdapter(name?, options?)`**
+**`new WebWorkerClientAdapter(name?)`** has no options: the page configures the connection.
 
-| Option            | Default | Description                                                     |
-| ----------------- | ------- | --------------------------------------------------------------- |
-| `pollingInterval` | `1000`  | Milliseconds between handshake attempts until the host answers. |
+### Hubs (one-to-many)
+
+Some transports connect one side to many peers: a `SharedWorker` serves every tab that opens it, a WebSocket server serves every client. `createRpcHub(hubAdapter, options?)` handles this side. It creates a regular channel for every peer, so timeouts, queueing and error handling work exactly as described above, and it registers your handlers on all of them. The hub looks like a channel: calling a method calls it on **every** connected peer, and everything else lives under `$`.
+
+```ts
+// shared-worker.ts
+import { createRpcHub } from 'anyrpc'
+import { SharedWorkerHubAdapter } from 'anyrpc/adapters/web-worker'
+import type { PageToWorker, WorkerToPage } from './messages'
+
+// createRpcHub<MethodsOfEveryPeer, MethodsICanHandle>
+const hub = createRpcHub<WorkerToPage, PageToWorker>(new SharedWorkerHubAdapter('my-app'))
+
+// Handlers and listeners receive the calling peer as first argument
+hub.$.handle('getState', ({ peer }, key) => store.get(peer.id, key))
+hub.$.on('rpc.peer.connected', (peer) => peer.channel.welcome.notify())
+
+// Notify every peer
+hub.stateChanged.notify(diff)
+
+// Call every peer: one promise per peer, each with a .peer property
+const titles = await Promise.all(hub.getTitle())
+const fastest = await Promise.any(hub.getTitle())
+```
+
+| Member                                                          | Description                                                                                                                                                                                                       |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hub.<method>(...args)`                                         | Calls the method on every connected peer and returns an array with one promise per peer. Each promise has a `peer` property. Decide yourself how to wait: `Promise.all`, `Promise.any`, `Promise.allSettled`, ... |
+| `hub.<method>.notify(...args)`                                  | Notifies every connected peer. A peer that cannot be notified is logged and skipped.                                                                                                                              |
+| `hub.$.handle(name, (context, ...args) => result)`              | Answers calls of `name` from every peer. `context.peer` is the calling peer. One handler per method.                                                                                                              |
+| `hub.$.on(name, (context, ...args) => void)`                    | Observes calls and notifications of `name` from every peer.                                                                                                                                                       |
+| `hub.$.on('rpc.peer.connected' \| 'rpc.peer.disconnected', fn)` | Called with the peer when it connects or leaves.                                                                                                                                                                  |
+| `hub.$.peers` / `hub.$.peer(id)`                                | The connected peers. Each peer has an `id` and its own `channel` to call it individually: `peer.channel.method()`.                                                                                                |
+| `hub.$.destroy()`                                               | Disconnects all peers and stops accepting new ones.                                                                                                                                                               |
+
+- A peer appears in `hub.$.peers` and `rpc.peer.connected` once its channel is connected, so you can call it right away. It stays a peer while its connection briefly drops and recovers.
+- A peer leaves when its side destroys the channel, or when the hub adapter detects that it is gone (e.g. a missed heartbeat). Its pending calls reject with `-31003`.
+- Promises of a broadcast that you never await do not cause unhandled rejections; failures are logged at `DEBUG` level.
+- The hub accepts the same options as `createRpcChannel` and applies them to every peer channel. `autoConnect` controls whether the hub adapter starts accepting peers right away.
+
+### SharedWorker adapter
+
+Each page creates the `SharedWorker` and passes it to the same `WebWorkerHostAdapter` it would use for a dedicated worker. Inside the worker, `SharedWorkerHubAdapter` accepts all pages as peers of a [hub](#hubs-one-to-many).
+
+```ts
+// page.ts
+import { createRpcChannel } from 'anyrpc'
+import { WebWorkerHostAdapter } from 'anyrpc/adapters/web-worker'
+import type { PageToWorker, WorkerToPage } from './messages'
+
+const worker = new SharedWorker(new URL('./shared-worker.ts', import.meta.url), { type: 'module' })
+const channel = createRpcChannel<PageToWorker, WorkerToPage>(new WebWorkerHostAdapter(worker, 'my-app'))
+
+channel.$.handle('getTitle', () => document.title)
+```
+
+The worker side is shown in [Hubs](#hubs-one-to-many). Both sides must use the same **name**.
+
+- Every page gets its own pair of `MessagePort`s, so peers never see each other's messages.
+- A tab that is closed cannot say goodbye. The hub pings every page (on by default) and removes a page that misses the heartbeat. The page receives a goodbye and connects again on its own if it was only frozen.
+- When a page destroys its channel, the hub removes it right away. When the hub drops a peer, the page starts a new handshake automatically.
+- The page adapter takes the same `pollingInterval` and `heartbeat` options as for a dedicated worker.
+- `WebWorkerClientAdapter` throws inside a shared worker and points you to `SharedWorkerHubAdapter`; `SharedWorkerHubAdapter` throws outside of one.
+
+**`new SharedWorkerHubAdapter(name?, options?)`**
+
+| Option      | Default | Description                                                                                                                                                       |
+| ----------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `heartbeat` | `true`  | `true` or `{ interval?, timeout? }` to ping every page, `false` to disable. Defaults: ping every `5000` ms, remove a page that does not answer within `10000` ms. |
 
 ### Error handling
 
@@ -300,7 +369,9 @@ class WebSocketAdapter<Methods extends MethodMap<Methods>, Events extends Method
 }
 ```
 
-Transports that hand over `MessagePort`s after a handshake, like the iframe and Web Worker adapters, build on `anyrpc/adapters/message-port` instead. Extend `AbstractMessagePortHostAdapter` (the side that creates the `MessageChannel`) or `AbstractMessagePortClientAdapter` (the side that polls for it) and implement only how handshake messages are listened for and posted; ports, heartbeat, goodbye notifications and reconnects come with the base classes. The host side reports `connected` only after the client answered the first ping on the control port.
+Transports that hand over `MessagePort`s after a handshake, like the iframe and Web Worker adapters, build on `anyrpc/adapters/message-port` instead. Extend `AbstractMessagePortClientAdapter` for the side that starts the handshake and polls until it is answered, and `AbstractMessagePortHostAdapter` for the side that answers it and creates the `MessageChannel`s. Implement only how handshake messages are listened for and posted; ports, heartbeat, goodbye notifications and reconnects come with the base classes. Which side starts the handshake depends on the transport: an iframe asks its parent, because the parent cannot know when the iframe has loaded, while a page asks its worker. The answering side reports `connected` only after the other side answered the first ping on the control port.
+
+For one-to-many transports, extend `AbstractRpcHubAdapter` instead. Implement `connect()` and `destroy()`, and for every new peer create a regular adapter for its connection and pass it to `this.addPeer(adapter)`, which returns the peer's id. The hub connects that adapter and wraps it in a channel. Call `this.removePeer(id)` once the peer is gone.
 
 `ConnectionStatus`, `LogLevel` and `RpcErrorCode` are plain `as const` objects with a same-named union type, so `status === 'connected'` and `code === -31001` type-check as well.
 
@@ -320,7 +391,7 @@ Transports that hand over `MessagePort`s after a handshake, like the iframe and 
 ```bash
 npm install
 npx playwright install chromium   # once, for the browser tests
-npm run dev        # Vite dev server. Open /examples/iframe/ or /examples/web-worker/ for the live demos
+npm run dev        # Vite dev server. Open /examples/iframe/, /examples/web-worker/ or /examples/shared-worker/ for the live demos
 npm test           # Unit, type and browser tests (Vitest). Also checks the built package in dist/ once npm run build was run
 npm run coverage   # Tests with coverage report
 npm run check      # TypeScript project build

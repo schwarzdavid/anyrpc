@@ -1,4 +1,8 @@
-import { ControlMethod, createControlMessage, readControlMethod } from '@/utils/message-port/controlMessages'
+import {
+    ControlMethod,
+    createControlMessage,
+    readControlMethod,
+} from '@/lib/adapter/message-port/utils/controlMessages'
 
 export function confirmHandshake(controlPort: MessagePort): Promise<void> {
     return new Promise((resolve) => {

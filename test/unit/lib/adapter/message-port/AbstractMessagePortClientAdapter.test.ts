@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AbstractMessagePortClientAdapter } from '@/lib/adapter/message-port/AbstractMessagePortClientAdapter'
-import type { InitRequest } from '@/utils/message-port/handshake'
+import type { InitRequest } from '@/lib/adapter/message-port/utils/handshake'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import { nextMessage } from '../../../__helper/nextMessage'
