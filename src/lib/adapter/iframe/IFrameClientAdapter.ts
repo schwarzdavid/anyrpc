@@ -1,126 +1,57 @@
 import type { MethodMap } from '@/types/MethodMap'
-import { AbstractIFrameAdapter, type IFrameAdapterOptions } from './AbstractIFrameAdapter'
-import type { RpcSuccessResponse } from '@/types/RpcMessages'
-import { uuid } from '@/utils/uuid'
+import { AbstractMessagePortClientAdapter } from '@/lib/adapter/message-port/AbstractMessagePortClientAdapter'
+import type { InitRequest } from '@/utils/message-port/handshake'
+import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME } from './iframeHandshake'
+import { allowsAnyOrigin, assertValidOriginOption, type IFrameOriginOption, isOriginAllowed } from './iframeOrigin'
 
-/* eslint-disable @typescript-eslint/no-this-alias */
-
-export type IFrameClientAdapterOriginOption =
-    | string
-    | RegExp
-    | (string | RegExp)[]
-    | ((origin: string) => boolean)
-    | true
-
-export interface IFrameClientAdapterOptions extends IFrameAdapterOptions {
+export interface IFrameClientAdapterOptions {
     pollingInterval: number
-    origin: IFrameClientAdapterOriginOption
+    origin: IFrameOriginOption
 }
 
 export class IFrameClientAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
-> extends AbstractIFrameAdapter<Methods, Events> {
-    private readonly pollingInterval: number
-    private readonly usedInitIds = new Set<string>()
-    private readonly allowedOrigin: IFrameClientAdapterOriginOption
+> extends AbstractMessagePortClientAdapter<Methods, Events> {
+    private readonly allowedOrigin: IFrameOriginOption
 
-    private pollingIntervalId: number | null = null
-    private messageEventListener: ((event: MessageEvent) => void) | null = null
+    constructor(name: string = DEFAULT_IFRAME_ADAPTER_NAME, options?: Partial<IFrameClientAdapterOptions>) {
+        assertValidOriginOption(options?.origin)
 
-    constructor(
-        private readonly name: string = AbstractIFrameAdapter.DEFAULT_NAME,
-        options?: Partial<IFrameClientAdapterOptions>,
-    ) {
-        if (Array.isArray(options?.origin) && !options.origin.length) {
-            throw new Error('Origin option cannot be an empty array')
-        }
-
-        super(options)
-        this.pollingInterval = options?.pollingInterval ?? 1000
+        super(IFRAME_INIT_METHOD_NAME, name, options?.pollingInterval ?? 1000)
         this.allowedOrigin = options?.origin ?? true
     }
 
-    connect() {
-        const adapter = this
-
-        this.messageEventListener = (event: MessageEvent) => {
-            if (event.source !== window.parent || !adapter.isInitResponse(event.data)) {
-                return
-            }
-            if (!adapter.isOriginValid(window.parent.origin)) {
-                return
-            }
-            const receivedPort = event.ports[0]
-            if (!receivedPort) {
-                console.warn('No port received from iframe')
-                return
-            }
-
-            adapter.port = receivedPort
-
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            window.clearInterval(this.pollingIntervalId!)
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            window.removeEventListener('message', this.messageEventListener!)
+    override connect(): void {
+        if (window.parent === window) {
+            this.logger?.warn('This page is not embedded in an iframe, so no host can answer the handshake.')
         }
-
-        window.addEventListener('message', this.messageEventListener)
-
-        this.pollingIntervalId = window.setInterval(() => this.sendInitMessage(), this.pollingInterval)
-        this.sendInitMessage()
+        if (allowsAnyOrigin(this.allowedOrigin)) {
+            this.logger?.warn(
+                'Accepting handshake responses from any origin. Set the "origin" option for production use.',
+            )
+        }
+        super.connect()
     }
 
-    private sendInitMessage() {
-        const id = uuid()
-
-        this.usedInitIds.add(id)
-
-        window.parent.postMessage(
-            {
-                id,
-                method: AbstractIFrameAdapter.INIT_METHOD_NAME,
-                params: [this.name],
-                jsonrpc: '2.0',
-            },
-            this.postMessageOrigin,
-        )
+    protected listenForInitResponses(signal: AbortSignal): void {
+        window.addEventListener('message', (event) => this.handleWindowMessage(event), { signal })
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private isInitResponse(message: any): message is RpcSuccessResponse<() => null> {
-        if (typeof message !== 'object' || message === null) {
-            return false
-        }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-argument
-        return message.jsonrpc === '2.0' && message.result === null && this.usedInitIds.has(message.id)
+    protected postInitRequest(request: InitRequest): void {
+        window.parent.postMessage(request, '*')
     }
 
-    private isOriginValid(url: string) {
-        if (this.allowedOrigin === true) {
-            // TODO: add warning that all origins are allowed which is not recommended
-            return true
+    private handleWindowMessage(event: MessageEvent): void {
+        if (event.source !== window.parent) {
+            return
         }
-
-        const { origin } = new URL(url)
-        if (typeof this.allowedOrigin === 'function') {
-            return this.allowedOrigin(origin)
+        if (isOriginAllowed(this.allowedOrigin, event.origin)) {
+            this.acceptInitResponse(event)
+            return
         }
-        const allowedOriginsArray = Array.isArray(this.allowedOrigin) ? this.allowedOrigin : [this.allowedOrigin]
-
-        return allowedOriginsArray.some((allowedOrigin) => {
-            if (allowedOrigin instanceof RegExp) {
-                return allowedOrigin.test(origin)
-            }
-            return allowedOrigin.toLowerCase().trim() === origin.toLowerCase().trim()
-        })
-    }
-
-    override destroy(): void {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        window.clearInterval(this.pollingIntervalId!)
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        window.removeEventListener('message', this.messageEventListener!)
-        super.destroy()
+        if (this.isExpectedInitResponse(event.data)) {
+            this.logger?.warn(`Ignored the handshake response from "${event.origin}": origin not allowed`)
+        }
     }
 }

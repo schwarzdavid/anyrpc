@@ -1,0 +1,12 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.lib.webworker.json.tsbuildinfo",
+        "lib": ["ESNext", "WebWorker"],
+        "types": [],
+        "paths": {
+            "@/*": ["./src/*"]
+        }
+    },
+    "include": ["src/lib/adapter/web-worker/client", "examples/**/*.worker.ts"]
+}

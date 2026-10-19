@@ -1,80 +1,55 @@
 import type { MethodMap } from '@/types/MethodMap'
-import { AbstractIFrameAdapter, type IFrameAdapterOptions } from './AbstractIFrameAdapter'
-import { parseRpcMessage, RpcMessageType, type RpcParsingResult } from '@/utils/rpc'
-import type { RpcSuccessResponse } from '@/types/RpcMessages'
+import { AbstractMessagePortHostAdapter } from '@/lib/adapter/message-port/AbstractMessagePortHostAdapter'
+import type { HeartbeatOption } from '@/lib/Heartbeat'
+import type { InitResponse } from '@/utils/message-port/handshake'
+import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME } from './iframeHandshake'
+import { assertValidOriginOption, type IFrameOriginOption, isOriginAllowed } from './iframeOrigin'
 
-/* eslint-disable @typescript-eslint/no-this-alias */
-
-export interface IFrameHostAdapterOptions extends IFrameAdapterOptions {
+export interface IFrameHostAdapterOptions {
     reconnect: boolean
+    heartbeat: HeartbeatOption
+    origin: IFrameOriginOption
 }
 
 export class IFrameHostAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
-> extends AbstractIFrameAdapter<Methods, Events> {
+> extends AbstractMessagePortHostAdapter<Methods, Events> {
     private readonly reconnect: boolean
-
-    private messageEventListener: ((event: MessageEvent) => void) | null = null
+    private readonly allowedOrigin: IFrameOriginOption
 
     constructor(
         private readonly iframe: HTMLIFrameElement,
-        private readonly name: string = AbstractIFrameAdapter.DEFAULT_NAME,
+        name: string = DEFAULT_IFRAME_ADAPTER_NAME,
         options?: Partial<IFrameHostAdapterOptions>,
     ) {
-        super(options)
+        assertValidOriginOption(options?.origin)
+
+        super(IFRAME_INIT_METHOD_NAME, name, options?.heartbeat ?? false)
         this.reconnect = options?.reconnect ?? true
+        this.allowedOrigin = options?.origin ?? '*'
     }
 
-    connect() {
-        const adapter = this
+    protected listenForInitRequests(signal: AbortSignal): void {
+        window.addEventListener('message', (event) => this.handleWindowMessage(event), { signal })
+    }
 
-        this.messageEventListener = (event: MessageEvent) => {
-            if (event.source !== adapter.iframe.contentWindow) {
-                return
-            }
+    protected postInitResponse(response: InitResponse, transfer: Transferable[]): void {
+        this.iframe.contentWindow?.postMessage(response, '*', transfer)
+    }
 
-            let result: RpcParsingResult<Methods, Events>
-            try {
-                result = parseRpcMessage<Methods, Events>(event.data as object)
-            } catch (_) {
-                // Ignore invalid messages as they might be sent for other purposes
-                return
-            }
-            if (
-                result.type !== RpcMessageType.REQUEST ||
-                result.message.method !== AbstractIFrameAdapter.INIT_METHOD_NAME
-            ) {
-                return
-            }
-            if (!Array.isArray(result.message.params) || result.message.params[0] !== adapter.name) {
-                return
-            }
-
-            const messageChannel = new MessageChannel()
-
-            adapter.port = messageChannel.port1
-            adapter.iframe.contentWindow?.postMessage(
-                {
-                    id: result.message.id,
-                    jsonrpc: '2.0',
-                    result: null,
-                } satisfies RpcSuccessResponse<() => null>,
-                adapter.postMessageOrigin,
-                [messageChannel.port2],
-            )
-            if (!adapter.reconnect) {
-                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                window.removeEventListener('message', this.messageEventListener!)
-            }
+    private handleWindowMessage(event: MessageEvent): void {
+        if (event.source !== this.iframe.contentWindow) {
+            return
         }
-
-        window.addEventListener('message', this.messageEventListener)
-    }
-
-    override destroy(): void {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        window.removeEventListener('message', this.messageEventListener!)
-        super.destroy()
+        if (!isOriginAllowed(this.allowedOrigin, event.origin)) {
+            if (this.isExpectedInitRequest(event.data)) {
+                this.logger?.warn(`Ignored the handshake request from "${event.origin}": origin not allowed`)
+            }
+            return
+        }
+        if (this.acceptInitRequest(event.data) && !this.reconnect) {
+            this.stopListening()
+        }
     }
 }

@@ -27,7 +27,9 @@
     "files": [],
     "references": [
         { "path": "./tsconfig.lib.json" },
+        { "path": "./tsconfig.lib.webworker.json" },
         { "path": "./tsconfig.node.json" },
-        { "path": "./tsconfig.vitest.json" }
+        { "path": "./tsconfig.vitest.json" },
+        { "path": "./tsconfig.vitest.webworker.json" }
     ]
 }

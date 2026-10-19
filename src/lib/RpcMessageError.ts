@@ -13,7 +13,10 @@ export class RpcMessageError extends RpcError {
     readonly requestId: RpcId
     readonly isResponse: boolean
 
-    constructor(code: RpcErrorCode.PARSE_ERROR | RpcErrorCode.INVALID_REQUEST, details: RpcMessageErrorDetails) {
+    constructor(
+        code: typeof RpcErrorCode.PARSE_ERROR | typeof RpcErrorCode.INVALID_REQUEST,
+        details: RpcMessageErrorDetails,
+    ) {
         super({ code, message: RPC_ERROR_MESSAGE_MAP[code], data: { reason: details.reason } })
         this.reason = details.reason
         this.requestId = details.requestId

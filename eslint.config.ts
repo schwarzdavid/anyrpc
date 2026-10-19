@@ -77,6 +77,12 @@ export default defineConfig(
         },
     },
     {
+        files: ['test/**/fixtures/**'],
+        rules: {
+            'vitest/require-hook': 'off',
+        },
+    },
+    {
         files: ['examples/**'],
         rules: {
             '@typescript-eslint/no-non-null-assertion': 'off',

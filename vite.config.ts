@@ -2,9 +2,12 @@
 import { defineConfig } from 'vite'
 import { resolve } from 'node:path'
 import dts from 'vite-plugin-dts'
+import { playwright } from '@vitest/browser-playwright'
+
+const WEB_WORKER_CLIENT_TESTS = 'test/unit/lib/adapter/web-worker/client'
 
 export default defineConfig({
-    plugins: [dts({ tsconfigPath: './tsconfig.lib.json', include: ['src'] })],
+    plugins: [dts({ tsconfigPath: './tsconfig.lib.json', include: ['src'], exclude: ['node_modules/**'] })],
     resolve: {
         alias: {
             '@': resolve(__dirname, 'src'),
@@ -15,25 +18,73 @@ export default defineConfig({
             entry: {
                 index: resolve(__dirname, 'src/index.ts'),
                 iframe: resolve(__dirname, 'src/lib/adapter/iframe/index.ts'),
+                'message-port': resolve(__dirname, 'src/lib/adapter/message-port/index.ts'),
+                'web-worker': resolve(__dirname, 'src/lib/adapter/web-worker/index.ts'),
             },
-            formats: ['es', 'cjs'],
         },
         rollupOptions: {
-            output: {
-                chunkFileNames: 'chunks/[name]-[hash].js',
-            },
+            output: [
+                { format: 'es', chunkFileNames: 'chunks/[name]-[hash].js' },
+                { format: 'cjs', chunkFileNames: 'chunks/[name]-[hash].cjs' },
+            ],
         },
     },
     test: {
-        typecheck: {
-            tsconfig: './tsconfig.vitest.json',
-        },
-        include: ['test/unit/**/*.test.ts', 'test/unit/**/*.test-d.ts'],
         silent: 'passed-only',
-        environment: 'jsdom',
         coverage: {
             include: ['src/**'],
             thresholds: { 100: true },
         },
+        projects: [
+            {
+                extends: true,
+                test: {
+                    name: 'unit',
+                    environment: 'jsdom',
+                    include: ['test/unit/**/*.test.ts'],
+                    exclude: [`${WEB_WORKER_CLIENT_TESTS}/**`],
+                    typecheck: {
+                        enabled: true,
+                        tsconfig: './tsconfig.vitest.json',
+                        include: ['test/unit/**/*.test-d.ts'],
+                        exclude: [`${WEB_WORKER_CLIENT_TESTS}/**`],
+                    },
+                },
+            },
+            {
+                extends: true,
+                test: {
+                    name: 'unit-webworker',
+                    environment: 'jsdom',
+                    include: [`${WEB_WORKER_CLIENT_TESTS}/**/*.test.ts`],
+                    typecheck: {
+                        enabled: true,
+                        tsconfig: './tsconfig.vitest.webworker.json',
+                        include: [`${WEB_WORKER_CLIENT_TESTS}/**/*.test-d.ts`],
+                    },
+                },
+            },
+            {
+                extends: true,
+                test: {
+                    name: 'build',
+                    environment: 'node',
+                    include: ['test/build/**/*.test.ts'],
+                },
+            },
+            {
+                extends: true,
+                test: {
+                    name: 'browser',
+                    include: ['test/browser/**/*.test.ts'],
+                    browser: {
+                        enabled: true,
+                        headless: true,
+                        provider: playwright(),
+                        instances: [{ browser: 'chromium' }],
+                    },
+                },
+            },
+        ],
     },
 })

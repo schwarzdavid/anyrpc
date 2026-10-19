@@ -152,6 +152,7 @@ describe(parseRpcMessage, () => {
             ['a boolean', false],
             ['a floating point number', 1.1],
             ['an object', { nested: true }],
+            ['undefined', undefined],
         ])('should reject %s as id and respond with null id', (_, id) => {
             expect(catchParsingError({ jsonrpc: '2.0', id, method: 'exampleMethod', params: [] })).toMatchObject(
                 invalidRequest({ reason: '"id" must be a string, an integer or null', requestId: null }),
@@ -167,6 +168,7 @@ describe(parseRpcMessage, () => {
         it.each([
             ['a string', 'invalidParams'],
             ['null', null],
+            ['undefined', undefined],
         ])('should reject %s as params', (_, params) => {
             expect(
                 catchParsingError({ jsonrpc: '2.0', id: 'request-id', method: 'exampleMethod', params }),
@@ -256,7 +258,7 @@ describe(isApplicationErrorCode, () => {
         expect(isApplicationErrorCode(code)).toBe(false)
     })
 
-    it.each([RpcErrorCode.TIMEOUT_ERROR, RpcErrorCode.NOT_CONNECTED])(
+    it.each([RpcErrorCode.TIMEOUT_ERROR, RpcErrorCode.NOT_CONNECTED, RpcErrorCode.CONNECTION_LOST])(
         'should treat local code %i as non-application code',
         (code) => {
             expect(isApplicationErrorCode(code)).toBe(false)

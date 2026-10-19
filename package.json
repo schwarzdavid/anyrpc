@@ -34,14 +34,26 @@
       "require": "./dist/index.cjs"
     },
     "./adapters/iframe": {
-      "types": "./dist/iframe.d.ts",
+      "types": "./dist/lib/adapter/iframe/index.d.ts",
       "import": "./dist/iframe.js",
       "require": "./dist/iframe.cjs"
+    },
+    "./adapters/message-port": {
+      "types": "./dist/lib/adapter/message-port/index.d.ts",
+      "import": "./dist/message-port.js",
+      "require": "./dist/message-port.cjs"
+    },
+    "./adapters/web-worker": {
+      "types": "./dist/lib/adapter/web-worker/index.d.ts",
+      "import": "./dist/web-worker.js",
+      "require": "./dist/web-worker.cjs"
     }
   },
+  "sideEffects": false,
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
+    "@vitest/browser-playwright": "4.0.16",
     "@vitest/coverage-v8": "4.0.16",
     "@vitest/eslint-plugin": "^1.5.1",
     "concurrently": "^9.2.1",
@@ -49,12 +61,15 @@
     "eslint-config-prettier": "^10.1.8",
     "jiti": "^2.6.1",
     "jsdom": "^27.3.0",
+    "playwright": "^1.64.1",
     "prettier": "^3.7.4",
-    "type-fest": "^5.3.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.1",
     "vite": "^7.2.6",
     "vite-plugin-dts": "^4.5.4",
     "vitest": "4.0.16"
+  },
+  "dependencies": {
+    "type-fest": "^5.10.0"
   }
 }

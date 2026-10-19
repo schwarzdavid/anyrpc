@@ -2,17 +2,32 @@ import type { RpcHandler, RpcListener, Unsubscribe } from './EventEmitter'
 import type { MethodFn, MethodMap } from './MethodMap'
 import type { ConnectionStatus } from './ConnectionStatus'
 import type { RpcChannelEvents } from './RpcChannelEvents'
-
-export type ReservedMethodName = `rpc.${string}`
-
-export type UncallableMethodName = '$' | 'then' | ReservedMethodName
+import type { ReservedMethodName, UncallableMethodName } from './MethodName'
 
 export interface RpcNotifiable<Fn extends MethodFn> {
     notify(...args: Parameters<Fn>): void
 }
 
-export type RpcChannelMethod<Fn extends MethodFn> = ((...args: Parameters<Fn>) => Promise<Awaited<ReturnType<Fn>>>) &
-    ([Promise<Awaited<ReturnType<Fn>>>] extends [Promise<void>] ? RpcNotifiable<Fn> : unknown)
+type ResolvedReturnType<Fn extends MethodFn> = Awaited<ReturnType<Fn>>
+
+type IsAny<T> = 0 extends 1 & T ? true : false
+
+type ResolvesToUndefined<Fn extends MethodFn> =
+    IsAny<ResolvedReturnType<Fn>> extends true ? false : [ResolvedReturnType<Fn>] extends [undefined] ? true : false
+
+type ResolvesToVoid<Fn extends MethodFn> = [Promise<ResolvedReturnType<Fn>>] extends [Promise<void>] ? true : false
+
+export type RpcResult<Fn extends MethodFn> =
+    ResolvesToUndefined<Fn> extends true
+        ? null
+        : ResolvesToVoid<Fn> extends true
+          ? ResolvedReturnType<Fn>
+          : undefined extends ResolvedReturnType<Fn>
+            ? Exclude<ResolvedReturnType<Fn>, undefined> | null
+            : ResolvedReturnType<Fn>
+
+export type RpcChannelMethod<Fn extends MethodFn> = ((...args: Parameters<Fn>) => Promise<RpcResult<Fn>>) &
+    (ResolvesToVoid<Fn> extends true ? RpcNotifiable<Fn> : unknown)
 
 export type RpcHandleableName<Events extends MethodMap<Events>> = Exclude<keyof Events, ReservedMethodName>
 

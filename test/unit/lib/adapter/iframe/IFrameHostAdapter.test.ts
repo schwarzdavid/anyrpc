@@ -1,239 +1,273 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { IFrameHostAdapter } from '@/lib/adapter/iframe/IFrameHostAdapter'
-import type { RpcRequest, RpcResponse } from '@/types/RpcMessages'
+import { IFrameHostAdapter, type IFrameHostAdapterOptions, type IFrameOriginOption } from '@/lib/adapter/iframe'
+import { ConnectionStatus } from '@/types/ConnectionStatus'
+import { LogLevel } from '@/types/LogLevel'
+import { confirmHandshake } from '../../../__helper/confirmHandshake'
 
 interface TestMethods {
-    exampleMethod: (foo: string, bar: number) => Promise<string>
+    foo(value: string): void
 }
 
-interface TestEvents {
-    testEvent: (arg: string) => Promise<string>
+const IFRAME_ORIGIN = 'https://iframe.example'
+
+function initRequest(id = 'init-id', name = 'anyrpc-iframe-adapter') {
+    return { jsonrpc: '2.0', id, method: 'anyrpc::iframe-init', params: [name] }
 }
 
-const InitMethodName = 'anyrpc::iframe-init'
+type PostMessageMock = ReturnType<
+    typeof vi.fn<(message: unknown, targetOrigin: string, transfer?: Transferable[]) => void>
+>
+
+const originCases: [description: string, origin: IFrameOriginOption, answers: boolean][] = [
+    ['a matching string', IFRAME_ORIGIN, true],
+    ['a string with a trailing slash', `${IFRAME_ORIGIN}/`, true],
+    ['a string with another host', 'https://other.example', false],
+    ['a matching regex', /\.example$/u, true],
+    ['a function returning false', () => false, false],
+]
 
 describe(IFrameHostAdapter, () => {
-    let mockIframe: HTMLIFrameElement
-    let mockContentWindow: Window
-    let adapter: IFrameHostAdapter<any, any> | undefined
+    let iframe: HTMLIFrameElement
+    let contentWindow: Window & { postMessage: PostMessageMock }
+    let adapter: IFrameHostAdapter<TestMethods, TestMethods>
+
+    function receiveFromIframe(
+        data: unknown,
+        { source = contentWindow as MessageEventSource, origin = IFRAME_ORIGIN } = {},
+    ) {
+        window.dispatchEvent(new MessageEvent('message', { data, source, origin }))
+    }
+
+    function createAdapter(options?: Partial<IFrameHostAdapterOptions>, name?: string) {
+        adapter = new IFrameHostAdapter(iframe, name, options)
+        adapter.initLogger(LogLevel.DEBUG)
+        return adapter
+    }
+
+    function transferredPorts(call = 0): [MessagePort, MessagePort] {
+        return contentWindow.postMessage.mock.calls[call]![2] as [MessagePort, MessagePort]
+    }
+
+    function confirmFromIframe(call = 0): Promise<void> {
+        return confirmHandshake(transferredPorts(call)[1])
+    }
 
     beforeEach(() => {
-        adapter = undefined
-        mockIframe = document.createElement('iframe')
-        mockContentWindow = {
-            postMessage: vi.fn<(this: void, message: any, targetOrigin: string, transfer?: Transferable[]) => void>(),
-        } as unknown as Window
-        Object.defineProperty(mockIframe, 'contentWindow', { value: mockContentWindow, writable: false })
+        vi.spyOn(console, 'log').mockImplementation(() => undefined)
+        vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+        iframe = document.createElement('iframe')
+        contentWindow = {
+            postMessage: vi.fn<(message: unknown, targetOrigin: string, transfer?: Transferable[]) => void>(),
+        } as unknown as typeof contentWindow
+        Object.defineProperty(iframe, 'contentWindow', { value: contentWindow })
+        createAdapter()
     })
 
     afterEach(() => {
-        adapter?.destroy()
+        adapter.destroy()
+        vi.useRealTimers()
         vi.restoreAllMocks()
     })
 
-    it('should establish a connection', () => {
-        const addEventListenerSpy = vi.spyOn(window, 'addEventListener')
-        const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
-        const initRequestMessage: RpcRequest<{ [InitMethodName](name: string): void }> = {
-            jsonrpc: '2.0',
-            id: 'init-id',
-            method: InitMethodName,
-            params: ['anyrpc-iframe-adapter'],
-        }
+    describe('handshake', () => {
+        it('should answer init requests of the iframe with a data and a control port', () => {
+            adapter.connect()
 
-        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
-        adapter.connect()
+            receiveFromIframe(initRequest())
 
-        expect(addEventListenerSpy).toHaveBeenCalledWith('message', expect.anything())
-
-        global.window.dispatchEvent(
-            new MessageEvent('message', { data: initRequestMessage, source: mockContentWindow }),
-        )
-
-        expect(removeEventListenerSpy).not.toHaveBeenCalled()
-        expect(mockContentWindow.postMessage).toHaveBeenCalledWith(
-            expect.objectContaining({
-                jsonrpc: '2.0',
-                id: 'init-id',
-                result: null,
-            }),
-            '*',
-            expect.arrayContaining([expect.any(MessagePort)]),
-        )
-        expect((adapter as any)._port).toSatisfy((value) => value instanceof MessagePort)
-    })
-
-    it('should not reconnect if reconnect option is set to false', () => {
-        const addEventListenerSpy = vi.spyOn(window, 'addEventListener')
-        const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
-        const initRequestMessage: RpcRequest<{ [InitMethodName](name: string): void }> = {
-            jsonrpc: '2.0',
-            id: 'init-id',
-            method: InitMethodName,
-            params: ['anyrpc-iframe-adapter'],
-        }
-
-        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, undefined, { reconnect: false })
-        adapter.connect()
-
-        expect(addEventListenerSpy).toHaveBeenCalledWith('message', expect.anything())
-
-        global.window.dispatchEvent(
-            new MessageEvent('message', { data: initRequestMessage, source: mockContentWindow }),
-        )
-
-        expect(removeEventListenerSpy).toHaveBeenCalledWith('message', expect.anything())
-        expect(mockContentWindow.postMessage).toHaveBeenCalledWith(
-            expect.objectContaining({
-                jsonrpc: '2.0',
-                id: 'init-id',
-                result: null,
-            }),
-            '*',
-            expect.arrayContaining([expect.any(MessagePort)]),
-        )
-        expect((adapter as any)._port).toSatisfy((value) => value instanceof MessagePort)
-    })
-
-    it('should respect postMessageOrigin option', () => {
-        const initRequestMessage: RpcRequest<{ [InitMethodName](name: string): void }> = {
-            jsonrpc: '2.0',
-            id: 'init-id',
-            method: InitMethodName,
-            params: ['anyrpc-iframe-adapter'],
-        }
-
-        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, undefined, {
-            postMessageOrigin: 'https://example.com',
+            expect(contentWindow.postMessage).toHaveBeenCalledWith(
+                { jsonrpc: '2.0', id: 'init-id', result: null },
+                '*',
+                [expect.any(MessagePort), expect.any(MessagePort)],
+            )
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
         })
-        adapter.connect()
 
-        global.window.dispatchEvent(
-            new MessageEvent('message', { data: initRequestMessage, source: mockContentWindow }),
-        )
+        it('should connect once the iframe answers through the control port', async () => {
+            adapter.connect()
 
-        expect(mockContentWindow.postMessage).toHaveBeenCalledWith(
-            expect.objectContaining({
-                jsonrpc: '2.0',
-                id: 'init-id',
-                result: null,
-            }),
-            'https://example.com',
-            expect.arrayContaining([expect.any(MessagePort)]),
-        )
+            receiveFromIframe(initRequest())
+            await confirmFromIframe()
+
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+        })
+
+        it('should post the response to any origin', () => {
+            adapter.connect()
+
+            receiveFromIframe(initRequest())
+
+            expect(contentWindow.postMessage).toHaveBeenCalledWith(
+                expect.objectContaining({ id: 'init-id' }),
+                '*',
+                expect.any(Array),
+            )
+        })
+
+        it('should only answer init requests with a matching name', () => {
+            createAdapter(undefined, 'my-app')
+            adapter.connect()
+
+            receiveFromIframe(initRequest('init-id', 'other-app'))
+
+            expect(contentWindow.postMessage).not.toHaveBeenCalled()
+
+            receiveFromIframe(initRequest('init-id', 'my-app'))
+
+            expect(contentWindow.postMessage).toHaveBeenCalledTimes(1)
+        })
+
+        it('should ignore messages from other sources than the iframe', () => {
+            adapter.connect()
+
+            receiveFromIframe(initRequest(), { source: {} as Window })
+
+            expect(contentWindow.postMessage).not.toHaveBeenCalled()
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+        })
+
+        it('should ignore messages of the iframe that are no init requests', () => {
+            adapter.connect()
+
+            receiveFromIframe('im a gummy bear')
+            receiveFromIframe({ jsonrpc: '2.0', id: 'init-id', method: 'foo', params: ['bar'] })
+
+            expect(contentWindow.postMessage).not.toHaveBeenCalled()
+        })
+
+        it('should answer a new handshake after the iframe reloaded by default', async () => {
+            adapter.connect()
+            receiveFromIframe(initRequest('first-id'))
+            await confirmFromIframe(0)
+
+            receiveFromIframe(initRequest('second-id'))
+            await confirmFromIframe(1)
+
+            expect(contentWindow.postMessage).toHaveBeenCalledTimes(2)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+        })
+
+        it('should stop listening after the first handshake if reconnect is disabled', () => {
+            createAdapter({ reconnect: false })
+            adapter.connect()
+            receiveFromIframe(initRequest('first-id'))
+
+            receiveFromIframe(initRequest('second-id'))
+
+            expect(contentWindow.postMessage).toHaveBeenCalledTimes(1)
+        })
+
+        it('should keep listening after ignoring a foreign init request if reconnect is disabled', async () => {
+            createAdapter({ reconnect: false }, 'my-app')
+            adapter.connect()
+
+            receiveFromIframe(initRequest('init-id', 'other-app'))
+            receiveFromIframe(initRequest('init-id', 'my-app'))
+            await confirmFromIframe()
+
+            expect(contentWindow.postMessage).toHaveBeenCalledTimes(1)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+        })
+
+        it('should answer handshakes again after it was destroyed and reconnected', async () => {
+            adapter.connect()
+            receiveFromIframe(initRequest('first-id'))
+            adapter.destroy()
+
+            adapter.connect()
+            receiveFromIframe(initRequest('second-id'))
+            await confirmFromIframe(1)
+
+            expect(contentWindow.postMessage).toHaveBeenCalledTimes(2)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+        })
     })
 
-    it('should ignore invalid messages from iframe on connection', () => {
-        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
-        adapter.connect()
+    describe('origin option', () => {
+        it('should throw for an empty array', () => {
+            expect(() => new IFrameHostAdapter(iframe, undefined, { origin: [] })).toThrowError(
+                'Origin option cannot be an empty array',
+            )
+        })
 
-        global.window.dispatchEvent(new MessageEvent('message', { data: 'im a gummy bear', source: mockContentWindow }))
+        it('should accept any origin by default without a warning', async () => {
+            adapter.connect()
 
-        expect(mockContentWindow.postMessage).not.toHaveBeenCalled()
+            receiveFromIframe(initRequest(), { origin: 'https://evil.example' })
+            await confirmFromIframe()
+
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+            expect(console.warn).not.toHaveBeenCalled()
+        })
+
+        it('should ignore init requests from a disallowed origin and warn about it', () => {
+            createAdapter({ origin: IFRAME_ORIGIN })
+            adapter.connect()
+
+            receiveFromIframe(initRequest(), { origin: 'https://other.example' })
+
+            expect(contentWindow.postMessage).not.toHaveBeenCalled()
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+            expect(console.warn).toHaveBeenCalledWith(
+                '[IFrameHostAdapter]',
+                'Ignored the handshake request from "https://other.example": origin not allowed',
+            )
+        })
+
+        it('should not warn about unrelated messages from a disallowed origin', () => {
+            createAdapter({ origin: IFRAME_ORIGIN })
+            adapter.connect()
+
+            receiveFromIframe({ type: 'resize' }, { origin: 'https://other.example' })
+
+            expect(console.warn).not.toHaveBeenCalled()
+        })
+
+        it.each(originCases)('should handle %s', (_, origin, answers) => {
+            createAdapter({ origin })
+            adapter.connect()
+
+            receiveFromIframe(initRequest())
+
+            expect(contentWindow.postMessage).toHaveBeenCalledTimes(answers ? 1 : 0)
+        })
     })
 
-    it('should ignore response messages from iframe on connection', () => {
-        const randomResponseMessage: RpcResponse<{ [InitMethodName](name: string): void }> = {
-            jsonrpc: '2.0',
-            id: 'init-id',
-            result: undefined,
-        }
+    describe('heartbeat', () => {
+        it('should be disabled by default', async () => {
+            vi.useFakeTimers()
+            adapter.connect()
+            receiveFromIframe(initRequest())
+            await confirmFromIframe()
 
-        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
-        adapter.connect()
+            vi.advanceTimersByTime(60_000)
 
-        global.window.dispatchEvent(
-            new MessageEvent('message', { data: randomResponseMessage, source: mockContentWindow }),
-        )
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+        })
 
-        expect(mockContentWindow.postMessage).not.toHaveBeenCalled()
+        it('should ping the iframe through the control port when enabled', async () => {
+            createAdapter({ heartbeat: { interval: 10, timeout: 50 } })
+            adapter.connect()
+            receiveFromIframe(initRequest())
+            const [, controlPort] = transferredPorts()
+            await confirmFromIframe()
+
+            const received = new Promise((resolve) => {
+                controlPort.addEventListener('message', (event) => resolve(event.data), { once: true })
+            })
+
+            await expect(received).resolves.toStrictEqual({ jsonrpc: '2.0', method: 'anyrpc::ping', params: [] })
+        })
     })
 
-    it('should ignore messages from iframe other than init requests on connection', () => {
-        const randomRequestMessage: RpcRequest<{ foo(name: string): void }> = {
-            jsonrpc: '2.0',
-            id: 'init-id',
-            method: 'foo',
-            params: ['bar'],
-        }
+    describe('destroy', () => {
+        it('should stop answering init requests', () => {
+            adapter.connect()
 
-        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
-        adapter.connect()
+            adapter.destroy()
+            receiveFromIframe(initRequest())
 
-        global.window.dispatchEvent(
-            new MessageEvent('message', { data: randomRequestMessage, source: mockContentWindow }),
-        )
-
-        expect(mockContentWindow.postMessage).not.toHaveBeenCalled()
-    })
-
-    it('should ignore messages from iframe if names do not match', () => {
-        const initRequestMessage: RpcRequest<{ [InitMethodName](name: string): void }> = {
-            jsonrpc: '2.0',
-            id: 'init-id',
-            method: InitMethodName,
-            params: ['anyrpc-iframe-adapter-wrong'],
-        }
-
-        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe, 'custom-name')
-        adapter.connect()
-
-        global.window.dispatchEvent(
-            new MessageEvent('message', { data: initRequestMessage, source: mockContentWindow }),
-        )
-
-        expect(mockContentWindow.postMessage).not.toHaveBeenCalled()
-    })
-
-    it('should ignore init messages with named params', () => {
-        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
-        adapter.connect()
-
-        global.window.dispatchEvent(
-            new MessageEvent('message', {
-                data: {
-                    jsonrpc: '2.0',
-                    id: 'init-id',
-                    method: InitMethodName,
-                    params: { name: 'anyrpc-iframe-adapter' },
-                },
-                source: mockContentWindow,
-            }),
-        )
-
-        expect(mockContentWindow.postMessage).not.toHaveBeenCalled()
-    })
-
-    it('should ignore init messages without params', () => {
-        adapter = new IFrameHostAdapter<TestMethods, TestEvents>(mockIframe)
-        adapter.connect()
-
-        global.window.dispatchEvent(
-            new MessageEvent('message', {
-                data: { jsonrpc: '2.0', id: 'init-id', method: InitMethodName },
-                source: mockContentWindow,
-            }),
-        )
-
-        expect(mockContentWindow.postMessage).not.toHaveBeenCalled()
-    })
-
-    it('should ignore messages from other sources than iframe', () => {
-        const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
-        const initRequestMessage: RpcRequest<{ [InitMethodName](name: string): void }> = {
-            jsonrpc: '2.0',
-            id: 'init-id',
-            method: InitMethodName,
-            params: ['anyrpc-iframe-adapter'],
-        }
-
-        adapter = new IFrameHostAdapter(mockIframe)
-        adapter.connect()
-
-        global.window.dispatchEvent(
-            new MessageEvent('message', { data: initRequestMessage, source: {} as unknown as Window }),
-        )
-
-        expect(removeEventListenerSpy).not.toHaveBeenCalled()
+            expect(contentWindow.postMessage).not.toHaveBeenCalled()
+        })
     })
 })
