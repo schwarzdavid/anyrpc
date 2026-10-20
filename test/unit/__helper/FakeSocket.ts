@@ -7,7 +7,7 @@ export class FakeSocket implements WebSocketLike {
     readonly close = vi.fn<(code?: number) => void>()
     private readonly events = new EventTarget()
 
-    addEventListener(type: 'message' | 'close', listener: (event: WebSocketMessageEvent) => void): void {
+    addEventListener(type: 'message' | 'close' | 'error', listener: (event: WebSocketMessageEvent) => void): void {
         this.events.addEventListener(type, (event) => listener(event as MessageEvent))
     }
 
@@ -18,6 +18,10 @@ export class FakeSocket implements WebSocketLike {
     closeFromRemote(): void {
         this.readyState = 3
         this.events.dispatchEvent(new Event('close'))
+    }
+
+    fail(): void {
+        this.events.dispatchEvent(new Event('error'))
     }
 
     sent(): unknown[] {

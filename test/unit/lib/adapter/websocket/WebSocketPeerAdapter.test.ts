@@ -109,6 +109,28 @@ describe(WebSocketPeerAdapter, () => {
         expect(closedHandler).toHaveBeenCalledWith()
     })
 
+    it('should warn about socket errors and stay registered until the socket closes', () => {
+        adapter.connect()
+
+        socket.fail()
+
+        expect(console.warn).toHaveBeenCalledWith(
+            '[WebSocketPeerAdapter]',
+            'The WebSocket connection reported an error',
+        )
+        expect(closedHandler).not.toHaveBeenCalled()
+        expect(socket.close).not.toHaveBeenCalled()
+    })
+
+    it('should close the socket when the remote says goodbye', () => {
+        adapter.connect()
+
+        socket.receive(JSON.stringify(createControlMessage(ControlMethod.GOODBYE)))
+
+        expect(closedHandler).toHaveBeenCalledWith()
+        expect(socket.close).toHaveBeenCalledWith(1000)
+    })
+
     it('should destroy itself when the client stops answering the heartbeat', () => {
         vi.useFakeTimers()
         createAdapter({ interval: 1000, timeout: 3000 })

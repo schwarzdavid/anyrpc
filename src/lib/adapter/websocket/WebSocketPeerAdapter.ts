@@ -12,7 +12,7 @@ export interface WebSocketLike {
     send(data: string): void
     close(code?: number, reason?: string): void
     addEventListener(type: 'message', listener: (event: WebSocketMessageEvent) => void): void
-    addEventListener(type: 'close', listener: () => void): void
+    addEventListener(type: 'close' | 'error', listener: () => void): void
 }
 
 export type PeerClosedHandler = () => void
@@ -37,6 +37,7 @@ export class WebSocketPeerAdapter<
     connect(): void {
         this.socket.addEventListener('message', (event) => this.handleMessage(event.data))
         this.socket.addEventListener('close', () => this.closed())
+        this.socket.addEventListener('error', () => this.logger?.warn('The WebSocket connection reported an error'))
         this.opened()
     }
 
@@ -44,6 +45,11 @@ export class WebSocketPeerAdapter<
         if (this.socket.readyState === WEBSOCKET_OPEN) {
             this.socket.send(JSON.stringify(message))
         }
+    }
+
+    protected override onRemoteGoodbye(): void {
+        super.onRemoteGoodbye()
+        this.socket.close(NORMAL_CLOSURE)
     }
 
     protected override onRemoteUnresponsive(): void {
