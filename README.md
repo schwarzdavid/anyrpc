@@ -403,7 +403,8 @@ const channel = createRpcChannel<ClientToServer, ServerToClient>(new WebSocketCl
 
 - Only text frames are exchanged, binary frames are dropped.
 - The client reconnects with a backoff from 1 s up to 30 s when the connection drops, when the server closes it or when the server says goodbye. Socket errors on the server side are logged.
-- The heartbeat is off for the client and on for the hub. If the other side does not run anyrpc, leave the heartbeat of the client off.
+- The heartbeat is off for the client and on for the hub. If the other side does not run anyrpc, leave the heartbeat of the client off. The hub removes clients that do not answer `anyrpc::ping`, so set `heartbeat: false` on the hub when its clients do not run anyrpc.
+- If the server is an anyrpc hub, enable `heartbeat` on the client. Without it, a silently dropped connection (sleep, Wi-Fi switch, half-open connection) stays `connected` and calls time out; with it, the drop is detected and the client reconnects.
 - One hub serves one server. To serve several hubs, create several `WebSocketServer` instances with `noServer` and a `path` each.
 - The server belongs to you: `hub.$.destroy()` does not close it.
 
@@ -427,10 +428,10 @@ Everything a transport needs is exported from `anyrpc`. Extend `AbstractRpcAdapt
 ```ts
 import { AbstractRpcAdapter, ConnectionStatus, type MethodMap, type RpcMessage } from 'anyrpc'
 
-class WebSocketAdapter<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> extends AbstractRpcAdapter<
-    Methods,
-    Events
-> {
+class MyWebSocketAdapter<
+    Methods extends MethodMap<Methods>,
+    Events extends MethodMap<Events>,
+> extends AbstractRpcAdapter<Methods, Events> {
     constructor(private readonly socket: WebSocket) {
         super()
     }
@@ -449,7 +450,9 @@ class WebSocketAdapter<Methods extends MethodMap<Methods>, Events extends Method
 }
 ```
 
-For transports with a single bidirectional channel (TCP, IPC, …) extend `AbstractSocketAdapter` from `anyrpc/adapters/socket`. Implement `connect()` and `send(message)`, call `this.opened()` and `this.closed()` when the transport opens and closes, and pass incoming strings or objects to `this.receive(data)`. Heartbeat and goodbye messages travel in-band.
+This example only illustrates the contract; use `anyrpc/adapters/websocket` for WebSockets in production.
+
+For transports with a single bidirectional channel (TCP, IPC, …) extend `AbstractSocketAdapter` from `anyrpc/adapters/socket`. Implement `connect()` and `send(message)`, call `this.opened()` and `this.closed()` when the transport opens and closes, and pass incoming strings or objects to `this.receive(data)`. Heartbeat and goodbye messages travel in-band. `receive()` ignores data until `opened()` was called, so handle a handshake before passing data to `receive()` and answer it via `this.send(...)` directly. `send()` is called for RPC messages regardless of the connection state, so it must ignore writes to a closed transport itself; control messages are only sent while the transport is open.
 
 Transports that hand over `MessagePort`s after a handshake, like the iframe and Web Worker adapters, build on `anyrpc/adapters/message-port` instead. Extend `AbstractMessagePortClientAdapter` for the side that starts the handshake and polls until it is answered, and `AbstractMessagePortHostAdapter` for the side that answers it and creates the `MessageChannel`s. Implement only how handshake messages are listened for and posted; ports, heartbeat, goodbye notifications and reconnects come with the base classes. Which side starts the handshake depends on the transport: an iframe asks its parent, because the parent cannot know when the iframe has loaded, while a page asks its worker. The answering side reports `connected` only after the other side answered the first ping on the control port.
 

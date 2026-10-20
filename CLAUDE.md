@@ -92,6 +92,8 @@ Before reporting work as done, run `npm run coverage`, `npm run check`, `npm run
    `CONNECTION_LOST`, a mere status change does not) and forward incoming messages via `onMessage`. Override `destroy`
    to release resources. Handshake-based `MessagePort` transports extend `AbstractMessagePortHostAdapter` or
    `AbstractMessagePortClientAdapter` instead and only implement how handshake messages are listened for and posted.
+   Single-channel transports without `MessagePort`s extend `AbstractSocketAdapter` (`src/lib/adapter/socket/`) and
+   implement `connect` and `send`, calling `opened()`, `closed()` and `receive()`.
 3. Add one build entry in `vite.config.ts` and a matching subpath export in `package.json` that exports both sides.
    Code that runs in a different global scope than the DOM (e.g. inside a worker) is additionally type-checked by a
    tsconfig with the matching `lib` (see `tsconfig.lib.webworker.json`). Its public types must stay lib-neutral,
