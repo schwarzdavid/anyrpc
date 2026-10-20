@@ -7,7 +7,8 @@ communication as interfaces and get back a typed proxy (`createRpcChannel`). Mes
 transport is pluggable through adapters that extend `AbstractRpcAdapter` (`src/lib/adapter/AbstractRpcAdapter.ts`,
 exported from the package entry together with `ConnectionStatus`, `LogLevel`, `RpcError` and `RpcErrorCode`). Adapters
 for iframes (`src/lib/adapter/iframe/`) and web workers (`src/lib/adapter/web-worker/`) exist, as well as for Node.js
-worker threads (`src/lib/adapter/node-worker/`); more transports are planned (see README). Transports that exchange
+worker threads (`src/lib/adapter/node-worker/`) and Node.js child processes (`src/lib/adapter/child-process/`, built on
+`AbstractSocketAdapter`); more transports are planned (see README). Transports that exchange
 `MessagePort`s after a handshake extend `AbstractMessagePortHostAdapter` (the side that answers the handshake and
 creates the `MessageChannel`s) or `AbstractMessagePortClientAdapter` (the side that starts the handshake and polls until
 it is answered). Which side starts depends on the transport: an iframe asks its parent, a page asks its worker.

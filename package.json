@@ -53,6 +53,11 @@
       "import": "./dist/node-worker.js",
       "require": "./dist/node-worker.cjs"
     },
+    "./adapters/child-process": {
+      "types": "./dist/lib/adapter/child-process/index.d.ts",
+      "import": "./dist/child-process.js",
+      "require": "./dist/child-process.cjs"
+    },
     "./adapters/socket": {
       "types": "./dist/lib/adapter/socket/index.d.ts",
       "import": "./dist/socket.js",
