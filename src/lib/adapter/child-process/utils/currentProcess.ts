@@ -1,14 +1,21 @@
 export interface ProcessLike {
     readonly connected: boolean
-    send?: ((message: unknown) => boolean) | undefined
+    send?: IpcSend | undefined
     on(event: 'message', listener: (message: unknown) => void): unknown
     on(event: 'disconnect', listener: () => void): unknown
     off(event: 'message', listener: (message: unknown) => void): unknown
     off(event: 'disconnect', listener: () => void): unknown
 }
 
+type IpcSend = (
+    message: unknown,
+    sendHandle: undefined,
+    options: undefined,
+    callback: (error: Error | null) => void,
+) => boolean
+
 export interface IpcProcess extends ProcessLike {
-    send(message: unknown): boolean
+    send: IpcSend
 }
 
 export function currentProcess(): ProcessLike {

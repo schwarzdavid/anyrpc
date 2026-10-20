@@ -26,6 +26,7 @@ export class ChildProcessClientAdapter<
     private answeredInitId: RpcId | undefined
     private readonly onParentMessage = (message: unknown) => this.handleParentMessage(message)
     private readonly onDisconnect = () => this.closed()
+    private readonly onSendResult = (error: Error | null) => this.handleSendResult(error)
 
     constructor(private readonly name: string = DEFAULT_CHILD_PROCESS_ADAPTER_NAME) {
         super()
@@ -40,13 +41,19 @@ export class ChildProcessClientAdapter<
 
     protected send(message: object): void {
         if (this.ipc.connected) {
-            this.ipc.send(createIpcEnvelope(this.name, message))
+            this.ipc.send(createIpcEnvelope(this.name, message), undefined, undefined, this.onSendResult)
         }
     }
 
     override destroy(): void {
         super.destroy()
         this.stopListening()
+    }
+
+    private handleSendResult(error: Error | null): void {
+        if (error) {
+            this.logger?.debug('Could not send a message to the parent process', error)
+        }
     }
 
     private handleParentMessage(value: unknown): void {

@@ -13,11 +13,13 @@ export interface ChildProcessHostAdapterOptions {
 
 export interface ChildProcessLike {
     readonly connected: boolean
-    send(message: unknown): boolean
+    send(message: unknown, callback: (error: Error | null) => void): boolean
     on(event: 'message', listener: (message: unknown) => void): unknown
     on(event: 'exit', listener: (code: number | null) => void): unknown
+    on(event: 'disconnect', listener: () => void): unknown
     off(event: 'message', listener: (message: unknown) => void): unknown
     off(event: 'exit', listener: (code: number | null) => void): unknown
+    off(event: 'disconnect', listener: () => void): unknown
     kill(): boolean
 }
 
@@ -35,6 +37,8 @@ export class ChildProcessHostAdapter<
     private handshake: Handshake | undefined
     private readonly onChildMessage = (message: unknown) => this.handleChildMessage(message)
     private readonly onChildExit = (code: number | null) => this.handleChildExit(code)
+    private readonly onChildDisconnect = () => this.handleChildDisconnect()
+    private readonly onSendResult = (error: Error | null) => this.handleSendResult(error)
 
     constructor(
         private readonly child: ChildProcessLike,
@@ -48,14 +52,19 @@ export class ChildProcessHostAdapter<
 
     connect(): void {
         this.stopListening()
+        if (!this.child.connected) {
+            this.handleChildDisconnect()
+            return
+        }
         this.child.on('message', this.onChildMessage)
         this.child.on('exit', this.onChildExit)
+        this.child.on('disconnect', this.onChildDisconnect)
         this.startHandshake()
     }
 
     protected send(message: object): void {
         if (this.child.connected) {
-            this.child.send(createIpcEnvelope(this.name, message))
+            this.child.send(createIpcEnvelope(this.name, message), this.onSendResult)
         }
     }
 
@@ -108,8 +117,20 @@ export class ChildProcessHostAdapter<
         this.destroy()
     }
 
+    private handleChildDisconnect(): void {
+        this.logger?.info('The IPC channel to the child process is closed, so the channel will not reconnect')
+        this.destroy()
+    }
+
+    private handleSendResult(error: Error | null): void {
+        if (error) {
+            this.logger?.debug('Could not send a message to the child process', error)
+        }
+    }
+
     private stopListening(): void {
         this.child.off('message', this.onChildMessage)
         this.child.off('exit', this.onChildExit)
+        this.child.off('disconnect', this.onChildDisconnect)
     }
 }

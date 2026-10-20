@@ -20,7 +20,14 @@ vi.mock(import('@/lib/adapter/child-process/utils/currentProcess'), async (impor
 
 class FakeProcess extends EventEmitter {
     connected = true
-    readonly send = vi.fn<(message: unknown) => boolean>(() => true)
+    readonly send = vi.fn<
+        (
+            message: unknown,
+            sendHandle: undefined,
+            options: undefined,
+            callback: (error: Error | null) => void,
+        ) => boolean
+    >(() => true)
 }
 
 const initRequest = { jsonrpc: '2.0', id: 'init-1', method: 'anyrpc::child-process-init', params: ['my-app'] }
@@ -70,11 +77,39 @@ describe(ChildProcessClientAdapter, () => {
     it('should answer an init request and connect', () => {
         fromParent(initRequest)
 
-        expect(fakeProcess.send).toHaveBeenCalledWith({
-            anyrpc: 'my-app',
-            message: { jsonrpc: '2.0', id: 'init-1', result: null },
-        })
+        expect(fakeProcess.send).toHaveBeenCalledWith(
+            { anyrpc: 'my-app', message: { jsonrpc: '2.0', id: 'init-1', result: null } },
+            undefined,
+            undefined,
+            expect.any(Function),
+        )
         expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+    })
+
+    it('should log a failed send at debug level instead of throwing', () => {
+        const error = new Error('write EPIPE')
+        fakeProcess.send.mockImplementation((_message, _sendHandle, _options, callback) => {
+            callback(error)
+            return false
+        })
+
+        expect(() => fromParent(initRequest)).not.toThrowError()
+        expect(console.log).toHaveBeenCalledWith(
+            '[ChildProcessClientAdapter]',
+            'Could not send a message to the parent process',
+            error,
+        )
+    })
+
+    it('should not log a successful send', () => {
+        fakeProcess.send.mockImplementation((_message, _sendHandle, _options, callback) => {
+            callback(null)
+            return true
+        })
+
+        fromParent(initRequest)
+
+        expect(console.log).not.toHaveBeenCalled()
     })
 
     it('should ignore init requests and messages for another channel', () => {
@@ -122,7 +157,12 @@ describe(ChildProcessClientAdapter, () => {
         fakeProcess.connected = false
         adapter.sendMessage(request)
 
-        expect(fakeProcess.send).toHaveBeenLastCalledWith({ anyrpc: 'my-app', message: request })
+        expect(fakeProcess.send).toHaveBeenLastCalledWith(
+            { anyrpc: 'my-app', message: request },
+            undefined,
+            undefined,
+            expect.any(Function),
+        )
         expect(fakeProcess.send).toHaveBeenCalledTimes(2)
     })
 
@@ -140,10 +180,12 @@ describe(ChildProcessClientAdapter, () => {
 
         adapter.destroy()
 
-        expect(fakeProcess.send).toHaveBeenLastCalledWith({
-            anyrpc: 'my-app',
-            message: createControlMessage(ControlMethod.GOODBYE),
-        })
+        expect(fakeProcess.send).toHaveBeenLastCalledWith(
+            { anyrpc: 'my-app', message: createControlMessage(ControlMethod.GOODBYE) },
+            undefined,
+            undefined,
+            expect.any(Function),
+        )
         expect(fakeProcess.listenerCount('message')).toBe(0)
         expect(fakeProcess.listenerCount('disconnect')).toBe(0)
     })

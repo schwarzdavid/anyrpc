@@ -13,8 +13,16 @@ interface TestMethods {
 
 class FakeChild extends EventEmitter {
     connected = true
-    readonly send = vi.fn<(message: unknown) => boolean>(() => true)
+    readonly send = vi.fn<(message: unknown, callback: (error: Error | null) => void) => boolean>(() => true)
     readonly kill = vi.fn<() => boolean>(() => true)
+
+    listenerCounts(): Record<'message' | 'exit' | 'disconnect', number> {
+        return {
+            message: this.listenerCount('message'),
+            exit: this.listenerCount('exit'),
+            disconnect: this.listenerCount('disconnect'),
+        }
+    }
 
     sentMessages(): unknown[] {
         return this.send.mock.calls.map(([envelope]) => (envelope as { message: unknown }).message)
@@ -75,15 +83,44 @@ describe(ChildProcessHostAdapter, () => {
     it('should send a wrapped init request with its name when connecting', () => {
         adapter.connect()
 
-        expect(child.send).toHaveBeenCalledWith({
-            anyrpc: 'my-app',
-            message: {
-                jsonrpc: '2.0',
-                id: expect.any(String),
-                method: 'anyrpc::child-process-init',
-                params: ['my-app'],
+        expect(child.send).toHaveBeenCalledWith(
+            {
+                anyrpc: 'my-app',
+                message: {
+                    jsonrpc: '2.0',
+                    id: expect.any(String),
+                    method: 'anyrpc::child-process-init',
+                    params: ['my-app'],
+                },
             },
+            expect.any(Function),
+        )
+    })
+
+    it('should log a failed send at debug level instead of throwing', () => {
+        const error = new Error('write EPIPE')
+        child.send.mockImplementation((_message, callback) => {
+            callback(error)
+            return false
         })
+
+        expect(() => adapter.connect()).not.toThrowError()
+        expect(console.log).toHaveBeenCalledWith(
+            '[ChildProcessHostAdapter]',
+            'Could not send a message to the child process',
+            error,
+        )
+    })
+
+    it('should not log a successful send', () => {
+        child.send.mockImplementation((_message, callback) => {
+            callback(null)
+            return true
+        })
+
+        adapter.connect()
+
+        expect(console.log).not.toHaveBeenCalled()
     })
 
     it('should poll with the same request until the child answers and then connect', () => {
@@ -127,11 +164,61 @@ describe(ChildProcessHostAdapter, () => {
     })
 
     it('should not send while the IPC channel is closed', () => {
+        adapter.connect()
+        child.connected = false
+
+        vi.advanceTimersByTime(3000)
+
+        expect(child.send).toHaveBeenCalledTimes(1)
+    })
+
+    it('should give up without polling when connecting to a child whose IPC channel is already closed', () => {
         child.connected = false
 
         adapter.connect()
+        vi.advanceTimersByTime(3000)
 
         expect(child.send).not.toHaveBeenCalled()
+        expect(vi.getTimerCount()).toBe(0)
+        expect(child.listenerCounts()).toStrictEqual({ message: 0, exit: 0, disconnect: 0 })
+        expect(connectionLostHandler).toHaveBeenCalledTimes(1)
+        expect(console.log).toHaveBeenCalledWith(
+            '[ChildProcessHostAdapter]',
+            'The IPC channel to the child process is closed, so the channel will not reconnect',
+        )
+    })
+
+    it('should reject pending calls, stop polling and stop listening when the child disconnects', () => {
+        adapter.connect()
+        child.answerHandshake()
+        child.reply(createControlMessage(ControlMethod.GOODBYE))
+
+        child.connected = false
+        child.emit('disconnect')
+        vi.advanceTimersByTime(3000)
+
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+        expect(connectionLostHandler).toHaveBeenCalledTimes(2)
+        expect(vi.getTimerCount()).toBe(0)
+        expect(child.listenerCounts()).toStrictEqual({ message: 0, exit: 0, disconnect: 0 })
+        expect(console.log).toHaveBeenCalledWith(
+            '[ChildProcessHostAdapter]',
+            'The IPC channel to the child process is closed, so the channel will not reconnect',
+        )
+    })
+
+    it('should handle the exit after a disconnect only once', () => {
+        adapter.connect()
+        child.answerHandshake()
+
+        child.emit('disconnect')
+        child.emit('exit', 0)
+
+        expect(connectionLostHandler).toHaveBeenCalledTimes(1)
+        expect(console.log).not.toHaveBeenCalledWith(
+            '[ChildProcessHostAdapter]',
+            'The child process exited with code 0, so the channel will not reconnect',
+        )
     })
 
     it('should reject pending calls and start a new handshake when the child says goodbye', () => {
@@ -157,8 +244,7 @@ describe(ChildProcessHostAdapter, () => {
         vi.advanceTimersByTime(3000)
 
         expect(child.send).toHaveBeenCalledTimes(1)
-        expect(child.listenerCount('message')).toBe(0)
-        expect(child.listenerCount('exit')).toBe(0)
+        expect(child.listenerCounts()).toStrictEqual({ message: 0, exit: 0, disconnect: 0 })
         expect(console.log).toHaveBeenCalledWith(
             '[ChildProcessHostAdapter]',
             'The child process exited with code 1, so the channel will not reconnect',
@@ -208,8 +294,7 @@ describe(ChildProcessHostAdapter, () => {
         adapter.connect()
         adapter.connect()
 
-        expect(child.listenerCount('message')).toBe(1)
-        expect(child.listenerCount('exit')).toBe(1)
+        expect(child.listenerCounts()).toStrictEqual({ message: 1, exit: 1, disconnect: 1 })
     })
 
     it('should use the default name', () => {

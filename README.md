@@ -45,7 +45,7 @@ anyrpc takes care of all of this. You describe both directions of communication 
 - [x] **WebSocket** (`anyrpc/adapters/websocket`). A client adapter with automatic reconnects for browsers and Node.js, and a hub adapter for `ws`-compatible servers, both with an optional heartbeat.
 - [ ] WebRTC
 - [x] **Node.js worker threads** (`anyrpc/adapters/node-worker`). A `MessageChannel` per channel, optional heartbeat, errors of the worker are logged and its exit disconnects the channel.
-- [x] **Node.js child processes** (`anyrpc/adapters/child-process`). Uses the IPC channel of `child_process.fork()`, several channels per process, optional heartbeat, the child's exit disconnects the channel.
+- [x] **Node.js child processes** (`anyrpc/adapters/child-process`). Uses the IPC channel of `child_process.fork()`, several channels per process, optional heartbeat, the child's exit or IPC disconnect closes the channel.
 
 ## Getting started
 
@@ -371,8 +371,10 @@ const channel = createRpcChannel<ChildToParent, ParentToChild>(new ChildProcessC
 - Both sides must use the same **name**, so one child can serve several channels. Your own `process.send` messages are ignored.
 - The child must be started with `fork()` (or with `stdio: ['ipc', …]`). Creating `ChildProcessClientAdapter` in a process without an IPC channel throws an error that points you to `ChildProcessHostAdapter`.
 - A `message` listener keeps the child process alive until its channel is destroyed.
-- Once the child exits, the channel is `disconnected`, in-flight calls reject with `-31003` and the adapter does not reconnect. Calls still in the queue (see `queueEnabled`) are not rejected by the exit: they fail with `-31001` once `queueTimeout` expires, or with `-31003` right away when you destroy the channel.
+- Once the child exits or disconnects its IPC channel (`process.disconnect()`), the channel is `disconnected`, in-flight calls reject with `-31003` and the adapter does not reconnect. Calls still in the queue (see `queueEnabled`) are not rejected by this: they fail with `-31001` once `queueTimeout` expires, or with `-31003` right away when you destroy the channel.
 - When the child destroys its channel, the parent channel reconnects as soon as the child creates a new one.
+- Destroying the parent channel without `killOnDestroy` keeps both processes alive: the child's adapter keeps listening and the open IPC channel keeps the parent running. Set `killOnDestroy`, call `child.disconnect()`, or let the child destroy its own channel.
+- Errors from spawning the child are not handled by the adapter. Listen to `child.on('error', …)` yourself.
 - Messages travel through Node's JSON serialization, so only JSON values can be sent.
 
 **`new ChildProcessHostAdapter(child, name?, options?)`**

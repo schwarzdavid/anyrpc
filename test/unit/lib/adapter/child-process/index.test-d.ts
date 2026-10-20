@@ -8,7 +8,7 @@ import {
 } from '@/lib/adapter/child-process'
 import type { AbstractRpcAdapter } from '@/lib/adapter/AbstractRpcAdapter'
 import type { HeartbeatOption } from '@/lib/Heartbeat'
-import type { ProcessLike } from '@/lib/adapter/child-process/utils/currentProcess'
+import type { IpcProcess, ProcessLike } from '@/lib/adapter/child-process/utils/currentProcess'
 
 interface Methods {
     ping(): string
@@ -18,6 +18,7 @@ describe('anyrpc/adapters/child-process entry point', () => {
     it('should accept a forked child process and the global process', () => {
         expectTypeOf<ChildProcess>().toExtend<ChildProcessLike>()
         expectTypeOf<NodeJS.Process>().toExtend<ProcessLike>()
+        expectTypeOf<NonNullable<NodeJS.Process['send']>>().toExtend<IpcProcess['send']>()
     })
 
     it('should create adapters for both sides', () => {
