@@ -52,6 +52,11 @@
       "types": "./dist/lib/adapter/node-worker/index.d.ts",
       "import": "./dist/node-worker.js",
       "require": "./dist/node-worker.cjs"
+    },
+    "./adapters/socket": {
+      "types": "./dist/lib/adapter/socket/index.d.ts",
+      "import": "./dist/socket.js",
+      "require": "./dist/socket.cjs"
     }
   },
   "sideEffects": false,
