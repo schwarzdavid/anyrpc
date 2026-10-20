@@ -31,6 +31,7 @@ export default defineConfig({
                 'web-worker': resolve(__dirname, 'src/lib/adapter/web-worker/index.ts'),
                 'node-worker': resolve(__dirname, 'src/lib/adapter/node-worker/index.ts'),
                 socket: resolve(__dirname, 'src/lib/adapter/socket/index.ts'),
+                websocket: resolve(__dirname, 'src/lib/adapter/websocket/index.ts'),
             },
         },
         rollupOptions: {

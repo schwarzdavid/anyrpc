@@ -42,7 +42,7 @@ anyrpc takes care of all of this. You describe both directions of communication 
 - [ ] `ServiceWorker`
 - [ ] `BroadcastChannel` (cross-tab)
 - [ ] `window.open` / popup
-- [ ] WebSocket
+- [x] **WebSocket** (`anyrpc/adapters/websocket`). A client adapter with automatic reconnects for browsers and Node.js, and a hub adapter for `ws`-compatible servers, both with an optional heartbeat.
 - [ ] WebRTC
 - [x] **Node.js worker threads** (`anyrpc/adapters/node-worker`). A `MessageChannel` per channel, optional heartbeat, errors of the worker are logged and its exit disconnects the channel.
 - [ ] Node.js child processes
@@ -379,6 +379,47 @@ The local codes lie outside the range JSON-RPC reserves for protocol and server 
 
 If the transport cannot send a request at all, for example because an argument is a function that `postMessage` cannot clone, the call rejects with the transport's own error (a `DataCloneError` in browsers) instead of an `RpcError`, and `notify()` throws it synchronously. A queued notification that cannot be sent is logged and dropped.
 
+### WebSocket adapter
+
+`WebSocketHubAdapter` serves every connection of a `ws`-compatible server as a peer of a [hub](#hubs-one-to-many). `WebSocketClientAdapter` connects from a browser or Node.js and reconnects automatically. The entry point works in both environments and does not depend on `ws`, any object with the same shape as `WebSocketServer` and `WebSocket` is accepted.
+
+```ts
+// server.ts
+import { WebSocketServer } from 'ws'
+import { createRpcHub } from 'anyrpc'
+import { WebSocketHubAdapter } from 'anyrpc/adapters/websocket'
+
+const server = new WebSocketServer({ port: 8081 })
+const hub = createRpcHub<ServerToClient, ClientToServer>(new WebSocketHubAdapter(server))
+```
+
+```ts
+// client.ts
+import { createRpcChannel } from 'anyrpc'
+import { WebSocketClientAdapter } from 'anyrpc/adapters/websocket'
+
+const channel = createRpcChannel<ClientToServer, ServerToClient>(new WebSocketClientAdapter('wss://example.com/rpc'))
+```
+
+- Only text frames are exchanged, binary frames are dropped.
+- The client reconnects with a backoff from 1 s up to 30 s when the connection drops, when the server closes it or when the server says goodbye. Socket errors on the server side are logged.
+- The heartbeat is off for the client and on for the hub. If the other side does not run anyrpc, leave the heartbeat of the client off.
+- One hub serves one server. To serve several hubs, create several `WebSocketServer` instances with `noServer` and a `path` each.
+- The server belongs to you: `hub.$.destroy()` does not close it.
+
+**`new WebSocketClientAdapter(url, options?)`**
+
+| Option      | Default | Description                                                                                                                                                |
+| ----------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reconnect` | `true`  | Reconnect with a backoff of 1 s up to 30 s after the connection was lost.                                                                                  |
+| `heartbeat` | `false` | `true` or `{ interval?, timeout? }` to ping the server. Defaults: ping every `5000` ms, report `disconnected` if a ping is not answered within `10000` ms. |
+
+**`new WebSocketHubAdapter(server, options?)`**
+
+| Option      | Default | Description                                                                                                                                                           |
+| ----------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `heartbeat` | `true`  | `true` or `{ interval?, timeout? }` to ping every client, `false` to disable. Defaults: ping every `5000` ms, remove a client that does not answer within `10000` ms. |
+
 ### Custom adapters
 
 Everything a transport needs is exported from `anyrpc`. Extend `AbstractRpcAdapter`, implement `connect()` and `sendMessage()`, hand incoming messages to `this.onMessage()`, report the state through `this.connectionStatus`, and call `this.closeConnection()` once the transport is definitively gone. The latter rejects in-flight calls with `-31003`; a plain status change does not, so a transport that is merely unresponsive can still deliver late responses. `connect()` may return a promise; if it rejects, the channel logs the error and stays `disconnected`. An adapter instance serves exactly one channel, so `createRpcChannel` throws if the adapter is already in use, until that channel is destroyed.
@@ -408,6 +449,8 @@ class WebSocketAdapter<Methods extends MethodMap<Methods>, Events extends Method
 }
 ```
 
+For transports with a single bidirectional channel (TCP, IPC, …) extend `AbstractSocketAdapter` from `anyrpc/adapters/socket`. Implement `connect()` and `send(message)`, call `this.opened()` and `this.closed()` when the transport opens and closes, and pass incoming strings or objects to `this.receive(data)`. Heartbeat and goodbye messages travel in-band.
+
 Transports that hand over `MessagePort`s after a handshake, like the iframe and Web Worker adapters, build on `anyrpc/adapters/message-port` instead. Extend `AbstractMessagePortClientAdapter` for the side that starts the handshake and polls until it is answered, and `AbstractMessagePortHostAdapter` for the side that answers it and creates the `MessageChannel`s. Implement only how handshake messages are listened for and posted; ports, heartbeat, goodbye notifications and reconnects come with the base classes. Which side starts the handshake depends on the transport: an iframe asks its parent, because the parent cannot know when the iframe has loaded, while a page asks its worker. The answering side reports `connected` only after the other side answered the first ping on the control port.
 
 The base classes accept any port that matches `MessagePortLike` (`postMessage`, `addEventListener`, `start`, `close`), including Node.js `worker_threads` ports. Transports that cannot deliver the handshake ports as `event.ports`, such as Node.js workers that only transfer ports inside the message itself, pass them to `this.acceptInitResponseData(data, ports)` instead of calling `this.acceptInitResponse(event)`. Implementations may declare `transfer` in `postInitResponse` as their transport's own type, e.g. `Transferable[]` in the browser or `MessagePort[]` from `node:worker_threads`.
@@ -434,6 +477,7 @@ npm install
 npx playwright install chromium   # once, for the browser tests
 npm run dev        # Vite dev server. Open /examples/iframe/, /examples/web-worker/ or /examples/shared-worker/ for the live demos
 node examples/node-worker/main.ts   # Node.js worker demo, run npm run build first
+node examples/websocket/server.ts   # WebSocket demo server, run npm run build first; open /examples/websocket/
 npm test           # Unit, type and browser tests (Vitest). Also checks the built package in dist/ once npm run build was run
 npm run coverage   # Tests with coverage report
 npm run check      # TypeScript project build
