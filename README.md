@@ -369,9 +369,9 @@ const channel = createRpcChannel<ChildToParent, ParentToChild>(new ChildProcessC
 ```
 
 - Both sides must use the same **name**, so one child can serve several channels. Your own `process.send` messages are ignored.
-- The child must be started with `fork()` (or with `stdio: ['ipc', …]`), otherwise the adapter throws.
+- The child must be started with `fork()` (or with `stdio: ['ipc', …]`). Creating `ChildProcessClientAdapter` in a process without an IPC channel throws an error that points you to `ChildProcessHostAdapter`.
 - A `message` listener keeps the child process alive until its channel is destroyed.
-- Once the child exits, the channel is `disconnected` and in-flight calls reject with `-31003`.
+- Once the child exits, the channel is `disconnected`, in-flight calls reject with `-31003` and the adapter does not reconnect. Calls still in the queue (see `queueEnabled`) are not rejected by the exit: they fail with `-31001` once `queueTimeout` expires, or with `-31003` right away when you destroy the channel.
 - When the child destroys its channel, the parent channel reconnects as soon as the child creates a new one.
 - Messages travel through Node's JSON serialization, so only JSON values can be sent.
 
