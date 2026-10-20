@@ -26,7 +26,7 @@ describe.skipIf(!existsSync(DIST))(NodeWorkerHostAdapter, () => {
         )
     }
 
-    it('should call a handler inside a worker that creates its adapter late', async () => {
+    it('should call a handler inside a worker that creates its adapter after an async setup', async () => {
         const channel = startChannel()
 
         await expect(channel.add(2, 3)).resolves.toBe(5)

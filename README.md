@@ -331,18 +331,18 @@ const channel = createRpcChannel<WorkerToMain, MainToWorker>(new NodeWorkerClien
 ```
 
 - Both sides must use the same **name**, so one worker can serve several channels. Messages the worker posts outside of anyrpc are ignored.
-- Uncaught errors in the worker are logged. Once the worker exits, the channel is `disconnected`, pending calls reject with `-31003` and the adapter does not reconnect.
-- Open message ports keep the Node.js process alive. Destroy the channel (or terminate the worker) when you are done; `terminateOnDestroy` does both at once.
+- Uncaught errors in the worker are logged. Once the worker exits, the channel is `disconnected`, in-flight calls reject with `-31003` and the adapter does not reconnect. Calls still in the queue (see `queueEnabled`) are not rejected by the exit: they fail with `-31001` once `queueTimeout` expires, or with `-31003` right away when you destroy the channel.
+- A running worker keeps the Node.js process alive. Terminate it yourself when you are done, or set `terminateOnDestroy` so that destroying the channel terminates it as well.
 - Creating `NodeWorkerClientAdapter` outside of a worker thread throws an error that points you to `NodeWorkerHostAdapter`.
-- Inside the worker, the connection is established only after the first handshake answer from the main thread. Calls to the main thread made before that (e.g. from a handler that runs right away) fail with `-31002`, so enable `queueEnabled` or wait for `rpc.connected`.
+- Inside the worker, the connection is established only once the main thread answers the worker's first ping on the control channel. A handler that calls the main thread before that fails with `-31002` (the main side then sees that error as a server error), so enable `queueEnabled` or wait for `rpc.connected`.
 
 **`new NodeWorkerHostAdapter(worker, name?, options?)`**
 
-| Option               | Default | Description                                                                |
-| -------------------- | ------- | -------------------------------------------------------------------------- |
-| `pollingInterval`    | `1000`  | Milliseconds between handshake attempts until the worker answers.          |
-| `heartbeat`          | `false` | `true` or `{ interval, timeout }` to detect a worker that stops answering. |
-| `terminateOnDestroy` | `false` | Terminate the worker when the channel is destroyed.                        |
+| Option               | Default | Description                                                                                                                                                |
+| -------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pollingInterval`    | `1000`  | Milliseconds between handshake attempts until the worker answers.                                                                                          |
+| `heartbeat`          | `false` | `true` or `{ interval?, timeout? }` to ping the worker. Defaults: ping every `5000` ms, report `disconnected` if a ping is not answered within `10000` ms. |
+| `terminateOnDestroy` | `false` | Terminate the worker when the channel is destroyed.                                                                                                        |
 
 **`new NodeWorkerClientAdapter(name?)`** has no options: the main thread configures the connection.
 
