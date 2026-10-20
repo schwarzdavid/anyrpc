@@ -210,14 +210,32 @@ describe(WebSocketClientAdapter, () => {
             expect(FakeWebSocket.instances).toHaveLength(1)
         })
 
-        it('should close the connection when the server says goodbye', () => {
+        it('should drop the socket and reconnect when the server says goodbye', () => {
             adapter.connect()
-            FakeWebSocket.latest().open()
+            const socket = FakeWebSocket.latest()
+            socket.open()
 
-            FakeWebSocket.latest().receive(JSON.stringify(createControlMessage(ControlMethod.GOODBYE)))
+            socket.receive(JSON.stringify(createControlMessage(ControlMethod.GOODBYE)))
+            adapter.sendMessage(request)
 
             expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
             expect(connectionLostHandler).toHaveBeenCalledTimes(1)
+            expect(socket.close).toHaveBeenCalledWith(1000)
+            expect(socket.send).not.toHaveBeenCalled()
+
+            vi.advanceTimersByTime(1000)
+
+            expect(FakeWebSocket.instances).toHaveLength(2)
+        })
+
+        it('should not leak a socket when connecting while a reconnect is scheduled', () => {
+            adapter.connect()
+            FakeWebSocket.latest().closeFromRemote()
+
+            adapter.connect()
+            vi.advanceTimersByTime(60000)
+
+            expect(FakeWebSocket.instances).toHaveLength(2)
         })
     })
 

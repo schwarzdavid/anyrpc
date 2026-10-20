@@ -32,8 +32,9 @@ export class WebSocketClientAdapter<
     }
 
     connect(): void {
-        if (this.current) {
-            this.dropSocket()
+        const hadSocket = this.current !== undefined
+        this.dropSocket()
+        if (hadSocket) {
             this.closed()
         }
         this.openSocket()
@@ -43,6 +44,10 @@ export class WebSocketClientAdapter<
         if (this.current?.socket.readyState === WEBSOCKET_OPEN) {
             this.current.socket.send(JSON.stringify(message))
         }
+    }
+
+    protected override onRemoteGoodbye(): void {
+        this.handleConnectionLost()
     }
 
     protected override onRemoteUnresponsive(): void {
