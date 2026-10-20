@@ -13,9 +13,11 @@
     "include": [
         "src/index.ts",
         "src/lib/adapter/message-port/index.ts",
+        "src/lib/adapter/child-process/**/*.ts",
         "src/lib/adapter/node-worker/**/*.ts",
         "src/lib/adapter/socket/index.ts",
         "src/lib/adapter/websocket/index.ts",
+        "examples/child-process/**/*.ts",
         "examples/node-worker/**/*.ts",
         "examples/websocket/server.ts"
     ]
