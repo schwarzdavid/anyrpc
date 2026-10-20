@@ -2,13 +2,9 @@ import { AbstractRpcAdapter } from '@/lib/adapter/AbstractRpcAdapter'
 import type { MethodMap } from '@/types/MethodMap'
 import type { RpcMessage } from '@/types/RpcMessages'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
-import {
-    ControlMethod,
-    createControlMessage,
-    readControlMethod,
-} from '@/lib/adapter/message-port/utils/controlMessages'
 import { readMessageData } from '@/lib/adapter/message-port/utils/messageData'
-import { Heartbeat, type HeartbeatOptions } from '@/lib/Heartbeat'
+import type { HeartbeatOptions } from '@/lib/Heartbeat'
+import { ControlProtocol } from '@/lib/ControlProtocol'
 
 export interface MessagePortLike {
     postMessage(message: unknown): void
@@ -32,17 +28,17 @@ export abstract class AbstractMessagePortAdapter<
 > extends AbstractRpcAdapter<Methods, Events> {
     private ports: MessagePorts | undefined
     private awaitingRemote = false
-    private readonly heartbeat: Heartbeat | undefined
+    private readonly control: ControlProtocol
 
     protected constructor(heartbeatOptions?: HeartbeatOptions) {
         super()
 
-        if (heartbeatOptions) {
-            this.heartbeat = new Heartbeat(heartbeatOptions, {
-                ping: () => this.sendControlMessage(ControlMethod.PING),
-                onTimeout: () => this.markUnresponsive(),
-            })
-        }
+        this.control = new ControlProtocol(heartbeatOptions, {
+            send: (message) => this.ports?.control?.postMessage(message),
+            onPong: () => this.markResponsive(),
+            onTimeout: () => this.markUnresponsive(),
+            onGoodbye: () => this.handleRemoteGoodbye(),
+        })
     }
 
     sendMessage(message: RpcMessage<Methods, Events>): void {
@@ -66,12 +62,12 @@ export abstract class AbstractMessagePortAdapter<
 
         if (awaitRemote) {
             this.awaitingRemote = true
-            this.sendControlMessage(ControlMethod.PING)
+            this.control.ping()
         } else {
             this.connectionStatus = ConnectionStatus.CONNECTED
         }
         if (ports.control) {
-            this.heartbeat?.start()
+            this.control.startHeartbeat()
         }
     }
 
@@ -81,34 +77,23 @@ export abstract class AbstractMessagePortAdapter<
     }
 
     override destroy(): void {
-        this.sendControlMessage(ControlMethod.GOODBYE)
+        this.control.sayGoodbye()
         this.closePorts()
         super.destroy()
     }
 
     private onControlMessage(data: unknown): void {
-        switch (readControlMethod(data)) {
-            case ControlMethod.PING:
-                this.sendControlMessage(ControlMethod.PONG)
-                break
-            case ControlMethod.PONG:
-                this.markResponsive()
-                break
-            case ControlMethod.GOODBYE:
-                this.logger?.debug('The remote side closed the connection')
-                this.onRemoteGoodbye()
-                break
-            default:
-                this.logger?.warn('Ignored an unknown control message', data)
+        if (!this.control.handle(data)) {
+            this.logger?.warn('Ignored an unknown control message', data)
         }
     }
 
-    private sendControlMessage(method: ControlMethod): void {
-        this.ports?.control?.postMessage(createControlMessage(method))
+    private handleRemoteGoodbye(): void {
+        this.logger?.debug('The remote side closed the connection')
+        this.onRemoteGoodbye()
     }
 
     private markResponsive(): void {
-        this.heartbeat?.acknowledge()
         if (this.connectionStatus === ConnectionStatus.CONNECTED) {
             return
         }
@@ -131,7 +116,7 @@ export abstract class AbstractMessagePortAdapter<
     }
 
     private closePorts(): void {
-        this.heartbeat?.stop()
+        this.control.stopHeartbeat()
         this.awaitingRemote = false
         this.ports?.data.close()
         this.ports?.control?.close()

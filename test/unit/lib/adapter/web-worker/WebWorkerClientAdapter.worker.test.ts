@@ -3,7 +3,7 @@ import { stubGlobalScope } from '../../../__helper/stubGlobalScope'
 import { WebWorkerClientAdapter } from '@/lib/adapter/web-worker'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
-import { ControlMethod, createControlMessage } from '@/lib/adapter/message-port/utils/controlMessages'
+import { ControlMethod, createControlMessage } from '@/utils/controlMessages'
 import { confirmHandshake } from '../../../__helper/confirmHandshake'
 
 interface TestMethods {

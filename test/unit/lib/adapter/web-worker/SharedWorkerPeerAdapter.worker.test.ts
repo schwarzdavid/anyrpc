@@ -1,10 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SharedWorkerPeerAdapter } from '@/lib/adapter/web-worker/SharedWorkerPeerAdapter'
-import {
-    ControlMethod,
-    createControlMessage,
-    readControlMethod,
-} from '@/lib/adapter/message-port/utils/controlMessages'
+import { ControlMethod, createControlMessage, readControlMethod } from '@/utils/controlMessages'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import { confirmHandshake } from '../../../__helper/confirmHandshake'
