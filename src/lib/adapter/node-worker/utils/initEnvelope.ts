@@ -11,7 +11,7 @@ export interface ReceivedInitEnvelope {
     ports: MessagePortLike[]
 }
 
-const MESSAGE_PORT_METHODS = ['postMessage', 'addEventListener', 'start', 'close'] as const
+const MESSAGE_PORT_METHODS: readonly (keyof MessagePortLike)[] = ['postMessage', 'addEventListener', 'start', 'close']
 
 export function createInitEnvelope(response: InitResponse, ports: MessagePortLike[]): InitEnvelope {
     return { response, ports }
