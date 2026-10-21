@@ -1,4 +1,8 @@
-import { AbstractMessagePortAdapter, type MessagePortLike } from '@/lib/adapter/message-port/AbstractMessagePortAdapter'
+import {
+    AbstractMessagePortAdapter,
+    type MessageEventLike,
+    type MessagePortLike,
+} from '@/lib/adapter/message-port/AbstractMessagePortAdapter'
 import type { MethodMap } from '@/types/MethodMap'
 import { type HeartbeatOption, resolveHeartbeatOptions } from '@/lib/Heartbeat'
 import { createInitRequest, type InitRequest, isInitResponse } from '@/lib/adapter/message-port/utils/handshake'
@@ -43,7 +47,7 @@ export abstract class AbstractMessagePortClientAdapter<
 
     protected abstract postInitRequest(request: InitRequest): void
 
-    protected acceptInitResponse(event: { data: unknown; ports: readonly MessagePortLike[] }): void {
+    protected acceptInitResponse(event: MessageEventLike): void {
         this.acceptInitResponseData(event.data, event.ports)
     }
 
