@@ -19,6 +19,10 @@
   "keywords": [],
   "author": "David Schwarz <david@ists-wurscht.at>",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/schwarzdavid/anyrpc.git"
+  },
   "type": "module",
   "files": [
     "dist",
