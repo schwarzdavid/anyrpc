@@ -6,14 +6,14 @@ anyrpc is a small, fully typed, transport-agnostic RPC library for TypeScript. C
 communication as interfaces and get back a typed proxy (`createRpcChannel`). Messages follow JSON-RPC 2.0, and the
 transport is pluggable through adapters that extend `AbstractRpcAdapter` (`src/lib/adapter/AbstractRpcAdapter.ts`,
 exported from the package entry together with `ConnectionStatus`, `LogLevel`, `RpcError` and `RpcErrorCode`).
-Adapters for iframes (`src/lib/adapter/iframe/`) and web workers (`src/lib/adapter/web-worker/`) exist; more
-transports are planned (see README). Transports that exchange `MessagePort`s after a handshake extend
-`AbstractMessagePortHostAdapter` (the side that answers the handshake and creates the `MessageChannel`s) or
-`AbstractMessagePortClientAdapter` (the side that starts the handshake and polls until it is answered). Which side
-starts depends on the transport: an iframe asks its parent, a page asks its worker. `Host`/`Client` in the public
-adapter names mean the embedding/embedded side, not the handshake role (`WebWorkerHostAdapter` extends the client
-base). Both build on `AbstractMessagePortAdapter`, which owns the ports, the heartbeat and the
-control protocol (ping/pong/goodbye). They live in `src/lib/adapter/message-port/` and ship as
+Adapters for iframes (`src/lib/adapter/iframe/`) and web workers (`src/lib/adapter/web-worker/`) exist, as well as for Node.js worker threads
+(`src/lib/adapter/node-worker/`); more transports are planned (see README). Transports that exchange `MessagePort`s
+after a handshake extend `AbstractMessagePortHostAdapter` (the side that answers the handshake and creates the
+`MessageChannel`s) or `AbstractMessagePortClientAdapter` (the side that starts the handshake and polls until it is
+answered). Which side starts depends on the transport: an iframe asks its parent, a page asks its worker.
+`Host`/`Client` in the public adapter names mean the embedding/embedded side, not the handshake role
+(`WebWorkerHostAdapter` extends the client base). Both build on `AbstractMessagePortAdapter`, which owns the ports,
+the heartbeat and the control protocol (ping/pong/goodbye). They live in `src/lib/adapter/message-port/` and ship as
 `anyrpc/adapters/message-port`. One-to-many transports (e.g. a `SharedWorker` serving many tabs) use `createRpcHub`
 with an adapter that extends `AbstractRpcHubAdapter` (`src/lib/adapter/AbstractRpcHubAdapter.ts`): the hub adapter
 reports peers via `addPeer(adapter)`/`removePeer(id)`, and the hub wraps every peer adapter in a regular channel, so
@@ -82,6 +82,8 @@ Before reporting work as done, run `npm run coverage`, `npm run check`, `npm run
    the adapter classes flat in that folder (no `host/`/`client/` subfolders) and put helper functions into `utils/`
    and constants into `constants/` below it. Tests mirror this structure. Files that run in a worker scope are listed
    explicitly in the `tsconfig.*webworker.json` files; their tests are named `*.worker.test.ts`/`*.worker.test-d.ts`.
+   Node-only tests are named `*.node.test.ts` and run in the Vitest project `node`; end-to-end tests against real
+   Node.js APIs live in `test/node/`.
 2. Extend `AbstractRpcAdapter` and implement `connect` and `sendMessage`; report connection state via `connectionStatus`,
    call `closeConnection()` when the transport is definitively closed (this rejects in-flight calls with
    `CONNECTION_LOST`, a mere status change does not) and forward incoming messages via `onMessage`. Override `destroy`

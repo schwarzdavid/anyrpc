@@ -10,5 +10,10 @@
             "anyrpc/adapters/*": ["./src/lib/adapter/*/index.ts"]
         }
     },
-    "include": ["src/index.ts", "src/lib/adapter/message-port/index.ts"]
+    "include": [
+        "src/index.ts",
+        "src/lib/adapter/message-port/index.ts",
+        "src/lib/adapter/node-worker/**/*.ts",
+        "examples/node-worker/**/*.ts"
+    ]
 }

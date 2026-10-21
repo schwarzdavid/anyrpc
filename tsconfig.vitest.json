@@ -12,6 +12,7 @@
         "src/lib/adapter/web-worker/SharedWorkerPeerAdapter.ts",
         "test/unit/**/*.worker.test.ts",
         "test/unit/**/*.worker.test-d.ts",
-        "test/**/*.worker.ts"
+        "test/**/*.worker.ts",
+        "test/node/**/fixtures/**"
     ]
 }

@@ -47,6 +47,11 @@
       "types": "./dist/lib/adapter/web-worker/index.d.ts",
       "import": "./dist/web-worker.js",
       "require": "./dist/web-worker.cjs"
+    },
+    "./adapters/node-worker": {
+      "types": "./dist/lib/adapter/node-worker/index.d.ts",
+      "import": "./dist/node-worker.js",
+      "require": "./dist/node-worker.cjs"
     }
   },
   "sideEffects": false,

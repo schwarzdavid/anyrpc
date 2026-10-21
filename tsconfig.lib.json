@@ -11,9 +11,11 @@
     },
     "include": ["src", "examples"],
     "exclude": [
+        "src/lib/adapter/node-worker/**",
         "src/lib/adapter/web-worker/WebWorkerClientAdapter.ts",
         "src/lib/adapter/web-worker/SharedWorkerHubAdapter.ts",
         "src/lib/adapter/web-worker/SharedWorkerPeerAdapter.ts",
+        "examples/node-worker/**",
         "examples/**/*.worker.ts"
     ]
 }
