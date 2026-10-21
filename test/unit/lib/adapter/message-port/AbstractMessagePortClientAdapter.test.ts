@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { MessagePortLike } from '@/lib/adapter/message-port/AbstractMessagePortAdapter'
 import { AbstractMessagePortClientAdapter } from '@/lib/adapter/message-port/AbstractMessagePortClientAdapter'
 import type { InitRequest } from '@/lib/adapter/message-port/utils/handshake'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
@@ -22,6 +23,10 @@ class TestClientAdapter extends AbstractMessagePortClientAdapter<TestMethods, Te
 
     accept(event: MessageEvent): void {
         this.acceptInitResponse(event)
+    }
+
+    acceptData(data: unknown, ports: readonly MessagePortLike[]): void {
+        this.acceptInitResponseData(data, ports)
     }
 
     get postedRequest(): InitRequest {
@@ -108,6 +113,41 @@ describe(AbstractMessagePortClientAdapter, () => {
     })
 
     describe('init responses', () => {
+        it('should attach ports that are passed next to the response data', () => {
+            adapter.connect()
+
+            adapter.acceptData({ jsonrpc: '2.0', id: adapter.postedRequest.id, result: null }, [
+                dataChannel.port1,
+                controlChannel.port1,
+            ])
+
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
+            expect(adapter.listenerSignal.aborted).toBe(true)
+        })
+
+        it('should ignore response data that answers another request', () => {
+            adapter.connect()
+
+            adapter.acceptData({ jsonrpc: '2.0', id: 'other-id', result: null }, [
+                dataChannel.port1,
+                controlChannel.port1,
+            ])
+
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+        })
+
+        it('should warn and stay disconnected when response data comes without both ports', () => {
+            adapter.connect()
+
+            adapter.acceptData({ jsonrpc: '2.0', id: adapter.postedRequest.id, result: null }, [dataChannel.port1])
+
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+            expect(console.warn).toHaveBeenCalledWith(
+                '[TestClientAdapter]',
+                'Ignored a handshake response without the expected message ports',
+            )
+        })
+
         it('should attach the received ports and stop the handshake', () => {
             adapter.connect()
 

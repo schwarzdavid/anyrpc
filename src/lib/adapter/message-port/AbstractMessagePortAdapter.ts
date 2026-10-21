@@ -7,11 +7,24 @@ import {
     createControlMessage,
     readControlMethod,
 } from '@/lib/adapter/message-port/utils/controlMessages'
+import { readMessageData } from '@/lib/adapter/message-port/utils/messageData'
 import { Heartbeat, type HeartbeatOptions } from '@/lib/Heartbeat'
 
+export interface MessagePortLike {
+    postMessage(message: unknown): void
+    addEventListener(type: 'message' | 'messageerror', listener: (event: Event) => void): void
+    start(): void
+    close(): void
+}
+
+export interface MessageEventLike {
+    data: unknown
+    ports: readonly MessagePortLike[]
+}
+
 export interface MessagePorts {
-    data: MessagePort
-    control?: MessagePort
+    data: MessagePortLike
+    control?: MessagePortLike
 }
 
 export interface AttachPortsOptions {
@@ -48,12 +61,12 @@ export abstract class AbstractMessagePortAdapter<
         }
         this.ports = ports
 
-        ports.data.addEventListener('message', (event) => void this.onMessage(event.data as object))
+        ports.data.addEventListener('message', (event) => void this.onMessage(readMessageData(event) as object))
         ports.data.addEventListener('messageerror', () =>
             this.logger?.warn('Dropped a message that could not be deserialized'),
         )
         ports.data.start()
-        ports.control?.addEventListener('message', (event) => this.onControlMessage(event.data))
+        ports.control?.addEventListener('message', (event) => this.onControlMessage(readMessageData(event)))
         ports.control?.start()
 
         if (awaitRemote) {

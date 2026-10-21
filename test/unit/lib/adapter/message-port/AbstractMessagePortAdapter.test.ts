@@ -1,3 +1,4 @@
+import { MessageChannel as NodeMessageChannel } from 'node:worker_threads'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AbstractMessagePortAdapter, type MessagePorts } from '@/lib/adapter/message-port/AbstractMessagePortAdapter'
 import type { HeartbeatOptions } from '@/lib/Heartbeat'
@@ -58,6 +59,47 @@ describe(AbstractMessagePortAdapter, () => {
         controlChannel.port2.close()
         vi.useRealTimers()
         vi.restoreAllMocks()
+    })
+
+    describe('with Node.js message ports', () => {
+        let nodeDataChannel: NodeMessageChannel
+        let nodeControlChannel: NodeMessageChannel
+
+        beforeEach(() => {
+            nodeDataChannel = new NodeMessageChannel()
+            nodeControlChannel = new NodeMessageChannel()
+        })
+
+        afterEach(() => {
+            nodeDataChannel.port2.close()
+            nodeControlChannel.port2.close()
+        })
+
+        it('should forward messages received on a worker_threads port', async () => {
+            adapter.attach({ data: nodeDataChannel.port1, control: nodeControlChannel.port1 })
+
+            nodeDataChannel.port2.postMessage(request)
+
+            await vi.waitFor(() => expect(adapter.messageHandlerMock).toHaveBeenCalledWith(request))
+        })
+
+        it('should send messages through a worker_threads port', async () => {
+            const received = new Promise((resolve) => nodeDataChannel.port2.once('message', resolve))
+
+            adapter.attach({ data: nodeDataChannel.port1 })
+            adapter.sendMessage(request)
+
+            await expect(received).resolves.toStrictEqual(request)
+        })
+
+        it('should answer pings on a worker_threads control port', async () => {
+            const received = new Promise((resolve) => nodeControlChannel.port2.once('message', resolve))
+
+            adapter.attach({ data: nodeDataChannel.port1, control: nodeControlChannel.port1 })
+            nodeControlChannel.port2.postMessage({ jsonrpc: '2.0', method: 'anyrpc::ping', params: [] })
+
+            await expect(received).resolves.toStrictEqual({ jsonrpc: '2.0', method: 'anyrpc::pong', params: [] })
+        })
     })
 
     describe('without ports', () => {
