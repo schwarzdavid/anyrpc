@@ -1,6 +1,6 @@
 import { setTimeout } from 'node:timers/promises'
-import { createRpcChannel } from 'anyrpc'
-import { NodeWorkerClientAdapter } from 'anyrpc/adapters/node-worker'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { NodeWorkerClientAdapter } from '@schwarzdavid/anyrpc/adapters/node-worker'
 import type { MainToWorker, WorkerToMain } from './FixtureMessages'
 
 await setTimeout(1500)

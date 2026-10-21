@@ -1,5 +1,5 @@
-import { createRpcChannel } from 'anyrpc'
-import { NodeWorkerClientAdapter } from 'anyrpc/adapters/node-worker'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { NodeWorkerClientAdapter } from '@schwarzdavid/anyrpc/adapters/node-worker'
 import type { MainToWorker, WorkerToMain } from './NodeWorkerMessages'
 
 const channel = createRpcChannel<WorkerToMain, MainToWorker>(new NodeWorkerClientAdapter('example'))

@@ -13,7 +13,7 @@ interface Methods {
     ping(): string
 }
 
-describe('anyrpc/adapters/node-worker entry point', () => {
+describe('@schwarzdavid/anyrpc/adapters/node-worker entry point', () => {
     it('should accept a worker_threads Worker', () => {
         expectTypeOf<Worker>().toExtend<NodeWorkerLike>()
     })

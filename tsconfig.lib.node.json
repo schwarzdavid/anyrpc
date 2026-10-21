@@ -6,8 +6,8 @@
         "types": ["node"],
         "paths": {
             "@/*": ["./src/*"],
-            "anyrpc": ["./src/index.ts"],
-            "anyrpc/adapters/*": ["./src/lib/adapter/*/index.ts"]
+            "@schwarzdavid/anyrpc": ["./src/index.ts"],
+            "@schwarzdavid/anyrpc/adapters/*": ["./src/lib/adapter/*/index.ts"]
         }
     },
     "include": [

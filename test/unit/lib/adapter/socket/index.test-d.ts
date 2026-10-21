@@ -8,7 +8,7 @@ interface Methods {
 
 declare const transport: { write(data: string): void }
 
-describe('anyrpc/adapters/socket entry point', () => {
+describe('@schwarzdavid/anyrpc/adapters/socket entry point', () => {
     it('should let consumers write a single-channel adapter by implementing send and connect', () => {
         class LineAdapter extends AbstractSocketAdapter<Methods, Methods> {
             constructor(heartbeat: HeartbeatOptions = { interval: 1000, timeout: 3000 }) {

@@ -1,6 +1,6 @@
 import { WebSocketServer } from 'ws'
-import { createRpcHub } from 'anyrpc'
-import { WebSocketHubAdapter } from 'anyrpc/adapters/websocket'
+import { createRpcHub } from '@schwarzdavid/anyrpc'
+import { WebSocketHubAdapter } from '@schwarzdavid/anyrpc/adapters/websocket'
 import type { ClientToServer, ServerToClient } from './WebSocketMessages'
 
 const server = new WebSocketServer({ port: 8081 })

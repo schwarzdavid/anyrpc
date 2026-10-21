@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
-import { createRpcChannel } from 'anyrpc'
-import { ChildProcessClientAdapter } from 'anyrpc/adapters/child-process'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { ChildProcessClientAdapter } from '@schwarzdavid/anyrpc/adapters/child-process'
 import type { ChildToParent, ParentToChild } from './ChildProcessMessages'
 
 const channel = createRpcChannel<ChildToParent, ParentToChild>(new ChildProcessClientAdapter('example'))

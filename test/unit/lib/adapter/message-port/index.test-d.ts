@@ -25,7 +25,7 @@ declare const port: MessagePort
 declare const nodePort: NodeMessagePort
 declare const nodePorts: NodeMessagePort[]
 
-describe('anyrpc/adapters/message-port entry point', () => {
+describe('@schwarzdavid/anyrpc/adapters/message-port entry point', () => {
     it('should let consumers write a host adapter by implementing the handshake transport', () => {
         class CustomHostAdapter extends AbstractMessagePortHostAdapter<Methods, Events> {
             constructor(heartbeat: HeartbeatOption = false) {

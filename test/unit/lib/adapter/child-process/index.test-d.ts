@@ -14,7 +14,7 @@ interface Methods {
     ping(): string
 }
 
-describe('anyrpc/adapters/child-process entry point', () => {
+describe('@schwarzdavid/anyrpc/adapters/child-process entry point', () => {
     it('should accept a forked child process and the global process', () => {
         expectTypeOf<ChildProcess>().toExtend<ChildProcessLike>()
         expectTypeOf<NodeJS.Process>().toExtend<ProcessLike>()

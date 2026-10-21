@@ -36,26 +36,27 @@ anyrpc takes care of all of this. You describe both directions of communication 
 
 ## Adapters
 
-- [x] **iframe** (`anyrpc/adapters/iframe`). Uses a dedicated `MessageChannel` after a handshake, with origin allow-listing on both sides, optional heartbeat and automatic reconnects (e.g. after the iframe reloads).
-- [x] **Web Worker** (`anyrpc/adapters/web-worker`). Dedicated workers with a `MessageChannel` per channel, optional heartbeat and error logging.
-- [x] **SharedWorker** (`anyrpc/adapters/web-worker`). Every connected page becomes a peer of a [hub](#hubs-one-to-many) inside the worker, with a heartbeat that removes closed tabs.
+- [x] **iframe** (`@schwarzdavid/anyrpc/adapters/iframe`). Uses a dedicated `MessageChannel` after a handshake, with origin allow-listing on both sides, optional heartbeat and automatic reconnects (e.g. after the iframe reloads).
+- [x] **Web Worker** (`@schwarzdavid/anyrpc/adapters/web-worker`). Dedicated workers with a `MessageChannel` per channel, optional heartbeat and error logging.
+- [x] **SharedWorker** (`@schwarzdavid/anyrpc/adapters/web-worker`). Every connected page becomes a peer of a [hub](#hubs-one-to-many) inside the worker, with a heartbeat that removes closed tabs.
 - [ ] `ServiceWorker`
 - [ ] `BroadcastChannel` (cross-tab)
 - [ ] `window.open` / popup
-- [x] **WebSocket** (`anyrpc/adapters/websocket`). A client adapter with automatic reconnects for browsers and Node.js, and a hub adapter for `ws`-compatible servers, both with an optional heartbeat.
+- [x] **WebSocket** (`@schwarzdavid/anyrpc/adapters/websocket`). A client adapter with automatic reconnects for browsers and Node.js, and a hub adapter for `ws`-compatible servers, both with an optional heartbeat.
 - [ ] WebRTC
-- [x] **Node.js worker threads** (`anyrpc/adapters/node-worker`). A `MessageChannel` per channel, optional heartbeat, errors of the worker are logged and its exit disconnects the channel.
-- [x] **Node.js child processes** (`anyrpc/adapters/child-process`). Uses the IPC channel of `child_process.fork()`, several channels per process, optional heartbeat, the child's exit or IPC disconnect closes the channel.
+- [x] **Node.js worker threads** (`@schwarzdavid/anyrpc/adapters/node-worker`). A `MessageChannel` per channel, optional heartbeat, errors of the worker are logged and its exit disconnects the channel.
+- [x] **Node.js child processes** (`@schwarzdavid/anyrpc/adapters/child-process`). Uses the IPC channel of `child_process.fork()`, several channels per process, optional heartbeat, the child's exit or IPC disconnect closes the channel.
 
 ## Getting started
 
 ### Installation
 
-> anyrpc has not been published to npm yet. Until it is, install it straight from GitHub:
-
 ```bash
-npm install github:schwarzdavid/anyrpc
+npm install @schwarzdavid/anyrpc
 ```
+
+> anyrpc has not been published to npm yet. Until it is, install it straight from GitHub:
+> `npm install github:schwarzdavid/anyrpc`
 
 ### 1. Define your API contract
 
@@ -78,8 +79,8 @@ export interface IFrameToHost {
 
 ```ts
 // host.ts
-import { createRpcChannel } from 'anyrpc'
-import { IFrameHostAdapter } from 'anyrpc/adapters/iframe'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { IFrameHostAdapter } from '@schwarzdavid/anyrpc/adapters/iframe'
 import type { HostToIFrame, IFrameToHost } from './messages'
 
 const iframe = document.querySelector('iframe')!
@@ -106,8 +107,8 @@ channel.$.on('rpc.connected', async () => {
 
 ```ts
 // iframe.ts
-import { createRpcChannel } from 'anyrpc'
-import { IFrameClientAdapter } from 'anyrpc/adapters/iframe'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { IFrameClientAdapter } from '@schwarzdavid/anyrpc/adapters/iframe'
 import type { HostToIFrame, IFrameToHost } from './messages'
 
 const channel = createRpcChannel<IFrameToHost, HostToIFrame>(
@@ -196,8 +197,8 @@ The page creates the worker and passes it to `WebWorkerHostAdapter`. Inside the 
 
 ```ts
 // main.ts
-import { createRpcChannel } from 'anyrpc'
-import { WebWorkerHostAdapter } from 'anyrpc/adapters/web-worker'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { WebWorkerHostAdapter } from '@schwarzdavid/anyrpc/adapters/web-worker'
 import type { MainToWorker, WorkerToMain } from './messages'
 
 const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
@@ -208,8 +209,8 @@ const result = await channel.compute(42)
 
 ```ts
 // worker.ts
-import { createRpcChannel } from 'anyrpc'
-import { WebWorkerClientAdapter } from 'anyrpc/adapters/web-worker'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { WebWorkerClientAdapter } from '@schwarzdavid/anyrpc/adapters/web-worker'
 import type { MainToWorker, WorkerToMain } from './messages'
 
 const channel = createRpcChannel<WorkerToMain, MainToWorker>(new WebWorkerClientAdapter('my-app'))
@@ -244,8 +245,8 @@ Some transports connect one side to many peers: a `SharedWorker` serves every ta
 
 ```ts
 // shared-worker.ts
-import { createRpcHub } from 'anyrpc'
-import { SharedWorkerHubAdapter } from 'anyrpc/adapters/web-worker'
+import { createRpcHub } from '@schwarzdavid/anyrpc'
+import { SharedWorkerHubAdapter } from '@schwarzdavid/anyrpc/adapters/web-worker'
 import type { PageToWorker, WorkerToPage } from './messages'
 
 // createRpcHub<MethodsOfEveryPeer, MethodsICanHandle>
@@ -284,8 +285,8 @@ Each page creates the `SharedWorker` and passes it to the same `WebWorkerHostAda
 
 ```ts
 // page.ts
-import { createRpcChannel } from 'anyrpc'
-import { WebWorkerHostAdapter } from 'anyrpc/adapters/web-worker'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { WebWorkerHostAdapter } from '@schwarzdavid/anyrpc/adapters/web-worker'
 import type { PageToWorker, WorkerToPage } from './messages'
 
 const worker = new SharedWorker(new URL('./shared-worker.ts', import.meta.url), { type: 'module' })
@@ -315,8 +316,8 @@ The thread that starts the worker passes it to `NodeWorkerHostAdapter`. Inside t
 ```ts
 // main.ts
 import { Worker } from 'node:worker_threads'
-import { createRpcChannel } from 'anyrpc'
-import { NodeWorkerHostAdapter } from 'anyrpc/adapters/node-worker'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { NodeWorkerHostAdapter } from '@schwarzdavid/anyrpc/adapters/node-worker'
 
 const worker = new Worker(new URL('./worker.js', import.meta.url))
 const channel = createRpcChannel<MainToWorker, WorkerToMain>(new NodeWorkerHostAdapter(worker, 'my-app'))
@@ -324,8 +325,8 @@ const channel = createRpcChannel<MainToWorker, WorkerToMain>(new NodeWorkerHostA
 
 ```ts
 // worker.ts
-import { createRpcChannel } from 'anyrpc'
-import { NodeWorkerClientAdapter } from 'anyrpc/adapters/node-worker'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { NodeWorkerClientAdapter } from '@schwarzdavid/anyrpc/adapters/node-worker'
 
 const channel = createRpcChannel<WorkerToMain, MainToWorker>(new NodeWorkerClientAdapter('my-app'))
 ```
@@ -353,8 +354,8 @@ The process that forks the child passes it to `ChildProcessHostAdapter`. Inside 
 ```ts
 // main.ts
 import { fork } from 'node:child_process'
-import { createRpcChannel } from 'anyrpc'
-import { ChildProcessHostAdapter } from 'anyrpc/adapters/child-process'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { ChildProcessHostAdapter } from '@schwarzdavid/anyrpc/adapters/child-process'
 
 const child = fork('./child.js')
 const channel = createRpcChannel<ParentToChild, ChildToParent>(new ChildProcessHostAdapter(child, 'my-app'))
@@ -362,8 +363,8 @@ const channel = createRpcChannel<ParentToChild, ChildToParent>(new ChildProcessH
 
 ```ts
 // child.ts
-import { createRpcChannel } from 'anyrpc'
-import { ChildProcessClientAdapter } from 'anyrpc/adapters/child-process'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { ChildProcessClientAdapter } from '@schwarzdavid/anyrpc/adapters/child-process'
 
 const channel = createRpcChannel<ChildToParent, ParentToChild>(new ChildProcessClientAdapter('my-app'))
 ```
@@ -392,7 +393,7 @@ const channel = createRpcChannel<ChildToParent, ParentToChild>(new ChildProcessC
 Errors thrown in a remote handler reject the caller's promise with an `RpcError`. The `RpcError` has a JSON-RPC `code`, a `message` and the original error details in `data`:
 
 ```ts
-import { RpcError, RpcErrorCode } from 'anyrpc'
+import { RpcError, RpcErrorCode } from '@schwarzdavid/anyrpc'
 
 try {
     await channel.getTitle()
@@ -427,8 +428,8 @@ If the transport cannot send a request at all, for example because an argument i
 ```ts
 // server.ts
 import { WebSocketServer } from 'ws'
-import { createRpcHub } from 'anyrpc'
-import { WebSocketHubAdapter } from 'anyrpc/adapters/websocket'
+import { createRpcHub } from '@schwarzdavid/anyrpc'
+import { WebSocketHubAdapter } from '@schwarzdavid/anyrpc/adapters/websocket'
 
 const server = new WebSocketServer({ port: 8081 })
 const hub = createRpcHub<ServerToClient, ClientToServer>(new WebSocketHubAdapter(server))
@@ -436,8 +437,8 @@ const hub = createRpcHub<ServerToClient, ClientToServer>(new WebSocketHubAdapter
 
 ```ts
 // client.ts
-import { createRpcChannel } from 'anyrpc'
-import { WebSocketClientAdapter } from 'anyrpc/adapters/websocket'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { WebSocketClientAdapter } from '@schwarzdavid/anyrpc/adapters/websocket'
 
 const channel = createRpcChannel<ClientToServer, ServerToClient>(new WebSocketClientAdapter('wss://example.com/rpc'))
 ```
@@ -464,10 +465,10 @@ const channel = createRpcChannel<ClientToServer, ServerToClient>(new WebSocketCl
 
 ### Custom adapters
 
-Everything a transport needs is exported from `anyrpc`. Extend `AbstractRpcAdapter`, implement `connect()` and `sendMessage()`, hand incoming messages to `this.onMessage()`, report the state through `this.connectionStatus`, and call `this.closeConnection()` once the transport is definitively gone. The latter rejects in-flight calls with `-31003`; a plain status change does not, so a transport that is merely unresponsive can still deliver late responses. `connect()` may return a promise; if it rejects, the channel logs the error and stays `disconnected`. An adapter instance serves exactly one channel, so `createRpcChannel` throws if the adapter is already in use, until that channel is destroyed.
+Everything a transport needs is exported from `@schwarzdavid/anyrpc`. Extend `AbstractRpcAdapter`, implement `connect()` and `sendMessage()`, hand incoming messages to `this.onMessage()`, report the state through `this.connectionStatus`, and call `this.closeConnection()` once the transport is definitively gone. The latter rejects in-flight calls with `-31003`; a plain status change does not, so a transport that is merely unresponsive can still deliver late responses. `connect()` may return a promise; if it rejects, the channel logs the error and stays `disconnected`. An adapter instance serves exactly one channel, so `createRpcChannel` throws if the adapter is already in use, until that channel is destroyed.
 
 ```ts
-import { AbstractRpcAdapter, ConnectionStatus, type MethodMap, type RpcMessage } from 'anyrpc'
+import { AbstractRpcAdapter, ConnectionStatus, type MethodMap, type RpcMessage } from '@schwarzdavid/anyrpc'
 
 class MyWebSocketAdapter<
     Methods extends MethodMap<Methods>,
@@ -491,11 +492,11 @@ class MyWebSocketAdapter<
 }
 ```
 
-This example only illustrates the contract; use `anyrpc/adapters/websocket` for WebSockets in production.
+This example only illustrates the contract; use `@schwarzdavid/anyrpc/adapters/websocket` for WebSockets in production.
 
-For transports with a single bidirectional channel (TCP, IPC, …) extend `AbstractSocketAdapter` from `anyrpc/adapters/socket`. Implement `connect()` and `send(message)`, call `this.opened()` and `this.closed()` when the transport opens and closes, and pass incoming strings or objects to `this.receive(data)`. Heartbeat and goodbye messages travel in-band. `receive()` ignores data until `opened()` was called, so handle a handshake before passing data to `receive()` and answer it via `this.send(...)` directly. `send()` is called for RPC messages regardless of the connection state, so it must ignore writes to a closed transport itself; control messages are only sent while the transport is open.
+For transports with a single bidirectional channel (TCP, IPC, …) extend `AbstractSocketAdapter` from `@schwarzdavid/anyrpc/adapters/socket`. Implement `connect()` and `send(message)`, call `this.opened()` and `this.closed()` when the transport opens and closes, and pass incoming strings or objects to `this.receive(data)`. Heartbeat and goodbye messages travel in-band. `receive()` ignores data until `opened()` was called, so handle a handshake before passing data to `receive()` and answer it via `this.send(...)` directly. `send()` is called for RPC messages regardless of the connection state, so it must ignore writes to a closed transport itself; control messages are only sent while the transport is open.
 
-Transports that hand over `MessagePort`s after a handshake, like the iframe and Web Worker adapters, build on `anyrpc/adapters/message-port` instead. Extend `AbstractMessagePortClientAdapter` for the side that starts the handshake and polls until it is answered, and `AbstractMessagePortHostAdapter` for the side that answers it and creates the `MessageChannel`s. Implement only how handshake messages are listened for and posted; ports, heartbeat, goodbye notifications and reconnects come with the base classes. Which side starts the handshake depends on the transport: an iframe asks its parent, because the parent cannot know when the iframe has loaded, while a page asks its worker. The answering side reports `connected` only after the other side answered the first ping on the control port.
+Transports that hand over `MessagePort`s after a handshake, like the iframe and Web Worker adapters, build on `@schwarzdavid/anyrpc/adapters/message-port` instead. Extend `AbstractMessagePortClientAdapter` for the side that starts the handshake and polls until it is answered, and `AbstractMessagePortHostAdapter` for the side that answers it and creates the `MessageChannel`s. Implement only how handshake messages are listened for and posted; ports, heartbeat, goodbye notifications and reconnects come with the base classes. Which side starts the handshake depends on the transport: an iframe asks its parent, because the parent cannot know when the iframe has loaded, while a page asks its worker. The answering side reports `connected` only after the other side answered the first ping on the control port.
 
 The base classes accept any port that matches `MessagePortLike` (`postMessage`, `addEventListener`, `start`, `close`), including Node.js `worker_threads` ports. Transports that cannot deliver the handshake ports as `event.ports`, such as Node.js workers that only transfer ports inside the message itself, pass them to `this.acceptInitResponseData(data, ports)` instead of calling `this.acceptInitResponse(event)`. Implementations may declare `transfer` in `postInitResponse` as their transport's own type, e.g. `Transferable[]` in the browser or `MessagePort[]` from `node:worker_threads`.
 

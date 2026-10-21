@@ -1,6 +1,6 @@
 import { setTimeout } from 'node:timers/promises'
-import { createRpcChannel, type RpcChannel } from 'anyrpc'
-import { ChildProcessClientAdapter } from 'anyrpc/adapters/child-process'
+import { createRpcChannel, type RpcChannel } from '@schwarzdavid/anyrpc'
+import { ChildProcessClientAdapter } from '@schwarzdavid/anyrpc/adapters/child-process'
 import type { ChildToParent, ParentToChild } from './FixtureMessages'
 
 process.send?.({ type: 'unrelated message before anyrpc starts' })

@@ -15,7 +15,7 @@ interface Methods {
     ping(): string
 }
 
-describe('anyrpc/adapters/websocket entry point', () => {
+describe('@schwarzdavid/anyrpc/adapters/websocket entry point', () => {
     it('should accept ws servers and sockets', () => {
         expectTypeOf<WebSocketServer>().toExtend<WebSocketServerLike>()
         expectTypeOf<WsSocket>().toExtend<WebSocketLike>()

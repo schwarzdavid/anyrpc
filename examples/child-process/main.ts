@@ -1,7 +1,7 @@
 import { fork } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { createRpcChannel } from 'anyrpc'
-import { ChildProcessHostAdapter } from 'anyrpc/adapters/child-process'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { ChildProcessHostAdapter } from '@schwarzdavid/anyrpc/adapters/child-process'
 import type { ChildToParent, ParentToChild } from './ChildProcessMessages'
 
 const child = fork(fileURLToPath(new URL('./child.ts', import.meta.url)))

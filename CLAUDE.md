@@ -15,8 +15,8 @@ it is answered). Which side starts depends on the transport: an iframe asks its 
 `Host`/`Client` in the public adapter names mean the embedding/embedded side, not the handshake role
 (`WebWorkerHostAdapter` extends the client base). Both build on `AbstractMessagePortAdapter`, which owns the ports, the
 heartbeat and the control protocol (ping/pong/goodbye). They live in `src/lib/adapter/message-port/` and ship as
-`anyrpc/adapters/message-port`. Transports with a single bidirectional channel extend `AbstractSocketAdapter`
-(`src/lib/adapter/socket/`, shipped as `anyrpc/adapters/socket`), which sends ping/pong/goodbye in-band through
+`@schwarzdavid/anyrpc/adapters/message-port`. Transports with a single bidirectional channel extend `AbstractSocketAdapter`
+(`src/lib/adapter/socket/`, shipped as `@schwarzdavid/anyrpc/adapters/socket`), which sends ping/pong/goodbye in-band through
 `ControlProtocol` (`src/lib/ControlProtocol.ts`), the same protocol the message-port adapters use on their control port.
 The WebSocket adapters live in `src/lib/adapter/websocket/`. One-to-many transports (e.g. a `SharedWorker` serving many
 tabs) use `createRpcHub` with an adapter that extends `AbstractRpcHubAdapter`

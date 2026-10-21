@@ -1,6 +1,6 @@
 import { Worker } from 'node:worker_threads'
-import { createRpcChannel } from 'anyrpc'
-import { NodeWorkerHostAdapter } from 'anyrpc/adapters/node-worker'
+import { createRpcChannel } from '@schwarzdavid/anyrpc'
+import { NodeWorkerHostAdapter } from '@schwarzdavid/anyrpc/adapters/node-worker'
 import type { MainToWorker, WorkerToMain } from './NodeWorkerMessages'
 
 const worker = new Worker(new URL('./worker.ts', import.meta.url))
