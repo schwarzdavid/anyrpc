@@ -5,21 +5,24 @@
 anyrpc is a small, fully typed, transport-agnostic RPC library for TypeScript. Consumers describe both directions of
 communication as interfaces and get back a typed proxy (`createRpcChannel`). Messages follow JSON-RPC 2.0, and the
 transport is pluggable through adapters that extend `AbstractRpcAdapter` (`src/lib/adapter/AbstractRpcAdapter.ts`,
-exported from the package entry together with `ConnectionStatus`, `LogLevel`, `RpcError` and `RpcErrorCode`).
-Adapters for iframes (`src/lib/adapter/iframe/`) and web workers (`src/lib/adapter/web-worker/`) exist, as well as for Node.js worker threads
-(`src/lib/adapter/node-worker/`); more transports are planned (see README). Transports that exchange `MessagePort`s
-after a handshake extend `AbstractMessagePortHostAdapter` (the side that answers the handshake and creates the
-`MessageChannel`s) or `AbstractMessagePortClientAdapter` (the side that starts the handshake and polls until it is
-answered). Which side starts depends on the transport: an iframe asks its parent, a page asks its worker.
+exported from the package entry together with `ConnectionStatus`, `LogLevel`, `RpcError` and `RpcErrorCode`). Adapters
+for iframes (`src/lib/adapter/iframe/`) and web workers (`src/lib/adapter/web-worker/`) exist, as well as for Node.js
+worker threads (`src/lib/adapter/node-worker/`); more transports are planned (see README). Transports that exchange
+`MessagePort`s after a handshake extend `AbstractMessagePortHostAdapter` (the side that answers the handshake and
+creates the `MessageChannel`s) or `AbstractMessagePortClientAdapter` (the side that starts the handshake and polls until
+it is answered). Which side starts depends on the transport: an iframe asks its parent, a page asks its worker.
 `Host`/`Client` in the public adapter names mean the embedding/embedded side, not the handshake role
-(`WebWorkerHostAdapter` extends the client base). Both build on `AbstractMessagePortAdapter`, which owns the ports,
-the heartbeat and the control protocol (ping/pong/goodbye). They live in `src/lib/adapter/message-port/` and ship as
-`anyrpc/adapters/message-port`. One-to-many transports (e.g. a `SharedWorker` serving many tabs) use `createRpcHub`
-with an adapter that extends `AbstractRpcHubAdapter` (`src/lib/adapter/AbstractRpcHubAdapter.ts`): the hub adapter
-reports peers via `addPeer(adapter)`/`removePeer(id)`, and the hub wraps every peer adapter in a regular channel, so
-the channel core stays 1:1. Channel and hub share the same proxy shape (`createMethodProxy`): methods on the object,
-everything else under `$`. Enumerations are `as const` objects with a same-named union type, never `enum`, so
-they stay usable for consumers with `isolatedModules`.
+(`WebWorkerHostAdapter` extends the client base). Both build on `AbstractMessagePortAdapter`, which owns the ports, the
+heartbeat and the control protocol (ping/pong/goodbye). They live in `src/lib/adapter/message-port/` and ship as
+`anyrpc/adapters/message-port`. Transports with a single bidirectional channel extend `AbstractSocketAdapter`
+(`src/lib/adapter/socket/`, shipped as `anyrpc/adapters/socket`), which sends ping/pong/goodbye in-band through
+`ControlProtocol` (`src/lib/ControlProtocol.ts`), the same protocol the message-port adapters use on their control port.
+The WebSocket adapters live in `src/lib/adapter/websocket/`. One-to-many transports (e.g. a `SharedWorker` serving many
+tabs) use `createRpcHub` with an adapter that extends `AbstractRpcHubAdapter`
+(`src/lib/adapter/AbstractRpcHubAdapter.ts`): the hub adapter reports peers via `addPeer(adapter)`/`removePeer(id)`, and
+the hub wraps every peer adapter in a regular channel, so the channel core stays 1:1. Channel and hub share the same
+proxy shape (`createMethodProxy`): methods on the object, everything else under `$`. Enumerations are `as const` objects
+with a same-named union type, never `enum`, so they stay usable for consumers with `isolatedModules`.
 
 ## Guiding principles
 
@@ -89,6 +92,8 @@ Before reporting work as done, run `npm run coverage`, `npm run check`, `npm run
    `CONNECTION_LOST`, a mere status change does not) and forward incoming messages via `onMessage`. Override `destroy`
    to release resources. Handshake-based `MessagePort` transports extend `AbstractMessagePortHostAdapter` or
    `AbstractMessagePortClientAdapter` instead and only implement how handshake messages are listened for and posted.
+   Single-channel transports without `MessagePort`s extend `AbstractSocketAdapter` (`src/lib/adapter/socket/`) and
+   implement `connect` and `send`, calling `opened()`, `closed()` and `receive()`.
 3. Add one build entry in `vite.config.ts` and a matching subpath export in `package.json` that exports both sides.
    Code that runs in a different global scope than the DOM (e.g. inside a worker) is additionally type-checked by a
    tsconfig with the matching `lib` (see `tsconfig.lib.webworker.json`). Its public types must stay lib-neutral,

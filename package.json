@@ -52,12 +52,23 @@
       "types": "./dist/lib/adapter/node-worker/index.d.ts",
       "import": "./dist/node-worker.js",
       "require": "./dist/node-worker.cjs"
+    },
+    "./adapters/socket": {
+      "types": "./dist/lib/adapter/socket/index.d.ts",
+      "import": "./dist/socket.js",
+      "require": "./dist/socket.cjs"
+    },
+    "./adapters/websocket": {
+      "types": "./dist/lib/adapter/websocket/index.d.ts",
+      "import": "./dist/websocket.js",
+      "require": "./dist/websocket.cjs"
     }
   },
   "sideEffects": false,
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
+    "@types/ws": "^8.18.2",
     "@vitest/browser-playwright": "4.0.16",
     "@vitest/coverage-v8": "4.0.16",
     "@vitest/eslint-plugin": "^1.5.1",
@@ -72,7 +83,8 @@
     "typescript-eslint": "^8.48.1",
     "vite": "^7.2.6",
     "vite-plugin-dts": "^4.5.4",
-    "vitest": "4.0.16"
+    "vitest": "4.0.16",
+    "ws": "^8.22.0"
   },
   "dependencies": {
     "type-fest": "^5.10.0"

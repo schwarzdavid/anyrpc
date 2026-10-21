@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-    ControlMethod,
-    createControlMessage,
-    readControlMethod,
-} from '@/lib/adapter/message-port/utils/controlMessages'
+import { ControlMethod, createControlMessage, readControlMethod } from '@/utils/controlMessages'
 
 describe(createControlMessage, () => {
     it('should create a JSON-RPC notification', () => {

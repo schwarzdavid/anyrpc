@@ -8,7 +8,7 @@ import {
 } from '@/lib/adapter/web-worker'
 import { SharedWorkerPeerAdapter } from '@/lib/adapter/web-worker/SharedWorkerPeerAdapter'
 import type { PeerHandler, PeerLostHandler } from '@/lib/adapter/AbstractRpcHubAdapter'
-import { readControlMethod, ControlMethod } from '@/lib/adapter/message-port/utils/controlMessages'
+import { readControlMethod, ControlMethod } from '@/utils/controlMessages'
 import { createRpcHub } from '@/createRpcHub'
 import { createRpcChannel } from '@/createRpcChannel'
 import { LogLevel } from '@/types/LogLevel'

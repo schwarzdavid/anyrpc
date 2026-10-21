@@ -1,0 +1,7 @@
+export const WEBSOCKET_OPEN = 1
+
+export const NORMAL_CLOSURE = 1000
+
+export const INITIAL_RECONNECT_DELAY = 1000
+
+export const MAX_RECONNECT_DELAY = 30000

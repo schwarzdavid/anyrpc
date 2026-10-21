@@ -16,6 +16,7 @@
         "src/lib/adapter/web-worker/SharedWorkerHubAdapter.ts",
         "src/lib/adapter/web-worker/SharedWorkerPeerAdapter.ts",
         "examples/node-worker/**",
+        "examples/websocket/server.ts",
         "examples/**/*.worker.ts"
     ]
 }
