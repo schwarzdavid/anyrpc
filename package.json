@@ -1,7 +1,7 @@
 {
   "name": "@schwarzdavid/anyrpc",
   "version": "0.0.2-alpha.1",
-  "description": "",
+  "description": "Fully typed, transport-agnostic, bidirectional RPC for TypeScript, based on JSON-RPC 2.0. Adapters for iframes, Web Workers, SharedWorkers, WebSockets, Node.js worker threads and child processes.",
   "scripts": {
     "format": "prettier . -c",
     "format:fix": "prettier . -w",
@@ -16,8 +16,23 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage"
   },
-  "keywords": [],
-  "author": "David Schwarz <david@ists-wurscht.at>",
+  "keywords": [
+    "rpc",
+    "json-rpc",
+    "typescript",
+    "typed",
+    "bidirectional",
+    "postmessage",
+    "iframe",
+    "web-worker",
+    "shared-worker",
+    "websocket",
+    "worker-threads",
+    "child-process",
+    "ipc",
+    "messagechannel"
+  ],
+  "author": "David Schwarz <david@schwarzdavid.at>",
   "license": "ISC",
   "repository": {
     "type": "git",
