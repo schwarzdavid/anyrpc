@@ -1,6 +1,7 @@
 export {
     AbstractMessagePortAdapter,
     type AttachPortsOptions,
+    type MessageEventLike,
     type MessagePortLike,
     type MessagePorts,
 } from './AbstractMessagePortAdapter'

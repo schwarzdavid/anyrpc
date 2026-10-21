@@ -17,6 +17,11 @@ export interface MessagePortLike {
     close(): void
 }
 
+export interface MessageEventLike {
+    data: unknown
+    ports: readonly MessagePortLike[]
+}
+
 export interface MessagePorts {
     data: MessagePortLike
     control?: MessagePortLike
