@@ -31,6 +31,7 @@ const EXPECTED_EXPORTS: Record<string, string[]> = {
     ],
     './adapters/web-worker': ['WebWorkerHostAdapter', 'WebWorkerClientAdapter', 'SharedWorkerHubAdapter'],
     './adapters/node-worker': ['NodeWorkerHostAdapter', 'NodeWorkerClientAdapter'],
+    './adapters/child-process': ['ChildProcessHostAdapter', 'ChildProcessClientAdapter'],
     './adapters/socket': ['AbstractSocketAdapter'],
     './adapters/websocket': ['WebSocketClientAdapter', 'WebSocketHubAdapter'],
 }
