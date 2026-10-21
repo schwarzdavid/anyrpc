@@ -10,7 +10,7 @@
     "check": "tsc --build --force",
     "build": "vite build",
     "dev": "vite",
-    "preversion": "concurrently 'npm run format' 'npm run lint' 'npm run check'",
+    "preversion": "concurrently npm:format npm:lint npm:check",
     "prepublishOnly": "npm run build",
     "test": "vitest run --typecheck",
     "test:watch": "vitest",
