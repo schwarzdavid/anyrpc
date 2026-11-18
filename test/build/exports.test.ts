@@ -6,8 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 interface PackageExport {
     types: string
-    import: string
-    require: string
+    default: string
 }
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url))
@@ -55,18 +54,26 @@ describe.skipIf(!existsSync(resolve(ROOT, 'dist')))('package exports', () => {
     })
 
     it.each(entries)('should resolve %s as ES module', async (subpath, names) => {
-        const module = (await import(pathToFileURL(distPath(subpath, 'import')).href)) as Record<string, unknown>
+        const module = (await import(pathToFileURL(distPath(subpath, 'default')).href)) as Record<string, unknown>
 
         expect(Object.keys(module)).toStrictEqual(expect.arrayContaining(names))
     })
 
-    it.each(entries)('should resolve %s as CommonJS module', (subpath, names) => {
-        const module = createRequire(import.meta.url)(distPath(subpath, 'require')) as Record<string, unknown>
+    it.each(entries)('should let CommonJS code require %s', (subpath, names) => {
+        const module = createRequire(import.meta.url)(distPath(subpath, 'default')) as Record<string, unknown>
 
         expect(Object.keys(module)).toStrictEqual(expect.arrayContaining(names))
     })
 
     it.each(entries)('should ship type declarations for %s', (subpath) => {
         expect(existsSync(distPath(subpath, 'types'))).toBe(true)
+    })
+
+    it.each(entries)('should import other declarations of %s with a file extension', (subpath) => {
+        const declarations = readFileSync(distPath(subpath, 'types'), 'utf8')
+        const relativeImports = [...declarations.matchAll(/from '(\.[^']*)'/g)].map(([, specifier]) => specifier)
+
+        expect(relativeImports).not.toHaveLength(0)
+        expect(relativeImports.filter((specifier) => !specifier?.endsWith('.js'))).toStrictEqual([])
     })
 })

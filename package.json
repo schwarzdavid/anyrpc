@@ -46,49 +46,39 @@
     "dist",
     "src"
   ],
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "default": "./dist/index.js"
     },
     "./adapters/iframe": {
       "types": "./dist/lib/adapter/iframe/index.d.ts",
-      "import": "./dist/iframe.js",
-      "require": "./dist/iframe.cjs"
+      "default": "./dist/iframe.js"
     },
     "./adapters/message-port": {
       "types": "./dist/lib/adapter/message-port/index.d.ts",
-      "import": "./dist/message-port.js",
-      "require": "./dist/message-port.cjs"
+      "default": "./dist/message-port.js"
     },
     "./adapters/web-worker": {
       "types": "./dist/lib/adapter/web-worker/index.d.ts",
-      "import": "./dist/web-worker.js",
-      "require": "./dist/web-worker.cjs"
+      "default": "./dist/web-worker.js"
     },
     "./adapters/node-worker": {
       "types": "./dist/lib/adapter/node-worker/index.d.ts",
-      "import": "./dist/node-worker.js",
-      "require": "./dist/node-worker.cjs"
+      "default": "./dist/node-worker.js"
     },
     "./adapters/child-process": {
       "types": "./dist/lib/adapter/child-process/index.d.ts",
-      "import": "./dist/child-process.js",
-      "require": "./dist/child-process.cjs"
+      "default": "./dist/child-process.js"
     },
     "./adapters/socket": {
       "types": "./dist/lib/adapter/socket/index.d.ts",
-      "import": "./dist/socket.js",
-      "require": "./dist/socket.cjs"
+      "default": "./dist/socket.js"
     },
     "./adapters/websocket": {
       "types": "./dist/lib/adapter/websocket/index.d.ts",
-      "import": "./dist/websocket.js",
-      "require": "./dist/websocket.cjs"
+      "default": "./dist/websocket.js"
     }
   },
   "sideEffects": false,

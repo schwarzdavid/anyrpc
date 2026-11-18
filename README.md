@@ -55,7 +55,7 @@ anyrpc takes care of all of this. You describe both directions of communication 
 npm install @schwarzdavid/anyrpc
 ```
 
-> anyrpc is still in alpha: the API may change with every release until 1.0.0. The Node.js adapters and the WebSocket client need Node.js 22 or newer.
+> anyrpc is still in alpha: the API may change with every release until 1.0.0. The package is ESM only; CommonJS code can load it with `require()` on Node.js 22.12 or newer. The Node.js adapters and the WebSocket client need Node.js 22 or newer.
 
 ### 1. Define your API contract
 
@@ -561,7 +561,7 @@ npm run coverage   # Tests with coverage report
 npm run check      # TypeScript project build
 npm run lint       # ESLint
 npm run format     # Prettier check
-npm run build      # Build ESM + CJS bundles and type declarations into dist/
+npm run build      # Build the ESM bundles and type declarations into dist/
 ```
 
 ## Todo

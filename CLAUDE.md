@@ -84,7 +84,7 @@ npm run coverage   # tests with coverage report, must stay at 100%
 npm run check      # tsc project build
 npm run lint       # ESLint
 npm run format     # Prettier check (format:fix to write)
-npm run build      # ESM + CJS bundles and d.ts into dist/
+npm run build      # ESM bundles and d.ts into dist/
 npm run dev        # Vite dev server, live demo at /examples/iframe/
 ```
 

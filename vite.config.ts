@@ -1,12 +1,35 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
-import { resolve } from 'node:path'
+import { existsSync } from 'node:fs'
+import { dirname, relative, resolve } from 'node:path'
 import dts from 'vite-plugin-dts'
 import { playwright } from '@vitest/browser-playwright'
 
 const WORKER_SCOPE_TESTS = 'test/unit/**/*.worker.test.ts'
 const WORKER_SCOPE_TYPE_TESTS = 'test/unit/**/*.worker.test-d.ts'
 const NODE_SCOPE_TESTS = 'test/unit/**/*.node.test.ts'
+
+const SRC_DIR = resolve(__dirname, 'src')
+const DIST_DIR = resolve(__dirname, 'dist')
+const RELATIVE_SPECIFIER = /(from\s+|import\()(['"])(\.{1,2}\/[^'"]*)\2/g
+
+function withJsExtension(declarationFile: string, specifier: string): string {
+    const sourceDir = resolve(SRC_DIR, relative(DIST_DIR, dirname(declarationFile)))
+    const isDirectory = existsSync(resolve(sourceDir, specifier, 'index.ts'))
+
+    return isDirectory ? `${specifier}/index.js` : `${specifier}.js`
+}
+
+function addJsExtensions(declarationFile: string, content: string): string {
+    if (!declarationFile.endsWith('.d.ts')) {
+        return content
+    }
+    return content.replace(
+        RELATIVE_SPECIFIER,
+        (_match, keyword: string, quote: string, specifier: string) =>
+            `${keyword}${quote}${withJsExtension(declarationFile, specifier)}${quote}`,
+    )
+}
 
 export default defineConfig({
     plugins: [
@@ -15,6 +38,7 @@ export default defineConfig({
             include: ['src'],
             exclude: ['node_modules/**'],
             compilerOptions: { types: ['vite/client', 'node'] },
+            beforeWriteFile: (filePath, content) => ({ filePath, content: addJsExtensions(filePath, content) }),
         }),
     ],
     resolve: {
@@ -34,13 +58,11 @@ export default defineConfig({
                 socket: resolve(__dirname, 'src/lib/adapter/socket/index.ts'),
                 websocket: resolve(__dirname, 'src/lib/adapter/websocket/index.ts'),
             },
+            formats: ['es'],
         },
         rollupOptions: {
             external: [/^node:/],
-            output: [
-                { format: 'es', chunkFileNames: 'chunks/[name]-[hash].js' },
-                { format: 'cjs', chunkFileNames: 'chunks/[name]-[hash].cjs' },
-            ],
+            output: { chunkFileNames: 'chunks/[name]-[hash].js' },
         },
     },
     test: {
