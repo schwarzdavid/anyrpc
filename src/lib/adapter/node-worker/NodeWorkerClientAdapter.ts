@@ -21,6 +21,7 @@ export class NodeWorkerClientAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractMessagePortResponderAdapter<Methods, Events> {
+    protected override readonly logName = 'NodeWorkerClientAdapter'
     private readonly parentPort: MessagePort
 
     constructor(name: string = DEFAULT_NODE_WORKER_ADAPTER_NAME) {

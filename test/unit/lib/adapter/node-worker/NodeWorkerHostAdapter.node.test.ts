@@ -5,6 +5,7 @@ import { NodeWorkerHostAdapter } from '@/lib/adapter/node-worker/NodeWorkerHostA
 import type { ConnectionLostHandler } from '@/lib/adapter/AbstractRpcAdapter'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
+import { bindAdapter } from '../../../__helper/bindAdapter'
 
 interface TestMethods {
     foo(value: string): void
@@ -36,7 +37,7 @@ describe(NodeWorkerHostAdapter, () => {
         dataChannel = new MessageChannel()
         controlChannel = new MessageChannel()
         adapter = new NodeWorkerHostAdapter(worker, 'my-app')
-        adapter.initLogger(LogLevel.DEBUG)
+        bindAdapter(adapter, { logLevel: LogLevel.DEBUG })
     })
 
     afterEach(() => {
@@ -112,7 +113,7 @@ describe(NodeWorkerHostAdapter, () => {
 
     it('should disconnect, reject pending calls and stop polling when the worker exits', () => {
         const connectionLostHandler = vi.fn<ConnectionLostHandler>()
-        adapter.connectionLostHandler = connectionLostHandler
+        bindAdapter(adapter, { onConnectionLost: connectionLostHandler })
         adapter.connect()
         answerHandshake()
 

@@ -10,13 +10,11 @@ interface PendingRequest {
 export class PendingRequests {
     private readonly pending = new Map<string, PendingRequest>()
 
-    constructor(private readonly timeout: number) {}
-
-    track(id: string, send: () => void): Promise<unknown> {
+    track(id: string, send: () => void, timeout: number): Promise<unknown> {
         let timeoutId: ReturnType<typeof setTimeout> | undefined
 
         return new Promise((resolve, reject) => {
-            timeoutId = setTimeout(() => reject(new RpcError(RpcErrorCode.TIMEOUT_ERROR)), this.timeout)
+            timeoutId = setTimeout(() => reject(new RpcError(RpcErrorCode.TIMEOUT_ERROR)), timeout)
             this.pending.set(id, { resolve, reject })
 
             send()

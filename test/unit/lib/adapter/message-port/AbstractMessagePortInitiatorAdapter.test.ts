@@ -5,6 +5,7 @@ import type { InitRequest } from '@/lib/adapter/message-port/utils/handshake'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import { nextMessage } from '../../../__helper/nextMessage'
+import { bindAdapter } from '../../../__helper/bindAdapter'
 
 interface TestMethods {
     foo(value: string): void
@@ -13,12 +14,13 @@ interface TestMethods {
 const METHOD = 'anyrpc::test-init'
 
 class TestInitiatorAdapter extends AbstractMessagePortInitiatorAdapter<TestMethods, TestMethods> {
+    protected override readonly logName = 'TestInitiatorAdapter'
     readonly listenForInitResponses = vi.fn<(signal: AbortSignal) => void>()
     readonly postInitRequest = vi.fn<(request: InitRequest) => void>()
 
     constructor(name = 'my-app', pollingInterval = 1000) {
         super({ initMethod: METHOD, name, pollingInterval })
-        this.initLogger(LogLevel.DEBUG)
+        bindAdapter(this, { logLevel: LogLevel.DEBUG })
     }
 
     accept(event: MessageEvent): void {

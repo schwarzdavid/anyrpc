@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { IFrameClientAdapter, type IFrameClientAdapterOptions, type IFrameOriginOption } from '@/lib/adapter/iframe'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
+import { bindAdapter } from '../../../__helper/bindAdapter'
 
 interface TestMethods {
     foo(value: string): void
@@ -52,7 +53,7 @@ describe(IFrameClientAdapter, () => {
 
     function createAdapter(options?: Partial<IFrameClientAdapterOptions>) {
         adapter = new IFrameClientAdapter(undefined, options)
-        adapter.initLogger(LogLevel.DEBUG)
+        bindAdapter(adapter, { logLevel: LogLevel.DEBUG })
         return adapter
     }
 
@@ -133,7 +134,7 @@ describe(IFrameClientAdapter, () => {
             adapter.connect()
             adapter.connect()
             const connectionHandler = vi.fn<(status: ConnectionStatus) => void>()
-            adapter.connectionHandler = connectionHandler
+            bindAdapter(adapter, { onStatusChange: connectionHandler })
 
             receiveInitResponse()
 

@@ -73,6 +73,115 @@ describe(createRpcChannel, () => {
         vi.restoreAllMocks()
     })
 
+    describe('calling remote methods with options', () => {
+        afterEach(() => {
+            vi.useRealTimers()
+        })
+
+        it('should resolve with the result like a plain call', async () => {
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
+            adapter.sendMessage.mockImplementationOnce((message) => {
+                void adapter.triggerMessageHandler({
+                    jsonrpc: '2.0',
+                    id: (message as RpcRequest<TestMethods>).id,
+                    result: 5,
+                })
+            })
+
+            await expect(rpcChannel.add.with({ timeout: 100 })(2, 3)).resolves.toBe(5)
+            expect(adapter.sendMessage).toHaveBeenCalledWith(expect.objectContaining({ method: 'add', params: [2, 3] }))
+        })
+
+        it('should use the timeout of the call instead of the timeout of the channel', async () => {
+            vi.useFakeTimers()
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter, { timeout: 100 })
+            const settled = vi.fn<(error: unknown) => void>()
+
+            rpcChannel.add.with({ timeout: 5000 })(1, 2).catch(settled)
+            await vi.advanceTimersByTimeAsync(4999)
+            const settledBeforeCallTimeout = settled.mock.calls.length
+            await vi.advanceTimersByTimeAsync(1)
+
+            expect(settledBeforeCallTimeout).toBe(0)
+            expect(settled).toHaveBeenCalledWith(new RpcError(RpcErrorCode.TIMEOUT_ERROR))
+        })
+
+        it('should keep the timeout of the channel for options without a timeout', async () => {
+            vi.useFakeTimers()
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter, { timeout: 100 })
+            const settled = vi.fn<(error: unknown) => void>()
+
+            rpcChannel.add.with({})(1, 2).catch(settled)
+            await vi.advanceTimersByTimeAsync(100)
+
+            expect(settled).toHaveBeenCalledWith(new RpcError(RpcErrorCode.TIMEOUT_ERROR))
+        })
+
+        it('should not send a call whose signal is already aborted', async () => {
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
+            const reason = new Error('cancelled')
+
+            await expect(rpcChannel.add.with({ signal: AbortSignal.abort(reason) })(1, 2)).rejects.toBe(reason)
+            expect(adapter.sendMessage).not.toHaveBeenCalled()
+        })
+
+        it('should reject a pending call with the reason of the signal when it is aborted', async () => {
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
+            const controller = new AbortController()
+            const reason = new Error('cancelled')
+            const call = rpcChannel.add.with({ signal: controller.signal })(1, 2)
+
+            controller.abort(reason)
+
+            await expect(call).rejects.toBe(reason)
+        })
+
+        it('should ignore the response to an aborted call', async () => {
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
+            const controller = new AbortController()
+            const call = rpcChannel.add.with({ signal: controller.signal })(1, 2)
+            const [message] = adapter.sendMessage.mock.calls[0]!
+            controller.abort(new Error('cancelled'))
+
+            await adapter.triggerMessageHandler({
+                jsonrpc: '2.0',
+                id: (message as RpcRequest<TestMethods>).id,
+                result: 3,
+            })
+
+            await expect(call).rejects.toThrowError('cancelled')
+        })
+
+        it('should not send a queued call that was aborted before the connection was established', async () => {
+            const adapter = new MockAdapter(ConnectionStatus.DISCONNECTED)
+            const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter, { queueEnabled: true })
+            const controller = new AbortController()
+            const reason = new Error('cancelled')
+            const call = rpcChannel.add.with({ signal: controller.signal })(1, 2)
+
+            controller.abort(reason)
+            adapter.triggerConnectionHandler(ConnectionStatus.CONNECTED)
+
+            await expect(call).rejects.toBe(reason)
+            expect(adapter.sendMessage).not.toHaveBeenCalled()
+        })
+
+        it('should still throw synchronously when called with a signal while disconnected', () => {
+            const adapter = new MockAdapter(ConnectionStatus.DISCONNECTED)
+            const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
+
+            expect(() => rpcChannel.add.with({ signal: new AbortController().signal })(1, 2)).toThrowError(
+                new RpcError(RpcErrorCode.NOT_CONNECTED),
+            )
+        })
+    })
+
     describe('calling remote methods', () => {
         it('should send an RPC request and resolve with the correct result', async () => {
             const adapter = new MockAdapter()
@@ -1240,14 +1349,14 @@ describe(createRpcChannel, () => {
             expect(adapter.connect).not.toHaveBeenCalled()
         })
 
-        it('should initialize the logger of the adapter with the log level before connecting', () => {
+        it('should bind the adapter with the log level before connecting', () => {
             const adapter = new MockAdapter(ConnectionStatus.DISCONNECTED)
-            const initLoggerSpy = vi.spyOn(adapter, 'initLogger')
+            const bindSpy = vi.spyOn(adapter, 'bind')
 
             createRpcChannel(adapter, { logLevel: LogLevel.WARN })
 
-            expect(initLoggerSpy).toHaveBeenCalledWith(LogLevel.WARN)
-            expect(initLoggerSpy.mock.invocationCallOrder[0]).toBeLessThan(adapter.connect.mock.invocationCallOrder[0]!)
+            expect(bindSpy).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ logLevel: LogLevel.WARN }))
+            expect(bindSpy.mock.invocationCallOrder[0]).toBeLessThan(adapter.connect.mock.invocationCallOrder[0]!)
         })
 
         it.each([

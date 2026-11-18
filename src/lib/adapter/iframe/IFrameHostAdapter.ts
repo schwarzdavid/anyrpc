@@ -15,6 +15,7 @@ export class IFrameHostAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractMessagePortResponderAdapter<Methods, Events> {
+    protected override readonly logName = 'IFrameHostAdapter'
     private readonly reconnect: boolean
     private readonly allowedOrigin: IFrameOriginOption
 

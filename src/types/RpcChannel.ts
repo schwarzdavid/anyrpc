@@ -28,7 +28,19 @@ export type RpcResult<Fn extends MethodFn> =
             ? Exclude<ResolvedReturnType<Fn>, undefined> | null
             : ResolvedReturnType<Fn>
 
-export type RpcChannelMethod<Fn extends MethodFn> = ((...args: Parameters<Fn>) => Promise<RpcResult<Fn>>) &
+export interface RpcCallOptions {
+    timeout?: number
+    signal?: AbortSignal
+}
+
+export type RpcCall<Fn extends MethodFn> = (...args: Parameters<Fn>) => Promise<RpcResult<Fn>>
+
+export interface RpcConfigurable<Call> {
+    with(options: RpcCallOptions): Call
+}
+
+export type RpcChannelMethod<Fn extends MethodFn> = RpcCall<Fn> &
+    RpcConfigurable<RpcCall<Fn>> &
     (ResolvesToVoid<Fn> extends true ? RpcNotifiable<Fn> : unknown)
 
 export type RpcHandleableName<Events extends MethodMap<Events>> = Exclude<keyof Events, ReservedMethodName>

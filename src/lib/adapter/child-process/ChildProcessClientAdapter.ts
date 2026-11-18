@@ -22,6 +22,7 @@ export class ChildProcessClientAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractSocketAdapter<Methods, Events> {
+    protected override readonly logName = 'ChildProcessClientAdapter'
     private readonly ipc: IpcProcess
     private answeredInitId: RpcId | undefined
     private readonly onParentMessage = (message: unknown) => this.handleParentMessage(message)

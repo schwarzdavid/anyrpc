@@ -75,9 +75,16 @@ describe('anyrpc entry point', () => {
         }
 
         const adapter = new CustomAdapter()
-        adapter.messageHandler = (message) => {
-            expectTypeOf(message).toEqualTypeOf<string | object>()
-        }
+        adapter.bind({
+            onMessage: (message) => {
+                expectTypeOf(message).toEqualTypeOf<string | object>()
+            },
+            onStatusChange: (status) => {
+                expectTypeOf(status).toEqualTypeOf<ConnectionStatus>()
+            },
+            onConnectionLost: () => undefined,
+            logLevel: LogLevel.NONE,
+        })
 
         expectTypeOf<MessageHandler>().toBeFunction()
         expectTypeOf<ConnectionHandler>().parameters.toEqualTypeOf<[status: ConnectionStatus]>()

@@ -99,6 +99,15 @@ describe(createRpcHub, () => {
             assertType<Promise<string>>(Promise.any(hub.getName()))
         })
 
+        it('should return one typed promise per peer for a broadcast with options', () => {
+            expectTypeOf(hub.getName.with({ timeout: 1000 })()).toEqualTypeOf<
+                RpcPeerPromise<HubToPeer, PeerToHub, string>[]
+            >()
+
+            // @ts-expect-error
+            assertType(hub.find.with({})(1))
+        })
+
         it('should check the params', () => {
             // @ts-expect-error
             assertType(hub.find(1))

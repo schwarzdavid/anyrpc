@@ -113,6 +113,26 @@ describe(createRpcChannel, () => {
         })
     })
 
+    describe('with', () => {
+        it('should return the same call signature for a call with options', () => {
+            expectTypeOf(rpcChannel.add.with({ timeout: 1000 })).toEqualTypeOf<
+                (a: number, b: number) => Promise<number>
+            >()
+            expectTypeOf(rpcChannel.log.with({ signal: new AbortController().signal })).returns.toEqualTypeOf<
+                Promise<void>
+            >()
+        })
+
+        it('should check the options and the params', () => {
+            // @ts-expect-error
+            assertType(rpcChannel.add.with({ timeout: '1000' }))
+            // @ts-expect-error
+            assertType(rpcChannel.add.with({ retries: 3 }))
+            // @ts-expect-error
+            assertType(rpcChannel.add.with({})('2', '3'))
+        })
+    })
+
     describe('notify', () => {
         it('should offer notify on methods returning void', () => {
             expectTypeOf(rpcChannel.log.notify).toEqualTypeOf<(message: string) => void>()

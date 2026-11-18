@@ -119,12 +119,12 @@ describe(createRpcHub, () => {
             )
         })
 
-        it('should initialize the logger of the hub adapter with the configured log level', () => {
-            const initLogger = vi.spyOn(hubAdapter, 'initLogger')
+        it('should bind the hub adapter with the configured log level', () => {
+            const bind = vi.spyOn(hubAdapter, 'bind')
 
             createRpcHub(hubAdapter, { logLevel: LogLevel.WARN })
 
-            expect(initLogger).toHaveBeenCalledExactlyOnceWith(LogLevel.WARN)
+            expect(bind).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ logLevel: LogLevel.WARN }))
         })
 
         it('should refuse a hub adapter that is already used by another hub', () => {
@@ -397,6 +397,20 @@ describe(createRpcHub, () => {
 
             expect(calls.map((call) => call.peer.id)).toStrictEqual([first.id, second.id])
             await expect(Promise.all(calls)).resolves.toStrictEqual(['first', 'second'])
+        })
+
+        it('should pass call options on to every peer', async () => {
+            const hub = createRpcHub(hubAdapter)
+            connectPeer(hubAdapter, 'first')
+            connectPeer(hubAdapter, 'second')
+            const reason = new Error('cancelled')
+
+            const calls = hub.getName.with({ signal: AbortSignal.abort(reason) })()
+
+            await expect(Promise.allSettled(calls)).resolves.toStrictEqual([
+                { status: 'rejected', reason },
+                { status: 'rejected', reason },
+            ])
         })
 
         it('should return an empty array if no peer is connected', () => {

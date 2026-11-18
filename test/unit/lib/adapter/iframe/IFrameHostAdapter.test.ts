@@ -3,6 +3,7 @@ import { IFrameHostAdapter, type IFrameHostAdapterOptions, type IFrameOriginOpti
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import { confirmHandshake } from '../../../__helper/confirmHandshake'
+import { bindAdapter } from '../../../__helper/bindAdapter'
 
 interface TestMethods {
     foo(value: string): void
@@ -40,7 +41,7 @@ describe(IFrameHostAdapter, () => {
 
     function createAdapter(options?: Partial<IFrameHostAdapterOptions>, name?: string) {
         adapter = new IFrameHostAdapter(iframe, name, options)
-        adapter.initLogger(LogLevel.DEBUG)
+        bindAdapter(adapter, { logLevel: LogLevel.DEBUG })
         return adapter
     }
 

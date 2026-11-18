@@ -6,6 +6,7 @@ import type { PeerHandler } from '@/lib/adapter/AbstractRpcHubAdapter'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { ControlMethod, createControlMessage } from '@/utils/controlMessages'
 import { FakeSocket } from '../../../__helper/FakeSocket'
+import { bindHubAdapter } from '../../../__helper/bindAdapter'
 
 interface TestMethods {
     foo(value: string): void
@@ -27,7 +28,7 @@ describe(WebSocketHubAdapter, () => {
         server = new FakeServer()
         hubAdapter = new WebSocketHubAdapter(server)
         peerHandler = vi.fn<PeerHandler<TestMethods, TestMethods>>(({ adapter }) => void adapter.connect())
-        hubAdapter.peerHandler = peerHandler
+        bindHubAdapter(hubAdapter, { onPeer: peerHandler })
     })
 
     afterEach(() => {
@@ -66,7 +67,7 @@ describe(WebSocketHubAdapter, () => {
 
     it('should not ping peers when the heartbeat is disabled', () => {
         hubAdapter = new WebSocketHubAdapter(server, { heartbeat: false })
-        hubAdapter.peerHandler = peerHandler
+        bindHubAdapter(hubAdapter, { onPeer: peerHandler })
         const socket = new FakeSocket()
         hubAdapter.connect()
         server.accept(socket)

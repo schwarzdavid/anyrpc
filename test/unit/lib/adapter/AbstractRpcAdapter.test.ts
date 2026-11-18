@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
     AbstractRpcAdapter,
     type ConnectionHandler,
@@ -7,6 +7,8 @@ import {
 } from '@/lib/adapter/AbstractRpcAdapter'
 import type { RpcMessage } from '@/types/RpcMessages'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
+import { LogLevel } from '@/types/LogLevel'
+import { bindAdapter } from '../../__helper/bindAdapter'
 
 interface TestMethods {
     exampleMethod: (foo: string, bar: number) => Promise<string>
@@ -32,29 +34,47 @@ class RpcAdapterImpl extends AbstractRpcAdapter<TestMethods, TestEvents> {
     triggerClose() {
         this.closeConnection()
     }
+
+    warn(message: string) {
+        this.logger?.warn(message)
+    }
 }
 
 describe(AbstractRpcAdapter, () => {
-    it('should set message handler', () => {
-        const adapter = new RpcAdapterImpl()
-        const messageHandler = vi.fn<MessageHandler>()
-
-        adapter.messageHandler = messageHandler
-
-        const savedHandler = (adapter as any)._messageHandler
-
-        expect(savedHandler).toBe(messageHandler)
+    afterEach(() => {
+        vi.restoreAllMocks()
     })
 
-    it('should set connection handler', () => {
+    it('should not log before it is bound', () => {
         const adapter = new RpcAdapterImpl()
-        const connectionHandler = vi.fn<ConnectionHandler>()
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 
-        adapter.connectionHandler = connectionHandler
+        adapter.warn('message')
 
-        const savedHandler = (adapter as any)._connectionHandler
+        expect(warnSpy).not.toHaveBeenCalled()
+    })
 
-        expect(savedHandler).toBe(connectionHandler)
+    it('should create a logger with a generic name by default', () => {
+        const adapter = new RpcAdapterImpl()
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+        bindAdapter(adapter, { logLevel: LogLevel.WARN })
+        adapter.warn('message')
+
+        expect(warnSpy).toHaveBeenCalledExactlyOnceWith('[RpcAdapter]', 'message')
+    })
+
+    it('should name the logger after the logName of the adapter', () => {
+        class NamedAdapter extends RpcAdapterImpl {
+            protected override readonly logName = 'MyAdapter'
+        }
+        const adapter = new NamedAdapter()
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+        bindAdapter(adapter, { logLevel: LogLevel.WARN })
+        adapter.warn('message')
+
+        expect(warnSpy).toHaveBeenCalledExactlyOnceWith('[MyAdapter]', 'message')
     })
 
     it('should call message handler on message', async () => {
@@ -67,7 +87,7 @@ describe(AbstractRpcAdapter, () => {
             params: ['foo', 1],
         }
 
-        adapter.messageHandler = messageHandler
+        bindAdapter(adapter, { onMessage: messageHandler })
         await adapter.triggerMessage(message)
 
         expect(messageHandler).toHaveBeenCalledWith(message)
@@ -77,7 +97,7 @@ describe(AbstractRpcAdapter, () => {
         const adapter = new RpcAdapterImpl()
         const connectionHandler = vi.fn<ConnectionHandler>()
 
-        adapter.connectionHandler = connectionHandler
+        bindAdapter(adapter, { onStatusChange: connectionHandler })
         adapter.triggerConnection()
 
         expect(connectionHandler).toHaveBeenCalledWith(ConnectionStatus.CONNECTED)
@@ -86,7 +106,7 @@ describe(AbstractRpcAdapter, () => {
     it('should not call the connection handler when the status does not change', () => {
         const adapter = new RpcAdapterImpl()
         const connectionHandler = vi.fn<ConnectionHandler>()
-        adapter.connectionHandler = connectionHandler
+        bindAdapter(adapter, { onStatusChange: connectionHandler })
 
         adapter.triggerConnection()
         adapter.triggerConnection()
@@ -98,8 +118,8 @@ describe(AbstractRpcAdapter, () => {
         const adapter = new RpcAdapterImpl()
         const connectionHandler = vi.fn<ConnectionHandler>()
         const connectionLostHandler = vi.fn<ConnectionLostHandler>()
-        adapter.connectionHandler = connectionHandler
-        adapter.connectionLostHandler = connectionLostHandler
+        bindAdapter(adapter, { onStatusChange: connectionHandler })
+        bindAdapter(adapter, { onConnectionLost: connectionLostHandler })
         adapter.triggerConnection()
 
         adapter.triggerClose()
@@ -116,8 +136,8 @@ describe(AbstractRpcAdapter, () => {
         const adapter = new RpcAdapterImpl()
         const connectionHandler = vi.fn<ConnectionHandler>()
         const connectionLostHandler = vi.fn<ConnectionLostHandler>()
-        adapter.connectionHandler = connectionHandler
-        adapter.connectionLostHandler = connectionLostHandler
+        bindAdapter(adapter, { onStatusChange: connectionHandler })
+        bindAdapter(adapter, { onConnectionLost: connectionLostHandler })
 
         adapter.triggerClose()
 
@@ -128,7 +148,7 @@ describe(AbstractRpcAdapter, () => {
     it('should close the connection when destroyed', () => {
         const adapter = new RpcAdapterImpl()
         const connectionLostHandler = vi.fn<ConnectionLostHandler>()
-        adapter.connectionLostHandler = connectionLostHandler
+        bindAdapter(adapter, { onConnectionLost: connectionLostHandler })
         adapter.triggerConnection()
 
         adapter.destroy()
@@ -141,7 +161,7 @@ describe(AbstractRpcAdapter, () => {
         const adapter = new RpcAdapterImpl()
         const connectionHandler = vi.fn<ConnectionHandler>()
         adapter.triggerConnection()
-        adapter.connectionHandler = connectionHandler
+        bindAdapter(adapter, { onStatusChange: connectionHandler })
 
         adapter.destroy()
         adapter.destroy()
@@ -154,8 +174,8 @@ describe(AbstractRpcAdapter, () => {
         const connectionHandler = vi.fn<ConnectionHandler>()
         const connectionLostHandler = vi.fn<ConnectionLostHandler>()
         adapter.destroy()
-        adapter.connectionHandler = connectionHandler
-        adapter.connectionLostHandler = connectionLostHandler
+        bindAdapter(adapter, { onStatusChange: connectionHandler })
+        bindAdapter(adapter, { onConnectionLost: connectionLostHandler })
 
         adapter.triggerConnection()
         adapter.triggerClose()

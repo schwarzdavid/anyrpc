@@ -26,6 +26,7 @@ export class WebWorkerClientAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractMessagePortResponderAdapter<Methods, Events> {
+    protected override readonly logName = 'WebWorkerClientAdapter'
     constructor(name: string = DEFAULT_WEB_WORKER_ADAPTER_NAME) {
         assertDedicatedWorkerScope()
         super({ initMethod: WEB_WORKER_INIT_METHOD_NAME, name })

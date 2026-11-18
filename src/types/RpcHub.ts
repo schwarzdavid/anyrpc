@@ -2,7 +2,14 @@ import type { Promisable } from 'type-fest'
 import type { MethodFn, MethodMap } from './MethodMap'
 import type { RpcListener, Unsubscribe } from './EventEmitter'
 import type { UncallableMethodName } from './MethodName'
-import type { ResolvesToVoid, RpcChannel, RpcHandleableName, RpcNotifiable, RpcResult } from './RpcChannel'
+import type {
+    ResolvesToVoid,
+    RpcChannel,
+    RpcConfigurable,
+    RpcHandleableName,
+    RpcNotifiable,
+    RpcResult,
+} from './RpcChannel'
 
 export interface RpcPeer<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> {
     readonly id: string
@@ -37,11 +44,16 @@ export type RpcPeerPromise<
     readonly peer: RpcPeer<Methods, Events>
 }
 
+export type RpcBroadcast<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>, Fn extends MethodFn> = (
+    ...args: Parameters<Fn>
+) => RpcPeerPromise<Methods, Events, RpcResult<Fn>>[]
+
 export type RpcBroadcastMethod<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
     Fn extends MethodFn,
-> = ((...args: Parameters<Fn>) => RpcPeerPromise<Methods, Events, RpcResult<Fn>>[]) &
+> = RpcBroadcast<Methods, Events, Fn> &
+    RpcConfigurable<RpcBroadcast<Methods, Events, Fn>> &
     (ResolvesToVoid<Fn> extends true ? RpcNotifiable<Fn> : unknown)
 
 export interface RpcHubMeta<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> {

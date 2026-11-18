@@ -32,6 +32,7 @@ export class ChildProcessHostAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractSocketAdapter<Methods, Events> {
+    protected override readonly logName = 'ChildProcessHostAdapter'
     private readonly pollingInterval: number
     private readonly killOnDestroy: boolean
     private handshake: Handshake | undefined

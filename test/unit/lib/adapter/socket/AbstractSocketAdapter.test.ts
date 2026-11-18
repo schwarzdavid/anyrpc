@@ -6,21 +6,23 @@ import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import type { RpcRequest } from '@/types/RpcMessages'
 import { ControlMethod, createControlMessage } from '@/utils/controlMessages'
+import { bindAdapter } from '../../../__helper/bindAdapter'
 
 interface TestMethods {
     foo(value: string): void
 }
 
 class TestSocketAdapter extends AbstractSocketAdapter<TestMethods, TestMethods> {
+    protected override readonly logName = 'TestSocketAdapter'
     readonly send = vi.fn<(message: object) => void>()
     readonly messageHandlerMock = vi.fn<MessageHandler>()
     readonly connectionLostHandlerMock = vi.fn<ConnectionLostHandler>()
 
     constructor(heartbeatOptions?: HeartbeatOptions) {
         super(heartbeatOptions)
-        this.messageHandler = this.messageHandlerMock
-        this.connectionLostHandler = this.connectionLostHandlerMock
-        this.initLogger(LogLevel.DEBUG)
+        bindAdapter(this, { onMessage: this.messageHandlerMock })
+        bindAdapter(this, { onConnectionLost: this.connectionLostHandlerMock })
+        bindAdapter(this, { logLevel: LogLevel.DEBUG })
     }
 
     connect = vi.fn<() => void>()

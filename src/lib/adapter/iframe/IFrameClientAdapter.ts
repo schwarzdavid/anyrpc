@@ -18,6 +18,7 @@ export class IFrameClientAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractMessagePortInitiatorAdapter<Methods, Events> {
+    protected override readonly logName = 'IFrameClientAdapter'
     private readonly allowedOrigin: IFrameOriginOption
 
     constructor(name: string = DEFAULT_IFRAME_ADAPTER_NAME, options?: Partial<IFrameClientAdapterOptions>) {

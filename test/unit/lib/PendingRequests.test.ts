@@ -8,7 +8,7 @@ describe(PendingRequests, () => {
 
     beforeEach(() => {
         vi.useFakeTimers()
-        pendingRequests = new PendingRequests(1000)
+        pendingRequests = new PendingRequests()
     })
 
     afterEach(() => {
@@ -18,13 +18,13 @@ describe(PendingRequests, () => {
     it('should send the request right away', () => {
         const send = vi.fn<() => void>()
 
-        void pendingRequests.track('1', send)
+        void pendingRequests.track('1', send, 1000)
 
         expect(send).toHaveBeenCalledTimes(1)
     })
 
     it('should resolve a request with its result', async () => {
-        const request = pendingRequests.track('1', () => undefined)
+        const request = pendingRequests.track('1', () => undefined, 1000)
 
         pendingRequests.resolve('1', 'result')
 
@@ -32,7 +32,7 @@ describe(PendingRequests, () => {
     })
 
     it('should match numeric response ids to the request', async () => {
-        const request = pendingRequests.track('1', () => undefined)
+        const request = pendingRequests.track('1', () => undefined, 1000)
 
         pendingRequests.resolve(1, 'result')
 
@@ -41,7 +41,7 @@ describe(PendingRequests, () => {
 
     it('should reject a request with the given error', async () => {
         const error = new RpcError(RpcErrorCode.SERVER_ERROR)
-        const request = pendingRequests.track('1', () => undefined)
+        const request = pendingRequests.track('1', () => undefined, 1000)
 
         pendingRequests.reject('1', error)
 
@@ -49,7 +49,7 @@ describe(PendingRequests, () => {
     })
 
     it('should ignore results and errors for unknown ids', async () => {
-        const request = pendingRequests.track('1', () => undefined)
+        const request = pendingRequests.track('1', () => undefined, 1000)
 
         pendingRequests.resolve('2', 'other')
         pendingRequests.reject(null, new Error('other'))
@@ -59,7 +59,7 @@ describe(PendingRequests, () => {
     })
 
     it('should reject a request with a timeout error when no response arrives in time', async () => {
-        const request = pendingRequests.track('1', () => undefined)
+        const request = pendingRequests.track('1', () => undefined, 1000)
 
         vi.advanceTimersByTime(1000)
 
@@ -69,16 +69,20 @@ describe(PendingRequests, () => {
     it('should reject a request that could not be sent with the error of the transport', async () => {
         const error = new Error('cannot clone')
 
-        const request = pendingRequests.track('1', () => {
-            throw error
-        })
+        const request = pendingRequests.track(
+            '1',
+            () => {
+                throw error
+            },
+            1000,
+        )
 
         await expect(request).rejects.toBe(error)
         expect(vi.getTimerCount()).toBe(0)
     })
 
     it('should forget a request once it is settled', async () => {
-        const request = pendingRequests.track('1', () => undefined)
+        const request = pendingRequests.track('1', () => undefined, 1000)
         pendingRequests.resolve('1', 'first')
         await request
 
@@ -90,8 +94,8 @@ describe(PendingRequests, () => {
 
     it('should reject all pending requests at once', async () => {
         const error = new RpcError(RpcErrorCode.CONNECTION_LOST)
-        const first = pendingRequests.track('1', () => undefined)
-        const second = pendingRequests.track('2', () => undefined)
+        const first = pendingRequests.track('1', () => undefined, 1000)
+        const second = pendingRequests.track('2', () => undefined, 1000)
 
         pendingRequests.rejectAll(error)
 

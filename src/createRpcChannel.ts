@@ -17,6 +17,7 @@ import type { RpcMessageError } from './lib/RpcMessageError'
 import { uuid } from './utils/uuid'
 import { createMethodProxy } from './utils/createMethodProxy'
 import { withDefaults } from './utils/withDefaults'
+import { abortable } from './utils/abortable'
 import type {
     RpcErrorResponse,
     RpcIncomingNotification,
@@ -29,7 +30,7 @@ import type { MethodFn, MethodMap } from './types/MethodMap'
 import type { AssertCallableMethodNames } from './types/MethodName'
 import type { RpcListener } from './types/EventEmitter'
 import type { RpcChannelEvents } from './types/RpcChannelEvents'
-import type { RpcChannel, RpcChannelMeta, RpcHandleableName } from '@/types/RpcChannel'
+import type { RpcCallOptions, RpcChannel, RpcChannelMeta, RpcHandleableName } from '@/types/RpcChannel'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { Logger } from '@/lib/Logger'
 import { LogLevel } from '@/types/LogLevel'
@@ -87,7 +88,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     const callEvents = new EventEmitter<Events>(reportListenerError)
     const channelEvents = new EventEmitter<RpcChannelEvents>(reportListenerError)
     const handlers = new HandlerRegistry<Events>()
-    const pendingRequests = new PendingRequests(mergedOptions.timeout)
+    const pendingRequests = new PendingRequests()
     const queue = new MessageQueue({ timeout: mergedOptions.queueTimeout, awaitEach: mergedOptions.queueAwait })
     let lastStatus: ConnectionStatus = adapter.connectionStatus
     let isDestroyed = false
@@ -116,9 +117,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         },
     }
 
-    adapter.initLogger(mergedOptions.logLevel)
-
-    adapter.messageHandler = async function rpcChannelMessageHandler(data) {
+    async function handleMessage(data: string | object): Promise<void> {
         let parsingResult: RpcParsingResult<Methods, Events>
         try {
             parsingResult = parseRpcMessage<Methods, Events>(data)
@@ -139,7 +138,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         await handleNotification(message)
     }
 
-    adapter.connectionHandler = async function rpcChannelConnectionHandler(status) {
+    async function handleStatusChange(status: ConnectionStatus): Promise<void> {
         const wasConnected = lastStatus === ConnectionStatus.CONNECTED
         lastStatus = status
         logger.debug(`Connection status changed to ${status}`)
@@ -158,9 +157,16 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         }
     }
 
-    adapter.connectionLostHandler = function rpcChannelConnectionLostHandler() {
+    function handleConnectionLost(): void {
         pendingRequests.rejectAll(new RpcError(RpcErrorCode.CONNECTION_LOST))
     }
+
+    adapter.bind({
+        onMessage: handleMessage,
+        onStatusChange: handleStatusChange,
+        onConnectionLost: handleConnectionLost,
+        logLevel: mergedOptions.logLevel,
+    })
 
     if (mergedOptions.autoConnect) {
         void connect()
@@ -303,15 +309,24 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     function callRemoteMethod<Method extends keyof Methods>(
         method: Method,
         params: Parameters<Methods[Method]>,
+        options: RpcCallOptions,
     ): Promise<unknown> {
         assertNotReserved(method, 'call')
         assertNotDestroyed()
 
+        return abortable(options.signal, () => startCall(method, params, options))
+    }
+
+    function startCall<Method extends keyof Methods>(
+        method: Method,
+        params: Parameters<Methods[Method]>,
+        options: RpcCallOptions,
+    ): Promise<unknown> {
         if (isConnected()) {
-            return sendRequest(method, params)
+            return sendRequest(method, params, options)
         }
         if (mergedOptions.queueEnabled) {
-            return enqueueRequest(method, params)
+            return enqueueRequest(method, params, options)
         }
         throw new RpcError(RpcErrorCode.NOT_CONNECTED)
     }
@@ -337,6 +352,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     function sendRequest<Method extends keyof Methods>(
         method: Method,
         params: Parameters<Methods[Method]>,
+        options: RpcCallOptions,
     ): Promise<unknown> {
         const id = uuid()
         const request: RpcRequest<Methods> = {
@@ -345,14 +361,16 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             params,
             jsonrpc: '2.0',
         }
-        return pendingRequests.track(id, () => adapter.sendMessage(request))
+        return pendingRequests.track(id, () => adapter.sendMessage(request), options.timeout ?? mergedOptions.timeout)
     }
 
     async function sendQueuedRequest<Method extends keyof Methods>(
         method: Method,
         params: Parameters<Methods[Method]>,
+        options: RpcCallOptions,
     ): Promise<unknown> {
-        return await sendRequest(method, params)
+        options.signal?.throwIfAborted()
+        return await sendRequest(method, params, options)
     }
 
     function sendNotification<Method extends keyof Methods>(method: Method, params: Parameters<Methods[Method]>): void {
@@ -373,10 +391,11 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     function enqueueRequest<Method extends keyof Methods>(
         method: Method,
         params: Parameters<Methods[Method]>,
+        options: RpcCallOptions,
     ): Promise<unknown> {
         return new Promise((resolve, reject) => {
             queue.enqueue({
-                send: () => sendQueuedRequest(method, params).then(resolve, reject),
+                send: () => sendQueuedRequest(method, params, options).then(resolve, reject),
                 expire: () => reject(new RpcError(RpcErrorCode.TIMEOUT_ERROR)),
                 discard: () => reject(new RpcError(RpcErrorCode.CONNECTION_LOST)),
             })
@@ -410,11 +429,14 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     }
 
     function createRemoteMethod(method: keyof Methods) {
-        const call = (...params: unknown[]) => callRemoteMethod(method, params as Parameters<Methods[typeof method]>)
+        const callWith =
+            (options: RpcCallOptions) =>
+            (...params: unknown[]) =>
+                callRemoteMethod(method, params as Parameters<Methods[typeof method]>, options)
         const notify = (...params: unknown[]) => {
             notifyRemoteMethod(method, params as Parameters<Methods[typeof method]>)
         }
-        return Object.assign(call, { notify })
+        return Object.assign(callWith({}), { notify, with: callWith })
     }
 
     return createMethodProxy(meta, (method) => createRemoteMethod(method as keyof Methods)) as RpcChannel<

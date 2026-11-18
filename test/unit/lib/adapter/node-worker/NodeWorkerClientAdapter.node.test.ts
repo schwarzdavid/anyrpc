@@ -3,6 +3,7 @@ import { MessagePort } from 'node:worker_threads'
 import { NodeWorkerClientAdapter } from '@/lib/adapter/node-worker/NodeWorkerClientAdapter'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
+import { bindAdapter } from '../../../__helper/bindAdapter'
 
 interface TestMethods {
     foo(value: string): void
@@ -31,7 +32,7 @@ describe(NodeWorkerClientAdapter, () => {
         parentPort = new workerThreads.FakeParentPort()
         workerThreads.parentPort = parentPort
         adapter = new NodeWorkerClientAdapter('my-app')
-        adapter.initLogger(LogLevel.DEBUG)
+        bindAdapter(adapter, { logLevel: LogLevel.DEBUG })
     })
 
     afterEach(() => {

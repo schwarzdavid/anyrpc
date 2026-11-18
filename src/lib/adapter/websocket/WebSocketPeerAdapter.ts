@@ -19,6 +19,7 @@ export class WebSocketPeerAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractSocketAdapter<Methods, Events> {
+    protected override readonly logName = 'WebSocketPeerAdapter'
     constructor(
         private readonly socket: WebSocketLike,
         heartbeatOptions: HeartbeatOptions | undefined,

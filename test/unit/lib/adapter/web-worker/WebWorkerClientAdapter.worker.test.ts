@@ -5,6 +5,7 @@ import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import { ControlMethod, createControlMessage } from '@/utils/controlMessages'
 import { confirmHandshake } from '../../../__helper/confirmHandshake'
+import { bindAdapter } from '../../../__helper/bindAdapter'
 
 interface TestMethods {
     foo(value: string): void
@@ -28,7 +29,7 @@ describe(WebWorkerClientAdapter, () => {
         vi.spyOn(console, 'log').mockImplementation(() => undefined)
         postMessageSpy = vi.spyOn(globalThis, 'postMessage').mockImplementation(() => undefined)
         adapter = new WebWorkerClientAdapter()
-        adapter.initLogger(LogLevel.DEBUG)
+        bindAdapter(adapter, { logLevel: LogLevel.DEBUG })
     })
 
     afterEach(() => {

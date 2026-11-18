@@ -26,7 +26,7 @@ anyrpc takes care of all of this. You describe both directions of communication 
 
 - 🔒 **End-to-end type safety.** Method names, parameters and return types are inferred from your interfaces.
 - 🔁 **Bidirectional.** Both sides can call methods on each other over the same channel.
-- ⏱️ **Timeouts.** Every request rejects with an `RpcError` if no response arrives in time.
+- ⏱️ **Timeouts and cancellation.** Every request rejects with an `RpcError` if no response arrives in time. Single calls can set their own timeout and be cancelled with an `AbortSignal`.
 - 📬 **Optional request queue.** Calls made before the connection is established can be queued and sent once connected.
 - 🧯 **Error propagation.** Errors thrown in a remote handler are returned as JSON-RPC error responses and rejected locally as `RpcError`.
 - 🔌 **Pluggable transports.** Adapters implement a small abstract class (`connect`, `sendMessage`, `destroy`), see [Custom adapters](#custom-adapters).
@@ -128,6 +128,7 @@ Both adapters must use the same **name** (`'my-app'` above). This lets several i
 | Member                                                                    | Description                                                                                                                                                                                                                                                                               |
 | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `channel.<method>(...args)`                                               | Calls a remote method (JSON-RPC request). Always returns a `Promise` of the method's return type.                                                                                                                                                                                         |
+| `channel.<method>.with(options)(...args)`                                 | Same call with a `timeout` and/or an `AbortSignal` of its own, see [Call options](#call-options).                                                                                                                                                                                         |
 | `channel.<method>.notify(...args)`                                        | Sends a JSON-RPC notification: fire-and-forget, returns `void`. Only available for methods returning `void` or `Promise<void>`.                                                                                                                                                           |
 | `channel.$.handle(name, fn)`                                              | Answers incoming calls of `name`. Only **one** handler per method; its return value is the response. Returns a function that removes the handler.                                                                                                                                         |
 | `channel.$.on(name, fn)`                                                  | Observes incoming calls and notifications of `name`. Any number of listeners; return values are ignored. Returns a function that removes the listener.                                                                                                                                    |
@@ -160,13 +161,32 @@ A destroyed channel never connects again, and its adapter cannot be used for ano
 - Queued calls survive a lost connection and are sent once the next connection is established. `channel.$.destroy()` rejects them with `-31003`. If the connection drops while the queue is being sent, the remaining calls stay queued.
 - `rpc.status` is emitted as soon as the adapter reports a change. `rpc.connected` follows once the queued calls have been sent (with `queueAwait`, once they have been answered), so calls made in a `rpc.connected` listener go out after the queued ones. `rpc.disconnected` is emitted right after `rpc.status`.
 
+### Call options
+
+A single call can deviate from the channel options. `with(options)` returns the method with the same parameters and return type:
+
+```ts
+const controller = new AbortController()
+
+const report = await channel.buildReport.with({ timeout: 60_000, signal: controller.signal })(2026)
+```
+
+| Option    | Description                                                                                                          |
+| --------- | -------------------------------------------------------------------------------------------------------------------- |
+| `timeout` | Milliseconds to wait for the response of this call instead of the `timeout` of the channel.                          |
+| `signal`  | An `AbortSignal` that cancels the call. The promise rejects with the signal's `reason` (an `AbortError` by default). |
+
+- A call whose signal is already aborted is not sent. A queued call that is aborted before the connection is established is not sent either.
+- Aborting only stops waiting. The other side is not told, so a request that was already sent is still handled there and its response is ignored.
+- Notifications have no response to wait for and therefore no options.
+
 ### Channel options
 
 `createRpcChannel(adapter, options)` takes an optional second argument:
 
 | Option              | Default    | Description                                                                                                                                             |
 | ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `timeout`           | `3000`     | Milliseconds to wait for a response before rejecting with a timeout `RpcError`.                                                                         |
+| `timeout`           | `3000`     | Milliseconds to wait for a response before rejecting with a timeout `RpcError`. Can be set per call, see [Call options](#call-options).                 |
 | `queueEnabled`      | `false`    | Queue calls made while disconnected instead of rejecting them immediately.                                                                              |
 | `queueTimeout`      | `10000`    | Milliseconds a queued call may wait for a connection before it rejects.                                                                                 |
 | `queueAwait`        | `false`    | Send queued calls one after another, waiting for each response, instead of all at once.                                                                 |
@@ -278,6 +298,7 @@ const fastest = await Promise.any(hub.getTitle())
 | Member                                                          | Description                                                                                                                                                                                                       |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `hub.<method>(...args)`                                         | Calls the method on every connected peer and returns an array with one promise per peer. Each promise has a `peer` property. Decide yourself how to wait: `Promise.all`, `Promise.any`, `Promise.allSettled`, ... |
+| `hub.<method>.with(options)(...args)`                           | Same broadcast with [call options](#call-options) that apply to the call of every peer.                                                                                                                           |
 | `hub.<method>.notify(...args)`                                  | Notifies every connected peer. A peer that cannot be notified is logged and skipped.                                                                                                                              |
 | `hub.$.handle(name, (context, ...args) => result)`              | Answers calls of `name` from every peer. `context.peer` is the calling peer. One handler per method.                                                                                                              |
 | `hub.$.on(name, (context, ...args) => void)`                    | Observes calls and notifications of `name` from every peer.                                                                                                                                                       |
@@ -476,7 +497,7 @@ If the transport cannot send a request at all, for example because an argument i
 
 ### Custom adapters
 
-Everything a transport needs is exported from `@schwarzdavid/anyrpc`. Extend `AbstractRpcAdapter`, implement `connect()` and `sendMessage()`, hand incoming messages to `this.onMessage()`, report the state through `this.connectionStatus`, and call `this.closeConnection()` once the current connection is definitively gone. The latter rejects in-flight calls with `-31003`; a plain status change does not, so a transport that is merely unresponsive can still deliver late responses. Call `this.destroy()` when the transport can never connect again (e.g. the process on the other side exited): the status becomes `destroyed`, which is final, and the channel rejects everything that is still waiting. Status changes follow a small state machine: `disconnected` and `connected` can alternate, `destroyed` is never left, and a change to the current status is ignored. `connect()` may return a promise; if it rejects, the channel logs the error and stays `disconnected`. An adapter instance serves exactly one channel, so `createRpcChannel` throws if the adapter is already in use or was destroyed.
+Everything a transport needs is exported from `@schwarzdavid/anyrpc`. Extend `AbstractRpcAdapter`, implement `connect()` and `sendMessage()`, hand incoming messages to `this.onMessage()`, report the state through `this.connectionStatus`, and call `this.closeConnection()` once the current connection is definitively gone. The latter rejects in-flight calls with `-31003`; a plain status change does not, so a transport that is merely unresponsive can still deliver late responses. Call `this.destroy()` when the transport can never connect again (e.g. the process on the other side exited): the status becomes `destroyed`, which is final, and the channel rejects everything that is still waiting. Status changes follow a small state machine: `disconnected` and `connected` can alternate, `destroyed` is never left, and a change to the current status is ignored. `connect()` may return a promise; if it rejects, the channel logs the error and stays `disconnected`. The channel wires itself to the adapter through `adapter.bind(...)`, you never call it yourself. Log messages of an adapter are prefixed with its `logName`; override it (`protected override readonly logName = 'MyWebSocketAdapter'`), because class names do not survive minification. An adapter instance serves exactly one channel, so `createRpcChannel` throws if the adapter is already in use or was destroyed.
 
 ```ts
 import { AbstractRpcAdapter, ConnectionStatus, type MethodMap, type RpcMessage } from '@schwarzdavid/anyrpc'
@@ -552,7 +573,7 @@ npm run build      # Build ESM + CJS bundles and type declarations into dist/
 
 **Protocol and behavior**
 
-- [ ] Support request cancellation (e.g. via `AbortSignal`)
+- [x] Support request cancellation (e.g. via `AbortSignal`)
 - [ ] Give hub peers a connection context (e.g. the upgrade request of a WebSocket), see [docs/todo/hub-peer-context.md](docs/todo/hub-peer-context.md)
 - [x] Warn when `IFrameClientAdapter` allows any origin (`origin: true`)
 
@@ -561,3 +582,7 @@ npm run build      # Build ESM + CJS bundles and type declarations into dist/
 - [ ] Add API documentation and more examples
 - [ ] Set up CI (lint, type check, test, build)
 - [ ] Add a changelog
+
+## License
+
+[MPL-2.0](LICENSE). You can use anyrpc in open and closed source projects. Changes to the files of anyrpc itself have to be published under the same license.

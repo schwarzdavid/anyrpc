@@ -16,6 +16,7 @@ export class WebSocketHubAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractRpcHubAdapter<Methods, Events> {
+    protected override readonly logName = 'WebSocketHubAdapter'
     private readonly heartbeatOptions: HeartbeatOptions | undefined
     private readonly onConnection = (socket: WebSocketLike) => this.acceptSocket(socket)
 

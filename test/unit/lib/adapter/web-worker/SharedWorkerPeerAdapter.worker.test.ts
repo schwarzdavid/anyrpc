@@ -4,6 +4,7 @@ import { ControlMethod, createControlMessage, readControlMethod } from '@/utils/
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import { confirmHandshake } from '../../../__helper/confirmHandshake'
+import { bindAdapter } from '../../../__helper/bindAdapter'
 
 interface TestMethods {
     foo(value: string): void
@@ -27,7 +28,7 @@ describe(SharedWorkerPeerAdapter, () => {
 
     function createAdapter(heartbeat = { interval: 10, timeout: 10 }) {
         adapter = new SharedWorkerPeerAdapter({ data: dataChannel.port1, control: controlChannel.port1 }, heartbeat)
-        adapter.initLogger(LogLevel.NONE)
+        bindAdapter(adapter, { logLevel: LogLevel.NONE })
         return adapter
     }
 

@@ -24,6 +24,7 @@ export class SharedWorkerHubAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractRpcHubAdapter<Methods, Events> {
+    protected override readonly logName = 'SharedWorkerHubAdapter'
     private readonly heartbeatOptions: HeartbeatOptions | undefined
     private listenersAbortController: AbortController | undefined
 

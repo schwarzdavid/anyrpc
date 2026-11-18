@@ -7,6 +7,7 @@ import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import { confirmHandshake } from '../../../__helper/confirmHandshake'
 import { nextMessage } from '../../../__helper/nextMessage'
+import { bindAdapter } from '../../../__helper/bindAdapter'
 
 interface TestMethods {
     foo(value: string): void
@@ -18,12 +19,13 @@ const ping = { jsonrpc: '2.0', method: 'anyrpc::ping', params: [] }
 const pong = { jsonrpc: '2.0', method: 'anyrpc::pong', params: [] }
 
 class TestResponderAdapter extends AbstractMessagePortResponderAdapter<TestMethods, TestMethods> {
+    protected override readonly logName = 'TestResponderAdapter'
     readonly listenForInitRequests = vi.fn<(signal: AbortSignal) => void>()
     readonly postInitResponse = vi.fn<(response: InitResponse, transfer: Transferable[]) => void>()
 
     constructor(name = 'my-app', heartbeat: HeartbeatOption = false) {
         super({ initMethod: METHOD, name, heartbeat })
-        this.initLogger(LogLevel.DEBUG)
+        bindAdapter(this, { logLevel: LogLevel.DEBUG })
     }
 
     accept(data: unknown): boolean {
@@ -131,7 +133,7 @@ describe(AbstractMessagePortResponderAdapter, () => {
         it('should ignore an init request it has already answered and warn about it', () => {
             adapter.accept(initRequest())
             const connectionHandler = vi.fn<ConnectionHandler>()
-            adapter.connectionHandler = connectionHandler
+            bindAdapter(adapter, { onStatusChange: connectionHandler })
 
             const accepted = adapter.accept(initRequest())
 
@@ -148,7 +150,7 @@ describe(AbstractMessagePortResponderAdapter, () => {
             adapter.accept(initRequest('first-id'))
             await confirmHandshake(adapter.transferredControlPort)
             const connectionLostHandler = vi.fn<ConnectionLostHandler>()
-            adapter.connectionLostHandler = connectionLostHandler
+            bindAdapter(adapter, { onConnectionLost: connectionLostHandler })
 
             const accepted = adapter.accept(initRequest('second-id'))
             await confirmHandshake(adapter.transferredControlPort)

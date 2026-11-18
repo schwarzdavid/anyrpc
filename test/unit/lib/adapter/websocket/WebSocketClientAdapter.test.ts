@@ -5,6 +5,7 @@ import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import type { RpcRequest } from '@/types/RpcMessages'
 import { ControlMethod, createControlMessage } from '@/utils/controlMessages'
+import { bindAdapter } from '../../../__helper/bindAdapter'
 
 interface TestMethods {
     foo(value: string): void
@@ -59,9 +60,9 @@ describe(WebSocketClientAdapter, () => {
         adapter = new WebSocketClientAdapter<TestMethods, TestMethods>(...args)
         messageHandler = vi.fn<MessageHandler>()
         connectionLostHandler = vi.fn<ConnectionLostHandler>()
-        adapter.messageHandler = messageHandler
-        adapter.connectionLostHandler = connectionLostHandler
-        adapter.initLogger(LogLevel.DEBUG)
+        bindAdapter(adapter, { onMessage: messageHandler })
+        bindAdapter(adapter, { onConnectionLost: connectionLostHandler })
+        bindAdapter(adapter, { logLevel: LogLevel.DEBUG })
         return adapter
     }
 

@@ -16,33 +16,32 @@ export type PeerHandler<Methods extends MethodMap<Methods>, Events extends Metho
 
 export type PeerLostHandler = (id: string) => void
 
+export interface RpcHubAdapterBinding<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> {
+    onPeer: PeerHandler<Methods, Events>
+    onPeerLost: PeerLostHandler
+    logLevel: LogLevel
+}
+
 export abstract class AbstractRpcHubAdapter<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> {
-    private _peerHandler?: PeerHandler<Methods, Events>
-    private _peerLostHandler?: PeerLostHandler
+    private binding: RpcHubAdapterBinding<Methods, Events> | undefined
+    protected readonly logName: string = 'RpcHubAdapter'
     protected logger?: Logger
 
-    set peerHandler(handler: PeerHandler<Methods, Events>) {
-        this._peerHandler = handler
-    }
-
-    set peerLostHandler(handler: PeerLostHandler) {
-        this._peerLostHandler = handler
+    bind(binding: RpcHubAdapterBinding<Methods, Events>): void {
+        this.binding = binding
+        this.logger = new Logger(this.logName, binding.logLevel)
     }
 
     abstract connect(): Promisable<void>
 
     protected addPeer(adapter: AbstractRpcAdapter<Methods, Events>): string {
         const id = uuid()
-        this._peerHandler?.({ id, adapter })
+        this.binding?.onPeer({ id, adapter })
         return id
     }
 
     protected removePeer(id: string): void {
-        this._peerLostHandler?.(id)
-    }
-
-    initLogger(logLevel: LogLevel): void {
-        this.logger = new Logger(this.constructor.name, logLevel)
+        this.binding?.onPeerLost(id)
     }
 
     abstract destroy(): void

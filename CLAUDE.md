@@ -23,7 +23,11 @@ wires them to the control protocol (ping/pong/goodbye, heartbeat). They live in 
 transport and react through `onRemoteGoodbye`/`onRemoteUnresponsive`. The connection status of every adapter is a state
 machine (`src/lib/ConnectionLifecycle.ts`): `disconnected` and `connected` alternate, `destroyed` is final. An adapter
 that can never connect again destroys itself, the channel then tears itself down, and a hub removes the peer.
-`createRpcChannel` delegates the bookkeeping of calls to `PendingRequests` and `MessageQueue` (`src/lib/`).
+`createRpcChannel` delegates the bookkeeping of calls to `PendingRequests` and `MessageQueue` (`src/lib/`) and connects
+itself to the adapter with a single `adapter.bind({ onMessage, onStatusChange, onConnectionLost, logLevel })`; hubs do the
+same with `hubAdapter.bind({ onPeer, onPeerLost, logLevel })`. Every adapter class sets a fixed `logName` for its logger,
+because class names do not survive minification. Options of a single call (`timeout`, `signal`) are passed through
+`channel.method.with(options)(...args)`, never as an extra argument.
 The WebSocket adapters live in `src/lib/adapter/websocket/`. One-to-many transports (e.g. a `SharedWorker` serving many
 tabs) use `createRpcHub` with an adapter that extends `AbstractRpcHubAdapter`
 (`src/lib/adapter/AbstractRpcHubAdapter.ts`): the hub adapter reports peers via `addPeer(adapter)`/`removePeer(id)`, and
@@ -88,7 +92,8 @@ Before reporting work as done, run `npm run coverage`, `npm run check`, `npm run
 
 ## Adding an adapter
 
-1. Create `src/lib/adapter/<name>/` with an `index.ts` that exports the adapter classes and their option types. Keep
+1. Create `src/lib/adapter/<name>/` with an `index.ts` that exports the adapter classes and their option types. Give
+   every adapter class a `protected override readonly logName` with its class name. Keep
    the adapter classes flat in that folder (no `host/`/`client/` subfolders) and put helper functions into `utils/`
    and constants into `constants/` below it. Tests mirror this structure. Files that run in a worker scope are listed
    explicitly in the `tsconfig.*webworker.json` files; their tests are named `*.worker.test.ts`/`*.worker.test-d.ts`.

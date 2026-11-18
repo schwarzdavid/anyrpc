@@ -14,6 +14,7 @@ import { createRpcHub } from '@/createRpcHub'
 import { createRpcChannel } from '@/createRpcChannel'
 import { LogLevel } from '@/types/LogLevel'
 import { confirmHandshake } from '../../../__helper/confirmHandshake'
+import { bindHubAdapter } from '../../../__helper/bindAdapter'
 
 interface HubToPage {
     getTitle(): string
@@ -45,8 +46,8 @@ describe(SharedWorkerHubAdapter, () => {
 
     function createAdapter(name?: string, options?: Partial<SharedWorkerHubAdapterOptions>) {
         adapter = new SharedWorkerHubAdapter(name, options)
-        adapter.initLogger(LogLevel.DEBUG)
-        adapter.peerHandler = peerHandler
+        bindHubAdapter(adapter, { logLevel: LogLevel.DEBUG })
+        bindHubAdapter(adapter, { onPeer: peerHandler })
         return adapter
     }
 

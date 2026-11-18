@@ -26,6 +26,7 @@ export class NodeWorkerHostAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractMessagePortInitiatorAdapter<Methods, Events> {
+    protected override readonly logName = 'NodeWorkerHostAdapter'
     private readonly terminateOnDestroy: boolean
     private readonly onWorkerError = (error: Error) => this.logger?.error('Uncaught error in node worker', error)
     private readonly onWorkerExit = (exitCode: number) => this.handleWorkerExit(exitCode)

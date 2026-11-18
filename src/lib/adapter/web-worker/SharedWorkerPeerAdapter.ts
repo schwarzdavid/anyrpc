@@ -11,6 +11,7 @@ export class SharedWorkerPeerAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractMessagePortAdapter<Methods, Events> {
+    protected override readonly logName = 'SharedWorkerPeerAdapter'
     constructor(
         private readonly peerPorts: SharedWorkerPeerPorts,
         heartbeatOptions: HeartbeatOptions | undefined,

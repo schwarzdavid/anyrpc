@@ -33,7 +33,7 @@
     "messagechannel"
   ],
   "author": "David Schwarz <david@schwarzdavid.at>",
-  "license": "ISC",
+  "license": "MPL-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/schwarzdavid/anyrpc.git"

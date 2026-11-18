@@ -31,6 +31,7 @@ export class WebWorkerHostAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractMessagePortInitiatorAdapter<Methods, Events> {
+    protected override readonly logName = 'WebWorkerHostAdapter'
     private readonly terminateOnDestroy: boolean
     private readonly workerKind: string
     private errorListenersAbortController: AbortController | undefined

@@ -13,7 +13,7 @@ import type { AssertCallableMethodNames } from './types/MethodName'
 import type { RpcHandler, RpcListener, Unsubscribe } from './types/EventEmitter'
 import { createMethodProxy } from './utils/createMethodProxy'
 import type { RpcHub, RpcHubEvents, RpcHubMeta, RpcPeer, RpcPeerPromise } from './types/RpcHub'
-import type { RpcHandleableName } from './types/RpcChannel'
+import type { RpcCallOptions, RpcHandleableName } from './types/RpcChannel'
 
 type PeerSubscription<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> = (
     peer: RpcPeer<Methods, Events>,
@@ -25,8 +25,11 @@ interface PeerEntry<Methods extends MethodMap<Methods>, Events extends MethodMap
     joined: boolean
 }
 
-type UntypedRemoteMethod = ((...params: unknown[]) => Promise<unknown>) & {
+type UntypedCall = (...params: unknown[]) => Promise<unknown>
+
+type UntypedRemoteMethod = UntypedCall & {
     notify(...params: unknown[]): void
+    with(options: RpcCallOptions): UntypedCall
 }
 
 const boundHubAdapters = new WeakSet<object>()
@@ -52,9 +55,11 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
     const subscriptions = new Set<PeerSubscription<Methods, Events>>()
     let isDestroyed = false
 
-    hubAdapter.initLogger(hubOptions.logLevel)
-    hubAdapter.peerHandler = (connection) => void addPeer(connection)
-    hubAdapter.peerLostHandler = removePeer
+    hubAdapter.bind({
+        onPeer: (connection) => void addPeer(connection),
+        onPeerLost: removePeer,
+        logLevel: hubOptions.logLevel,
+    })
 
     if (hubOptions.autoConnect) {
         void connectHub()
@@ -157,9 +162,14 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
         return Reflect.get(peer.channel as object, method) as UntypedRemoteMethod
     }
 
-    function callPeer(peer: RpcPeer<Methods, Events>, method: string, params: unknown[]): Promise<unknown> {
+    function callPeer(
+        peer: RpcPeer<Methods, Events>,
+        method: string,
+        params: unknown[],
+        options: RpcCallOptions,
+    ): Promise<unknown> {
         try {
-            return remoteMethodOf(peer, method)(...params)
+            return remoteMethodOf(peer, method).with(options)(...params)
         } catch (error) {
             return Promise.reject(error as Error)
         }
@@ -169,8 +179,9 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
         peer: RpcPeer<Methods, Events>,
         method: string,
         params: unknown[],
+        options: RpcCallOptions,
     ): RpcPeerPromise<Methods, Events, unknown> {
-        const promise = callPeer(peer, method, params)
+        const promise = callPeer(peer, method, params, options)
 
         promise.catch((error: unknown) => {
             logger.debug(`Broadcast of "${method}" to peer "${peer.id}" failed`, error)
@@ -187,17 +198,19 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
     }
 
     function createBroadcastMethod(method: string) {
-        const call = (...params: unknown[]) => {
-            assertNotReserved(method, 'call')
-            assertNotDestroyed()
-            return joinedPeers().map((peer) => createPeerPromise(peer, method, params))
-        }
+        const callWith =
+            (options: RpcCallOptions) =>
+            (...params: unknown[]) => {
+                assertNotReserved(method, 'call')
+                assertNotDestroyed()
+                return joinedPeers().map((peer) => createPeerPromise(peer, method, params, options))
+            }
         const notify = (...params: unknown[]) => {
             assertNotReserved(method, 'notify')
             assertNotDestroyed()
             joinedPeers().forEach((peer) => notifyPeer(peer, method, params))
         }
-        return Object.assign(call, { notify })
+        return Object.assign(callWith({}), { notify, with: callWith })
     }
 
     const meta: RpcHubMeta<Methods, Events> = {

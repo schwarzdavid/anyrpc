@@ -9,6 +9,7 @@ import {
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
 import { nextMessage } from '../../../__helper/nextMessage'
+import { bindAdapter } from '../../../__helper/bindAdapter'
 
 interface TestMethods {
     foo(value: string): void
@@ -65,7 +66,7 @@ describe(WebWorkerHostAdapter, () => {
     })
 
     function initLogger<Adapter extends WebWorkerHostAdapter<TestMethods, TestMethods>>(created: Adapter): Adapter {
-        created.initLogger(LogLevel.DEBUG)
+        bindAdapter(created, { logLevel: LogLevel.DEBUG })
         return created
     }
 
