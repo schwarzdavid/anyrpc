@@ -1,5 +1,5 @@
 import type { MethodMap } from '@/types/MethodMap'
-import { AbstractMessagePortHostAdapter } from '@/lib/adapter/message-port/AbstractMessagePortHostAdapter'
+import { AbstractMessagePortResponderAdapter } from '@/lib/adapter/message-port/AbstractMessagePortResponderAdapter'
 import type { InitResponse } from '@/lib/adapter/message-port/utils/handshake'
 import { DEFAULT_WEB_WORKER_ADAPTER_NAME, WEB_WORKER_INIT_METHOD_NAME } from './constants/webWorkerHandshake'
 import { GlobalScope, isRunningIn, isRunningInWindow } from './utils/globalScope'
@@ -25,10 +25,10 @@ function assertDedicatedWorkerScope(): void {
 export class WebWorkerClientAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
-> extends AbstractMessagePortHostAdapter<Methods, Events> {
+> extends AbstractMessagePortResponderAdapter<Methods, Events> {
     constructor(name: string = DEFAULT_WEB_WORKER_ADAPTER_NAME) {
         assertDedicatedWorkerScope()
-        super(WEB_WORKER_INIT_METHOD_NAME, name, false)
+        super({ initMethod: WEB_WORKER_INIT_METHOD_NAME, name })
     }
 
     protected listenForInitRequests(signal: AbortSignal): void {

@@ -2,8 +2,8 @@ import { describe, expectTypeOf, it } from 'vitest'
 import type { MessagePort as NodeMessagePort } from 'node:worker_threads'
 import {
     AbstractMessagePortAdapter,
-    AbstractMessagePortClientAdapter,
-    AbstractMessagePortHostAdapter,
+    AbstractMessagePortInitiatorAdapter,
+    AbstractMessagePortResponderAdapter,
     type HeartbeatOption,
     type HeartbeatOptions,
     type InitRequest,
@@ -27,9 +27,9 @@ declare const nodePorts: NodeMessagePort[]
 
 describe('@schwarzdavid/anyrpc/adapters/message-port entry point', () => {
     it('should let consumers write a host adapter by implementing the handshake transport', () => {
-        class CustomHostAdapter extends AbstractMessagePortHostAdapter<Methods, Events> {
+        class CustomHostAdapter extends AbstractMessagePortResponderAdapter<Methods, Events> {
             constructor(heartbeat: HeartbeatOption = false) {
-                super('anyrpc::custom-init', 'custom', heartbeat)
+                super({ initMethod: 'anyrpc::custom-init', name: 'custom', heartbeat })
             }
 
             protected listenForInitRequests(signal: AbortSignal): void {
@@ -45,9 +45,9 @@ describe('@schwarzdavid/anyrpc/adapters/message-port entry point', () => {
     })
 
     it('should let consumers write a client adapter by implementing the handshake transport', () => {
-        class CustomClientAdapter extends AbstractMessagePortClientAdapter<Methods, Events> {
+        class CustomClientAdapter extends AbstractMessagePortInitiatorAdapter<Methods, Events> {
             constructor() {
-                super('anyrpc::custom-init', 'custom', 1000)
+                super({ initMethod: 'anyrpc::custom-init', name: 'custom', pollingInterval: 1000 })
             }
 
             protected listenForInitResponses(signal: AbortSignal): void {
@@ -63,9 +63,9 @@ describe('@schwarzdavid/anyrpc/adapters/message-port entry point', () => {
     })
 
     it('should let client adapters accept ports that arrive inside the message data', () => {
-        class PortsInDataClientAdapter extends AbstractMessagePortClientAdapter<Methods, Events> {
+        class PortsInDataClientAdapter extends AbstractMessagePortInitiatorAdapter<Methods, Events> {
             constructor() {
-                super('anyrpc::custom-init', 'custom', 1000)
+                super({ initMethod: 'anyrpc::custom-init', name: 'custom', pollingInterval: 1000 })
             }
 
             protected listenForInitResponses(signal: AbortSignal): void {
@@ -83,9 +83,9 @@ describe('@schwarzdavid/anyrpc/adapters/message-port entry point', () => {
     })
 
     it('should let host adapters declare transfer as the port type of their transport', () => {
-        class NodeHostAdapter extends AbstractMessagePortHostAdapter<Methods, Events> {
+        class NodeHostAdapter extends AbstractMessagePortResponderAdapter<Methods, Events> {
             constructor() {
-                super('anyrpc::custom-init', 'custom', false)
+                super({ initMethod: 'anyrpc::custom-init', name: 'custom' })
             }
 
             protected listenForInitRequests(signal: AbortSignal): void {
@@ -101,9 +101,9 @@ describe('@schwarzdavid/anyrpc/adapters/message-port entry point', () => {
     })
 
     it('should let client adapters keep overriding acceptInitResponse with the DOM message event', () => {
-        class OverridingClientAdapter extends AbstractMessagePortClientAdapter<Methods, Events> {
+        class OverridingClientAdapter extends AbstractMessagePortInitiatorAdapter<Methods, Events> {
             constructor() {
-                super('anyrpc::custom-init', 'custom', 1000)
+                super({ initMethod: 'anyrpc::custom-init', name: 'custom', pollingInterval: 1000 })
             }
 
             protected override acceptInitResponse(event: MessageEvent): void {

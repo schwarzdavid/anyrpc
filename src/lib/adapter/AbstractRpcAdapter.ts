@@ -3,6 +3,7 @@ import type { MethodMap } from '@/types/MethodMap'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import type { Promisable } from 'type-fest'
 import { Logger } from '@/lib/Logger'
+import { ConnectionLifecycle } from '@/lib/ConnectionLifecycle'
 import type { LogLevel } from '@/types/LogLevel'
 
 export type MessageHandler = (message: string | object) => Promisable<void>
@@ -13,19 +14,15 @@ export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Eve
     private _messageHandler?: MessageHandler
     private _connectionHandler?: ConnectionHandler
     private _connectionLostHandler?: ConnectionLostHandler
-    private _connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED
+    private readonly lifecycle = new ConnectionLifecycle((status) => this._connectionHandler?.(status))
     protected logger?: Logger
 
     get connectionStatus(): ConnectionStatus {
-        return this._connectionStatus
+        return this.lifecycle.status
     }
 
     protected set connectionStatus(status: ConnectionStatus) {
-        if (this._connectionStatus === status) {
-            return
-        }
-        this._connectionStatus = status
-        this._connectionHandler?.(status)
+        this.lifecycle.transitionTo(status)
     }
 
     set connectionHandler(handler: ConnectionHandler) {
@@ -49,8 +46,7 @@ export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Eve
     }
 
     protected closeConnection(): void {
-        this._connectionLostHandler?.()
-        this.connectionStatus = ConnectionStatus.DISCONNECTED
+        this.endConnection(ConnectionStatus.DISCONNECTED)
     }
 
     initLogger(logLevel: LogLevel): void {
@@ -58,6 +54,14 @@ export abstract class AbstractRpcAdapter<Methods extends MethodMap<Methods>, Eve
     }
 
     destroy(): void {
-        this.closeConnection()
+        this.endConnection(ConnectionStatus.DESTROYED)
+    }
+
+    private endConnection(status: ConnectionStatus): void {
+        if (this.lifecycle.isDestroyed) {
+            return
+        }
+        this._connectionLostHandler?.()
+        this.lifecycle.transitionTo(status)
     }
 }

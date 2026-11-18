@@ -9,15 +9,21 @@ exported from the package entry together with `ConnectionStatus`, `LogLevel`, `R
 for iframes (`src/lib/adapter/iframe/`) and web workers (`src/lib/adapter/web-worker/`) exist, as well as for Node.js
 worker threads (`src/lib/adapter/node-worker/`) and Node.js child processes (`src/lib/adapter/child-process/`, built on
 `AbstractSocketAdapter`); more transports are planned (see README). Transports that exchange
-`MessagePort`s after a handshake extend `AbstractMessagePortHostAdapter` (the side that answers the handshake and
-creates the `MessageChannel`s) or `AbstractMessagePortClientAdapter` (the side that starts the handshake and polls until
-it is answered). Which side starts depends on the transport: an iframe asks its parent, a page asks its worker.
-`Host`/`Client` in the public adapter names mean the embedding/embedded side, not the handshake role
-(`WebWorkerHostAdapter` extends the client base). Both build on `AbstractMessagePortAdapter`, which owns the ports, the
-heartbeat and the control protocol (ping/pong/goodbye). They live in `src/lib/adapter/message-port/` and ship as
+`MessagePort`s after a handshake extend `AbstractMessagePortResponderAdapter` (the side that answers the handshake and
+creates the `MessageChannel`s) or `AbstractMessagePortInitiatorAdapter` (the side that starts the handshake and polls
+until it is answered); both take a single options object (`initMethod`, `name`, ...). Which side starts depends on the
+transport: an iframe asks its parent, a page asks its worker. `Host`/`Client` in the public adapter names mean the
+embedding/embedded side, the base class names mean the handshake role (`WebWorkerHostAdapter` extends the initiator
+base). Both build on `AbstractMessagePortAdapter`, which owns the ports and
+wires them to the control protocol (ping/pong/goodbye, heartbeat). They live in `src/lib/adapter/message-port/` and ship as
 `@schwarzdavid/anyrpc/adapters/message-port`. Transports with a single bidirectional channel extend `AbstractSocketAdapter`
 (`src/lib/adapter/socket/`, shipped as `@schwarzdavid/anyrpc/adapters/socket`), which sends ping/pong/goodbye in-band through
 `ControlProtocol` (`src/lib/ControlProtocol.ts`), the same protocol the message-port adapters use on their control port.
+`ControlProtocol` also decides when the remote side counts as responsive or unresponsive; adapters only provide the
+transport and react through `onRemoteGoodbye`/`onRemoteUnresponsive`. The connection status of every adapter is a state
+machine (`src/lib/ConnectionLifecycle.ts`): `disconnected` and `connected` alternate, `destroyed` is final. An adapter
+that can never connect again destroys itself, the channel then tears itself down, and a hub removes the peer.
+`createRpcChannel` delegates the bookkeeping of calls to `PendingRequests` and `MessageQueue` (`src/lib/`).
 The WebSocket adapters live in `src/lib/adapter/websocket/`. One-to-many transports (e.g. a `SharedWorker` serving many
 tabs) use `createRpcHub` with an adapter that extends `AbstractRpcHubAdapter`
 (`src/lib/adapter/AbstractRpcHubAdapter.ts`): the hub adapter reports peers via `addPeer(adapter)`/`removePeer(id)`, and
@@ -89,10 +95,10 @@ Before reporting work as done, run `npm run coverage`, `npm run check`, `npm run
    Node-only tests are named `*.node.test.ts` and run in the Vitest project `node`; end-to-end tests against real
    Node.js APIs live in `test/node/`.
 2. Extend `AbstractRpcAdapter` and implement `connect` and `sendMessage`; report connection state via `connectionStatus`,
-   call `closeConnection()` when the transport is definitively closed (this rejects in-flight calls with
-   `CONNECTION_LOST`, a mere status change does not) and forward incoming messages via `onMessage`. Override `destroy`
-   to release resources. Handshake-based `MessagePort` transports extend `AbstractMessagePortHostAdapter` or
-   `AbstractMessagePortClientAdapter` instead and only implement how handshake messages are listened for and posted.
+   call `closeConnection()` when the current connection is definitively closed (this rejects in-flight calls with
+   `CONNECTION_LOST`, a mere status change does not), call `destroy()` when the transport can never connect again, and
+   forward incoming messages via `onMessage`. Override `destroy` to release resources. Handshake-based `MessagePort`
+   transports extend `AbstractMessagePortResponderAdapter` or `AbstractMessagePortInitiatorAdapter` instead and only implement how handshake messages are listened for and posted.
    Single-channel transports without `MessagePort`s extend `AbstractSocketAdapter` (`src/lib/adapter/socket/`) and
    implement `connect` and `send`, calling `opened()`, `closed()` and `receive()`.
 3. Add one build entry in `vite.config.ts` and a matching subpath export in `package.json` that exports both sides.

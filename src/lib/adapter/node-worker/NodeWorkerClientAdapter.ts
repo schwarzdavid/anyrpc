@@ -1,6 +1,6 @@
 import { MessagePort, parentPort } from 'node:worker_threads'
 import type { MethodMap } from '@/types/MethodMap'
-import { AbstractMessagePortHostAdapter } from '@/lib/adapter/message-port/AbstractMessagePortHostAdapter'
+import { AbstractMessagePortResponderAdapter } from '@/lib/adapter/message-port/AbstractMessagePortResponderAdapter'
 import type { MessagePortLike } from '@/lib/adapter/message-port/AbstractMessagePortAdapter'
 import type { InitResponse } from '@/lib/adapter/message-port/utils/handshake'
 import { readMessageData } from '@/lib/adapter/message-port/utils/messageData'
@@ -20,12 +20,12 @@ function requireParentPort(): MessagePort {
 export class NodeWorkerClientAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
-> extends AbstractMessagePortHostAdapter<Methods, Events> {
+> extends AbstractMessagePortResponderAdapter<Methods, Events> {
     private readonly parentPort: MessagePort
 
     constructor(name: string = DEFAULT_NODE_WORKER_ADAPTER_NAME) {
         const port = requireParentPort()
-        super(NODE_WORKER_INIT_METHOD_NAME, name, false)
+        super({ initMethod: NODE_WORKER_INIT_METHOD_NAME, name })
         this.parentPort = port
     }
 

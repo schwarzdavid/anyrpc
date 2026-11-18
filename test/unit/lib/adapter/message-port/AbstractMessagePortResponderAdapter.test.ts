@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AbstractMessagePortHostAdapter } from '@/lib/adapter/message-port/AbstractMessagePortHostAdapter'
+import { AbstractMessagePortResponderAdapter } from '@/lib/adapter/message-port/AbstractMessagePortResponderAdapter'
 import type { InitResponse } from '@/lib/adapter/message-port/utils/handshake'
 import type { HeartbeatOption } from '@/lib/Heartbeat'
 import type { ConnectionHandler, ConnectionLostHandler } from '@/lib/adapter/AbstractRpcAdapter'
@@ -17,12 +17,12 @@ const METHOD = 'anyrpc::test-init'
 const ping = { jsonrpc: '2.0', method: 'anyrpc::ping', params: [] }
 const pong = { jsonrpc: '2.0', method: 'anyrpc::pong', params: [] }
 
-class TestHostAdapter extends AbstractMessagePortHostAdapter<TestMethods, TestMethods> {
+class TestResponderAdapter extends AbstractMessagePortResponderAdapter<TestMethods, TestMethods> {
     readonly listenForInitRequests = vi.fn<(signal: AbortSignal) => void>()
     readonly postInitResponse = vi.fn<(response: InitResponse, transfer: Transferable[]) => void>()
 
     constructor(name = 'my-app', heartbeat: HeartbeatOption = false) {
-        super(METHOD, name, heartbeat)
+        super({ initMethod: METHOD, name, heartbeat })
         this.initLogger(LogLevel.DEBUG)
     }
 
@@ -44,13 +44,13 @@ function initRequest(id = 'init-id', name = 'my-app') {
     return { jsonrpc: '2.0', id, method: METHOD, params: [name] }
 }
 
-describe(AbstractMessagePortHostAdapter, () => {
-    let adapter: TestHostAdapter
+describe(AbstractMessagePortResponderAdapter, () => {
+    let adapter: TestResponderAdapter
 
     beforeEach(() => {
         vi.spyOn(console, 'log').mockImplementation(() => undefined)
         vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-        adapter = new TestHostAdapter()
+        adapter = new TestResponderAdapter()
     })
 
     afterEach(() => {
@@ -75,20 +75,6 @@ describe(AbstractMessagePortHostAdapter, () => {
 
             expect(previousSignal.aborted).toBe(true)
             expect(adapter.listenForInitRequests.mock.calls[1]![0].aborted).toBe(false)
-        })
-
-        it('should answer init requests again after it was destroyed and reconnected', async () => {
-            adapter.connect()
-            adapter.accept(initRequest('first-id'))
-            adapter.destroy()
-
-            adapter.connect()
-            const accepted = adapter.accept(initRequest('second-id'))
-            await confirmHandshake(adapter.transferredControlPort)
-
-            expect(accepted).toBe(true)
-            expect(adapter.listenForInitRequests).toHaveBeenCalledTimes(2)
-            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
         })
     })
 
@@ -153,7 +139,7 @@ describe(AbstractMessagePortHostAdapter, () => {
             expect(adapter.postInitResponse).toHaveBeenCalledTimes(1)
             expect(connectionHandler).not.toHaveBeenCalled()
             expect(console.warn).toHaveBeenCalledWith(
-                '[TestHostAdapter]',
+                '[TestResponderAdapter]',
                 expect.stringContaining('repeated handshake request'),
             )
         })
@@ -190,7 +176,7 @@ describe(AbstractMessagePortHostAdapter, () => {
         })
 
         it('should keep pinging the transferred control port when enabled', async () => {
-            adapter = new TestHostAdapter('my-app', { interval: 10, timeout: 50 })
+            adapter = new TestResponderAdapter('my-app', { interval: 10, timeout: 50 })
             adapter.accept(initRequest())
             const controlPort = adapter.transferredControlPort
             await confirmHandshake(controlPort)
@@ -204,7 +190,7 @@ describe(AbstractMessagePortHostAdapter, () => {
 
         it('should disconnect when the remote side does not answer in time', async () => {
             vi.useFakeTimers()
-            adapter = new TestHostAdapter('my-app', { interval: 100, timeout: 250 })
+            adapter = new TestResponderAdapter('my-app', { interval: 100, timeout: 250 })
             adapter.accept(initRequest())
             await confirmHandshake(adapter.transferredControlPort)
 
@@ -224,7 +210,7 @@ describe(AbstractMessagePortHostAdapter, () => {
             adapter.destroy()
 
             expect(signal.aborted).toBe(true)
-            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
         })
     })
 })

@@ -18,16 +18,13 @@ describe(WebSocketPeerAdapter, () => {
     let adapter: WebSocketPeerAdapter<TestMethods, TestMethods>
     let messageHandler: Mock<MessageHandler>
     let connectionLostHandler: Mock<ConnectionLostHandler>
-    let closedHandler: Mock<() => void>
 
     function createAdapter(heartbeat?: { interval: number; timeout: number }) {
         adapter = new WebSocketPeerAdapter<TestMethods, TestMethods>(socket, heartbeat)
         messageHandler = vi.fn<MessageHandler>()
         connectionLostHandler = vi.fn<ConnectionLostHandler>()
-        closedHandler = vi.fn<() => void>()
         adapter.messageHandler = messageHandler
         adapter.connectionLostHandler = connectionLostHandler
-        adapter.closedHandler = closedHandler
         adapter.initLogger(LogLevel.DEBUG)
     }
 
@@ -80,14 +77,14 @@ describe(WebSocketPeerAdapter, () => {
         )
     })
 
-    it('should report the peer as closed when the socket closes', () => {
+    it('should destroy itself when the socket closes', () => {
         adapter.connect()
 
         socket.closeFromRemote()
 
-        expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
         expect(connectionLostHandler).toHaveBeenCalledTimes(1)
-        expect(closedHandler).toHaveBeenCalledWith()
+        expect(socket.close).not.toHaveBeenCalled()
     })
 
     it('should ignore messages after the socket closed', () => {
@@ -106,10 +103,10 @@ describe(WebSocketPeerAdapter, () => {
 
         expect(socket.sent()).toStrictEqual([createControlMessage(ControlMethod.GOODBYE)])
         expect(socket.close).toHaveBeenCalledWith(1000)
-        expect(closedHandler).toHaveBeenCalledWith()
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
     })
 
-    it('should warn about socket errors and stay registered until the socket closes', () => {
+    it('should warn about socket errors and stay connected until the socket closes', () => {
         adapter.connect()
 
         socket.fail()
@@ -118,7 +115,7 @@ describe(WebSocketPeerAdapter, () => {
             '[WebSocketPeerAdapter]',
             'The WebSocket connection reported an error',
         )
-        expect(closedHandler).not.toHaveBeenCalled()
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
         expect(socket.close).not.toHaveBeenCalled()
     })
 
@@ -127,7 +124,7 @@ describe(WebSocketPeerAdapter, () => {
 
         socket.receive(JSON.stringify(createControlMessage(ControlMethod.GOODBYE)))
 
-        expect(closedHandler).toHaveBeenCalledWith()
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
         expect(socket.close).toHaveBeenCalledWith(1000)
     })
 
@@ -139,6 +136,6 @@ describe(WebSocketPeerAdapter, () => {
         vi.advanceTimersByTime(4000)
 
         expect(socket.close).toHaveBeenCalledWith(1000)
-        expect(closedHandler).toHaveBeenCalledWith()
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
     })
 })

@@ -32,7 +32,6 @@ export abstract class AbstractMessagePortAdapter<
     Events extends MethodMap<Events>,
 > extends AbstractRpcAdapter<Methods, Events> {
     private ports: MessagePorts | undefined
-    private awaitingRemote = false
     private readonly control: ControlProtocol
 
     protected constructor(heartbeatOptions?: HeartbeatOptions) {
@@ -40,9 +39,13 @@ export abstract class AbstractMessagePortAdapter<
 
         this.control = new ControlProtocol(heartbeatOptions, {
             send: (message) => this.ports?.control?.postMessage(message),
-            onPong: () => this.markResponsive(),
-            onTimeout: () => this.markUnresponsive(),
-            onGoodbye: () => this.handleRemoteGoodbye(),
+            isConnected: () => this.connectionStatus === ConnectionStatus.CONNECTED,
+            getLogger: () => this.logger,
+            onResponsive: () => {
+                this.connectionStatus = ConnectionStatus.CONNECTED
+            },
+            onUnresponsive: () => this.onRemoteUnresponsive(),
+            onGoodbye: () => this.onRemoteGoodbye(),
         })
     }
 
@@ -66,8 +69,7 @@ export abstract class AbstractMessagePortAdapter<
         ports.control?.start()
 
         if (awaitRemote) {
-            this.awaitingRemote = true
-            this.control.ping()
+            this.control.awaitRemote()
         } else {
             this.connectionStatus = ConnectionStatus.CONNECTED
         }
@@ -79,6 +81,10 @@ export abstract class AbstractMessagePortAdapter<
     protected onRemoteGoodbye(): void {
         this.closePorts()
         this.closeConnection()
+    }
+
+    protected onRemoteUnresponsive(): void {
+        this.connectionStatus = ConnectionStatus.DISCONNECTED
     }
 
     override destroy(): void {
@@ -93,36 +99,8 @@ export abstract class AbstractMessagePortAdapter<
         }
     }
 
-    private handleRemoteGoodbye(): void {
-        this.logger?.debug('The remote side closed the connection')
-        this.onRemoteGoodbye()
-    }
-
-    private markResponsive(): void {
-        if (this.connectionStatus === ConnectionStatus.CONNECTED) {
-            return
-        }
-        this.logger?.info(
-            this.awaitingRemote ? 'The remote side accepted the connection' : 'The remote side is responding again',
-        )
-        this.awaitingRemote = false
-        this.connectionStatus = ConnectionStatus.CONNECTED
-    }
-
-    protected onRemoteUnresponsive(): void {
-        this.connectionStatus = ConnectionStatus.DISCONNECTED
-    }
-
-    private markUnresponsive(): void {
-        if (this.connectionStatus === ConnectionStatus.CONNECTED) {
-            this.logger?.warn('The remote side did not answer the heartbeat in time')
-            this.onRemoteUnresponsive()
-        }
-    }
-
     private closePorts(): void {
-        this.control.stopHeartbeat()
-        this.awaitingRemote = false
+        this.control.stop()
         this.ports?.data.close()
         this.ports?.control?.close()
         this.ports = undefined

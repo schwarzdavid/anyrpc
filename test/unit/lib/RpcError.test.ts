@@ -13,6 +13,13 @@ describe(RpcError, () => {
         expect(rpcError.message).toBeDefined()
     })
 
+    it('should be named RpcError', () => {
+        const error = new RpcError(RpcErrorCode.TIMEOUT_ERROR)
+
+        expect(error.name).toBe('RpcError')
+        expect(String(error)).toBe(`RpcError: ${error.message}`)
+    })
+
     it('should create an RpcError with RpcErrorData', () => {
         const errorData: RpcErrorData = {
             code: RpcErrorCode.INVALID_REQUEST,

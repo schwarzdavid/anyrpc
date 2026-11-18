@@ -197,7 +197,7 @@ describe(ChildProcessHostAdapter, () => {
         child.emit('disconnect')
         vi.advanceTimersByTime(3000)
 
-        expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
         expect(connectionLostHandler).toHaveBeenCalledTimes(2)
         expect(vi.getTimerCount()).toBe(0)
         expect(child.listenerCounts()).toStrictEqual({ message: 0, exit: 0, disconnect: 0 })
@@ -257,7 +257,7 @@ describe(ChildProcessHostAdapter, () => {
 
         child.emit('exit', null)
 
-        expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
         expect(connectionLostHandler).toHaveBeenCalledWith()
     })
 

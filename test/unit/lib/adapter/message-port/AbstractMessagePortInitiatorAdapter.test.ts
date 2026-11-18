@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MessagePortLike } from '@/lib/adapter/message-port/AbstractMessagePortAdapter'
-import { AbstractMessagePortClientAdapter } from '@/lib/adapter/message-port/AbstractMessagePortClientAdapter'
+import { AbstractMessagePortInitiatorAdapter } from '@/lib/adapter/message-port/AbstractMessagePortInitiatorAdapter'
 import type { InitRequest } from '@/lib/adapter/message-port/utils/handshake'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { LogLevel } from '@/types/LogLevel'
@@ -12,12 +12,12 @@ interface TestMethods {
 
 const METHOD = 'anyrpc::test-init'
 
-class TestClientAdapter extends AbstractMessagePortClientAdapter<TestMethods, TestMethods> {
+class TestInitiatorAdapter extends AbstractMessagePortInitiatorAdapter<TestMethods, TestMethods> {
     readonly listenForInitResponses = vi.fn<(signal: AbortSignal) => void>()
     readonly postInitRequest = vi.fn<(request: InitRequest) => void>()
 
     constructor(name = 'my-app', pollingInterval = 1000) {
-        super(METHOD, name, pollingInterval)
+        super({ initMethod: METHOD, name, pollingInterval })
         this.initLogger(LogLevel.DEBUG)
     }
 
@@ -42,10 +42,10 @@ function responseTo(request: Pick<InitRequest, 'id'>, ports: MessagePort[]): Mes
     return new MessageEvent('message', { data: { jsonrpc: '2.0', id: request.id, result: null }, ports })
 }
 
-describe(AbstractMessagePortClientAdapter, () => {
+describe(AbstractMessagePortInitiatorAdapter, () => {
     let dataChannel: MessageChannel
     let controlChannel: MessageChannel
-    let adapter: TestClientAdapter
+    let adapter: TestInitiatorAdapter
 
     beforeEach(() => {
         vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
@@ -53,7 +53,7 @@ describe(AbstractMessagePortClientAdapter, () => {
         vi.spyOn(console, 'warn').mockImplementation(() => undefined)
         dataChannel = new MessageChannel()
         controlChannel = new MessageChannel()
-        adapter = new TestClientAdapter()
+        adapter = new TestInitiatorAdapter()
     })
 
     afterEach(() => {
@@ -92,7 +92,7 @@ describe(AbstractMessagePortClientAdapter, () => {
         })
 
         it('should use the configured polling interval', () => {
-            adapter = new TestClientAdapter('my-app', 100)
+            adapter = new TestInitiatorAdapter('my-app', 100)
 
             adapter.connect()
             vi.advanceTimersByTime(300)
@@ -143,7 +143,7 @@ describe(AbstractMessagePortClientAdapter, () => {
 
             expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
             expect(console.warn).toHaveBeenCalledWith(
-                '[TestClientAdapter]',
+                '[TestInitiatorAdapter]',
                 'Ignored a handshake response without the expected message ports',
             )
         })
@@ -205,7 +205,7 @@ describe(AbstractMessagePortClientAdapter, () => {
             expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
             expect(adapter.postInitRequest).toHaveBeenCalledTimes(2)
             expect(console.warn).toHaveBeenCalledWith(
-                '[TestClientAdapter]',
+                '[TestInitiatorAdapter]',
                 'Ignored a handshake response without the expected message ports',
             )
         })
@@ -225,19 +225,6 @@ describe(AbstractMessagePortClientAdapter, () => {
             expect(adapter.postInitRequest).toHaveBeenCalledWith(expect.objectContaining({ method: METHOD }))
             expect(adapter.postedRequest.id).not.toBe(previousRequest.id)
         })
-
-        it('should connect again after it was destroyed', () => {
-            adapter.connect()
-            adapter.accept(responseTo(adapter.postedRequest, [dataChannel.port1, controlChannel.port1]))
-            adapter.destroy()
-
-            adapter.connect()
-            const [request] = adapter.postInitRequest.mock.calls[1]!
-            adapter.accept(responseTo(request, [new MessageChannel().port1, new MessageChannel().port1]))
-
-            expect(adapter.listenForInitResponses).toHaveBeenCalledTimes(2)
-            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
-        })
     })
 
     describe('destroy', () => {
@@ -252,7 +239,7 @@ describe(AbstractMessagePortClientAdapter, () => {
 
             expect(adapter.postInitRequest).toHaveBeenCalledTimes(1)
             expect(signal.aborted).toBe(true)
-            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
         })
     })
 })

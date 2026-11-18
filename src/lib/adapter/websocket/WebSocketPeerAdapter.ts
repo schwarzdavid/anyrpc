@@ -15,14 +15,10 @@ export interface WebSocketLike {
     addEventListener(type: 'close' | 'error', listener: () => void): void
 }
 
-export type PeerClosedHandler = () => void
-
 export class WebSocketPeerAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractSocketAdapter<Methods, Events> {
-    private _closedHandler?: PeerClosedHandler
-
     constructor(
         private readonly socket: WebSocketLike,
         heartbeatOptions: HeartbeatOptions | undefined,
@@ -30,13 +26,9 @@ export class WebSocketPeerAdapter<
         super(heartbeatOptions)
     }
 
-    set closedHandler(handler: PeerClosedHandler) {
-        this._closedHandler = handler
-    }
-
     connect(): void {
         this.socket.addEventListener('message', (event) => this.handleMessage(event.data))
-        this.socket.addEventListener('close', () => this.closed())
+        this.socket.addEventListener('close', () => super.destroy())
         this.socket.addEventListener('error', () => this.logger?.warn('The WebSocket connection reported an error'))
         this.opened()
     }
@@ -48,17 +40,11 @@ export class WebSocketPeerAdapter<
     }
 
     protected override onRemoteGoodbye(): void {
-        super.onRemoteGoodbye()
-        this.socket.close(NORMAL_CLOSURE)
+        this.destroy()
     }
 
     protected override onRemoteUnresponsive(): void {
         this.destroy()
-    }
-
-    protected override closeConnection(): void {
-        super.closeConnection()
-        this._closedHandler?.()
     }
 
     override destroy(): void {

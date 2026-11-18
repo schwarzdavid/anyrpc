@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createRpcChannel } from '@/createRpcChannel'
+import { createRpcChannel, type RpcChannelOptions } from '@/createRpcChannel'
 import { AbstractRpcAdapter } from '@/lib/adapter/AbstractRpcAdapter'
 import { RpcError } from '@/lib/RpcError'
 import { RPC_ERROR_MESSAGE_MAP, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
@@ -807,7 +807,7 @@ describe(createRpcChannel, () => {
                     error: {
                         code: RpcErrorCode.SERVER_ERROR,
                         message: RPC_ERROR_MESSAGE_MAP[RpcErrorCode.SERVER_ERROR],
-                        data: expect.objectContaining({ name: 'Error' }),
+                        data: expect.objectContaining({ name: 'RpcError' }),
                     },
                 })
             },
@@ -1159,17 +1159,73 @@ describe(createRpcChannel, () => {
             )
         })
 
-        it('should allow a new channel on the adapter after the previous one was destroyed', () => {
+        it('should throw for an adapter that was destroyed', () => {
             const adapter = new MockAdapter()
             const rpcChannel = createRpcChannel(adapter)
 
             rpcChannel.$.destroy()
 
-            expect(() => createRpcChannel(adapter)).not.toThrowError()
+            expect(() => createRpcChannel(adapter)).toThrowError(
+                'The adapter was destroyed. Create a new adapter instance for the channel.',
+            )
+        })
+
+        it('should report the status destroyed and emit rpc.disconnected when destroyed while connected', () => {
+            const adapter = new MockAdapter()
+            const rpcChannel = createRpcChannel(adapter)
+            const events: string[] = []
+            rpcChannel.$.on('rpc.status', (status) => events.push(`status:${status}`))
+            rpcChannel.$.on('rpc.disconnected', () => events.push('disconnected'))
+
+            rpcChannel.$.destroy()
+
+            expect(events).toStrictEqual(['status:destroyed', 'disconnected'])
+            expect(rpcChannel.$.status).toBe(ConnectionStatus.DESTROYED)
+        })
+
+        it('should not emit rpc.disconnected when destroyed while disconnected', () => {
+            const adapter = new MockAdapter(ConnectionStatus.DISCONNECTED)
+            const rpcChannel = createRpcChannel(adapter)
+            const events: string[] = []
+            rpcChannel.$.on('rpc.status', (status) => events.push(`status:${status}`))
+            rpcChannel.$.on('rpc.disconnected', () => events.push('disconnected'))
+
+            rpcChannel.$.destroy()
+
+            expect(events).toStrictEqual(['status:destroyed'])
+        })
+
+        it('should behave like a destroyed channel once the adapter destroys itself', async () => {
+            const adapter = new MockAdapter(ConnectionStatus.DISCONNECTED)
+            const rpcChannel = createRpcChannel(adapter, { queueEnabled: true })
+            const queuedCall = rpcChannel.add(1, 2)
+
+            adapter.destroy()
+
+            await expect(queuedCall).rejects.toStrictEqual(new RpcError(RpcErrorCode.CONNECTION_LOST))
+            expect(() => rpcChannel.add(1, 2)).toThrowError('The channel was destroyed')
+            expect(rpcChannel.$.status).toBe(ConnectionStatus.DESTROYED)
         })
     })
 
     describe('adapter setup', () => {
+        it('should fall back to the default for options that are set to undefined', async () => {
+            vi.useFakeTimers()
+            const adapter = new MockAdapter()
+            const options = { timeout: undefined } as unknown as Partial<RpcChannelOptions>
+            const rpcChannel = createRpcChannel(adapter, options)
+            const settled = vi.fn<() => void>()
+
+            rpcChannel.add(1, 2).catch(settled)
+            await vi.advanceTimersByTimeAsync(2999)
+            const settledBeforeDefaultTimeout = settled.mock.calls.length
+            await vi.advanceTimersByTimeAsync(1)
+            vi.useRealTimers()
+
+            expect(settledBeforeDefaultTimeout).toBe(0)
+            expect(settled).toHaveBeenCalledWith(new RpcError(RpcErrorCode.TIMEOUT_ERROR))
+        })
+
         it('should connect automatically by default', () => {
             const adapter = new MockAdapter(ConnectionStatus.DISCONNECTED)
             createRpcChannel(adapter)

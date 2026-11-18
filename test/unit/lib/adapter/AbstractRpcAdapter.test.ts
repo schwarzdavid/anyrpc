@@ -134,6 +134,35 @@ describe(AbstractRpcAdapter, () => {
         adapter.destroy()
 
         expect(connectionLostHandler).toHaveBeenCalledTimes(1)
-        expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
+    })
+
+    it('should report the status destroyed once without passing through disconnected', () => {
+        const adapter = new RpcAdapterImpl()
+        const connectionHandler = vi.fn<ConnectionHandler>()
+        adapter.triggerConnection()
+        adapter.connectionHandler = connectionHandler
+
+        adapter.destroy()
+        adapter.destroy()
+
+        expect(connectionHandler.mock.calls).toStrictEqual([[ConnectionStatus.DESTROYED]])
+    })
+
+    it('should stay destroyed and keep quiet when the transport reports changes afterwards', () => {
+        const adapter = new RpcAdapterImpl()
+        const connectionHandler = vi.fn<ConnectionHandler>()
+        const connectionLostHandler = vi.fn<ConnectionLostHandler>()
+        adapter.destroy()
+        adapter.connectionHandler = connectionHandler
+        adapter.connectionLostHandler = connectionLostHandler
+
+        adapter.triggerConnection()
+        adapter.triggerClose()
+        adapter.destroy()
+
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
+        expect(connectionHandler).not.toHaveBeenCalled()
+        expect(connectionLostHandler).not.toHaveBeenCalled()
     })
 })

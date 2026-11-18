@@ -48,7 +48,7 @@ describe.skipIf(!existsSync(DIST))(NodeWorkerHostAdapter, () => {
         await channel.add(1, 1)
 
         await expect(channel.exit(3)).rejects.toMatchObject({ code: RpcErrorCode.CONNECTION_LOST })
-        expect(channel.$.status).toBe(ConnectionStatus.DISCONNECTED)
+        expect(channel.$.status).toBe(ConnectionStatus.DESTROYED)
     })
 
     it('should terminate the worker on destroy when terminateOnDestroy is set', async () => {

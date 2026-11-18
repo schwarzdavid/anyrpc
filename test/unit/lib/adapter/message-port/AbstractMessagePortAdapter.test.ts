@@ -264,7 +264,7 @@ describe(AbstractMessagePortAdapter, () => {
             await expect(received).resolves.toStrictEqual({ jsonrpc: '2.0', method: 'anyrpc::goodbye', params: [] })
             expect(closeDataSpy).toHaveBeenCalledWith()
             expect(closeControlSpy).toHaveBeenCalledWith()
-            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
             expect(adapter.connectionLostHandlerMock).toHaveBeenCalledTimes(1)
         })
     })

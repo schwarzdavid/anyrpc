@@ -134,6 +134,6 @@ describe(WebWorkerClientAdapter, () => {
         receiveFromPage(initRequest())
 
         expect(postMessageSpy).not.toHaveBeenCalled()
-        expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
     })
 })

@@ -168,19 +168,6 @@ describe(IFrameHostAdapter, () => {
             expect(contentWindow.postMessage).toHaveBeenCalledTimes(1)
             expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
         })
-
-        it('should answer handshakes again after it was destroyed and reconnected', async () => {
-            adapter.connect()
-            receiveFromIframe(initRequest('first-id'))
-            adapter.destroy()
-
-            adapter.connect()
-            receiveFromIframe(initRequest('second-id'))
-            await confirmFromIframe(1)
-
-            expect(contentWindow.postMessage).toHaveBeenCalledTimes(2)
-            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
-        })
     })
 
     describe('origin option', () => {

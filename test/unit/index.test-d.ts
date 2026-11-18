@@ -26,7 +26,7 @@ interface Events {
 
 describe('anyrpc entry point', () => {
     it('should expose the connection status as string literals', () => {
-        expectTypeOf<ConnectionStatus>().toEqualTypeOf<'connected' | 'disconnected'>()
+        expectTypeOf<ConnectionStatus>().toEqualTypeOf<'connected' | 'disconnected' | 'destroyed'>()
         expectTypeOf(ConnectionStatus.CONNECTED).toEqualTypeOf<'connected'>()
 
         assertType<ConnectionStatus>('disconnected')

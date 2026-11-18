@@ -30,7 +30,7 @@ describe(parseRpcMessage, () => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const result = parseRpcMessage<TestMethods, TestEvents>(response)
 
-        type ResultType = Extract<typeof result, { type: RpcMessageType.RESPONSE }>
+        type ResultType = Extract<typeof result, { type: typeof RpcMessageType.RESPONSE }>
 
         expectTypeOf<ResultType['message']>().toExtend<RpcResponse<TestMethods>>()
         expectTypeOf<ResultType['message']>().not.toMatchObjectType<RpcResponse<TestEvents>>()
@@ -47,7 +47,7 @@ describe(parseRpcMessage, () => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const result = parseRpcMessage<TestMethods, TestEvents>(request)
 
-        type ResultType = Extract<typeof result, { type: RpcMessageType.REQUEST }>
+        type ResultType = Extract<typeof result, { type: typeof RpcMessageType.REQUEST }>
 
         expectTypeOf<ResultType['message']>().toExtend<RpcIncomingRequest<TestEvents>>()
         expectTypeOf<ResultType['message']>().not.toMatchObjectType<RpcIncomingRequest<TestMethods>>()
@@ -56,7 +56,7 @@ describe(parseRpcMessage, () => {
     it('should return a RpcIncomingNotification without id', () => {
         type ResultType = Extract<
             ReturnType<typeof parseRpcMessage<TestMethods, TestEvents>>,
-            { type: RpcMessageType.NOTIFICATION }
+            { type: typeof RpcMessageType.NOTIFICATION }
         >
 
         expectTypeOf<ResultType['message']>().toEqualTypeOf<RpcIncomingNotification<TestEvents>>()

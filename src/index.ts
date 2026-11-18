@@ -1,4 +1,4 @@
-export * from './createRpcChannel'
+export { createRpcChannel, type RpcChannelOptions, type UnhandledRequestStrategy } from './createRpcChannel'
 export type { RpcChannel, RpcChannelMeta, RpcChannelMethod, RpcResult } from './types/RpcChannel'
 export type { RpcChannelEvents } from './types/RpcChannelEvents'
 export type { MethodMap, MethodFn } from './types/MethodMap'
@@ -13,7 +13,7 @@ export {
     type ConnectionLostHandler,
     type MessageHandler,
 } from './lib/adapter/AbstractRpcAdapter'
-export * from './createRpcHub'
+export { createRpcHub } from './createRpcHub'
 export type {
     RpcHub,
     RpcHubEvents,

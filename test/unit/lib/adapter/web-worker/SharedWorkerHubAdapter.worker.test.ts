@@ -7,7 +7,8 @@ import {
     type SharedWorkerLike,
 } from '@/lib/adapter/web-worker'
 import { SharedWorkerPeerAdapter } from '@/lib/adapter/web-worker/SharedWorkerPeerAdapter'
-import type { PeerHandler, PeerLostHandler } from '@/lib/adapter/AbstractRpcHubAdapter'
+import type { PeerHandler } from '@/lib/adapter/AbstractRpcHubAdapter'
+import { ConnectionStatus } from '@/types/ConnectionStatus'
 import { readControlMethod, ControlMethod } from '@/utils/controlMessages'
 import { createRpcHub } from '@/createRpcHub'
 import { createRpcChannel } from '@/createRpcChannel'
@@ -40,14 +41,12 @@ function connectPage(port: MessagePort): void {
 describe(SharedWorkerHubAdapter, () => {
     const channels: MessageChannel[] = []
     let peerHandler: ReturnType<typeof vi.fn<PeerHandler<HubToPage, PageToHub>>>
-    let peerLostHandler: ReturnType<typeof vi.fn<PeerLostHandler>>
     let adapter: SharedWorkerHubAdapter<HubToPage, PageToHub>
 
     function createAdapter(name?: string, options?: Partial<SharedWorkerHubAdapterOptions>) {
         adapter = new SharedWorkerHubAdapter(name, options)
         adapter.initLogger(LogLevel.DEBUG)
         adapter.peerHandler = peerHandler
-        adapter.peerLostHandler = peerLostHandler
         return adapter
     }
 
@@ -71,7 +70,6 @@ describe(SharedWorkerHubAdapter, () => {
         peerHandler = vi.fn<PeerHandler<HubToPage, PageToHub>>(({ adapter: peer }) => {
             void peer.connect()
         })
-        peerLostHandler = vi.fn<PeerLostHandler>()
         createAdapter()
     })
 
@@ -151,16 +149,6 @@ describe(SharedWorkerHubAdapter, () => {
         )
     })
 
-    it('should report a peer as lost once its connection is closed', async () => {
-        adapter.connect()
-
-        await handshake(openConnection())
-        const [{ id, adapter: peer }] = peerHandler.mock.calls[0]!
-        peer.destroy()
-
-        expect(peerLostHandler).toHaveBeenCalledExactlyOnceWith(id)
-    })
-
     it('should check the heartbeat of every peer', async () => {
         createAdapter(undefined, { heartbeat: { interval: 10, timeout: 1000 } }).connect()
         const [, controlPort] = (await handshake(openConnection())).ports as [MessagePort, MessagePort]
@@ -169,12 +157,14 @@ describe(SharedWorkerHubAdapter, () => {
         await vi.waitFor(() => expect(nextControlMethod(controlPort)).resolves.toBe(ControlMethod.PING))
     })
 
-    it('should remove peers that stop answering the heartbeat', async () => {
+    it('should destroy the adapters of peers that stop answering the heartbeat', async () => {
         createAdapter(undefined, { heartbeat: { interval: 10, timeout: 10 } }).connect()
         const [, controlPort] = (await handshake(openConnection())).ports as [MessagePort, MessagePort]
         await confirmHandshake(controlPort)
 
-        await vi.waitFor(() => expect(peerLostHandler).toHaveBeenCalledTimes(1))
+        const [{ adapter: peer }] = peerHandler.mock.calls[0]!
+
+        await vi.waitFor(() => expect(peer.connectionStatus).toBe(ConnectionStatus.DESTROYED))
     })
 
     it('should stop accepting pages once destroyed', async () => {

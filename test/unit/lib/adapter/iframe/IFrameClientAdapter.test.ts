@@ -150,18 +150,6 @@ describe(IFrameClientAdapter, () => {
                 expect.stringContaining('not embedded in an iframe'),
             )
         })
-
-        it('should connect again after it was destroyed', () => {
-            adapter.connect()
-            receiveInitResponse()
-            adapter.destroy()
-
-            adapter.connect()
-            receiveInitResponse({ ports: [new MessageChannel().port1, new MessageChannel().port1] })
-
-            expect(parentWindow.postMessage).toHaveBeenCalledTimes(2)
-            expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
-        })
     })
 
     describe('origin option', () => {
@@ -250,7 +238,7 @@ describe(IFrameClientAdapter, () => {
             receiveInitResponse()
 
             expect(parentWindow.postMessage).toHaveBeenCalledTimes(1)
-            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
         })
     })
 })

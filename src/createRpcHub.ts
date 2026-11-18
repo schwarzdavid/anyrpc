@@ -1,4 +1,4 @@
-import { createRpcChannel, type RpcChannelOptions } from './createRpcChannel'
+import { createRpcChannel, resolveChannelOptions, type RpcChannelOptions } from './createRpcChannel'
 import type { AbstractRpcHubAdapter, RpcPeerConnection } from './lib/adapter/AbstractRpcHubAdapter'
 import type { AbstractRpcAdapter } from './lib/adapter/AbstractRpcAdapter'
 import { EventEmitter } from './lib/EventEmitter'
@@ -8,7 +8,6 @@ import { RpcError } from './lib/RpcError'
 import { RpcErrorCode } from './constants/JSON_RPC_ERRORS'
 import { assertNotReserved, isReservedMethodName } from './utils/rpc'
 import { ConnectionStatus } from './types/ConnectionStatus'
-import { LogLevel } from './types/LogLevel'
 import type { MethodFn, MethodMap } from './types/MethodMap'
 import type { AssertCallableMethodNames } from './types/MethodName'
 import type { RpcHandler, RpcListener, Unsubscribe } from './types/EventEmitter'
@@ -43,8 +42,8 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
     }
     boundHubAdapters.add(hubAdapter)
 
-    const logLevel = options.logLevel ?? LogLevel.INFO
-    const logger = new Logger('RpcHub', logLevel)
+    const hubOptions = resolveChannelOptions(options)
+    const logger = new Logger('RpcHub', hubOptions.logLevel)
     const hubEvents = new EventEmitter<RpcHubEvents<Methods, Events>>((error, name) => {
         logger.error(`Listener for "${name}" threw an error`, error)
     })
@@ -53,11 +52,11 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
     const subscriptions = new Set<PeerSubscription<Methods, Events>>()
     let isDestroyed = false
 
-    hubAdapter.initLogger(logLevel)
+    hubAdapter.initLogger(hubOptions.logLevel)
     hubAdapter.peerHandler = (connection) => void addPeer(connection)
     hubAdapter.peerLostHandler = removePeer
 
-    if (options.autoConnect ?? true) {
+    if (hubOptions.autoConnect) {
         void connectHub()
     }
 
@@ -77,13 +76,18 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
         }
         const channel = createRpcChannel<Methods, Events>(
             adapter as AbstractRpcAdapter<Methods, Events> & AssertCallableMethodNames<Methods, Events>,
-            { ...options, autoConnect: false },
+            { ...hubOptions, autoConnect: false },
         )
         const entry: PeerEntry<Methods, Events> = { peer: { id, channel }, detachments: new Map(), joined: false }
 
         entries.set(id, entry)
         subscriptions.forEach((subscription) => attach(entry, subscription))
         channel.$.on('rpc.connected', () => join(entry))
+        channel.$.on('rpc.status', (status) => {
+            if (status === ConnectionStatus.DESTROYED) {
+                removePeer(id)
+            }
+        })
 
         await connectPeer(adapter)
         if (channel.$.status === ConnectionStatus.CONNECTED) {

@@ -17,9 +17,13 @@ export abstract class AbstractSocketAdapter<
         super()
         this.control = new ControlProtocol(heartbeatOptions, {
             send: (message) => this.sendWhileOpen(message),
-            onPong: () => this.markResponsive(),
-            onTimeout: () => this.markUnresponsive(),
-            onGoodbye: () => this.handleRemoteGoodbye(),
+            isConnected: () => this.connectionStatus === ConnectionStatus.CONNECTED,
+            getLogger: () => this.logger,
+            onResponsive: () => {
+                this.connectionStatus = ConnectionStatus.CONNECTED
+            },
+            onUnresponsive: () => this.onRemoteUnresponsive(),
+            onGoodbye: () => this.onRemoteGoodbye(),
         })
     }
 
@@ -74,26 +78,6 @@ export abstract class AbstractSocketAdapter<
 
     private markClosed(): void {
         this.isOpen = false
-        this.control.stopHeartbeat()
-    }
-
-    private handleRemoteGoodbye(): void {
-        this.logger?.debug('The remote side closed the connection')
-        this.onRemoteGoodbye()
-    }
-
-    private markResponsive(): void {
-        if (this.connectionStatus === ConnectionStatus.CONNECTED) {
-            return
-        }
-        this.logger?.info('The remote side is responding again')
-        this.connectionStatus = ConnectionStatus.CONNECTED
-    }
-
-    private markUnresponsive(): void {
-        if (this.connectionStatus === ConnectionStatus.CONNECTED) {
-            this.logger?.warn('The remote side did not answer the heartbeat in time')
-            this.onRemoteUnresponsive()
-        }
+        this.control.stop()
     }
 }

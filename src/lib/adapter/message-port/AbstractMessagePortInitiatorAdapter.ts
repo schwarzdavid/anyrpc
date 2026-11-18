@@ -7,25 +7,35 @@ import type { MethodMap } from '@/types/MethodMap'
 import { type HeartbeatOption, resolveHeartbeatOptions } from '@/lib/Heartbeat'
 import { createInitRequest, type InitRequest, isInitResponse } from '@/lib/adapter/message-port/utils/handshake'
 
+export interface MessagePortInitiatorOptions {
+    initMethod: string
+    name: string
+    pollingInterval?: number | undefined
+    heartbeat?: HeartbeatOption | undefined
+}
+
 interface Handshake {
     request: InitRequest
     listeners: AbortController
     pollingIntervalId: ReturnType<typeof setInterval>
 }
 
-export abstract class AbstractMessagePortClientAdapter<
+const DEFAULT_POLLING_INTERVAL = 1000
+
+export abstract class AbstractMessagePortInitiatorAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractMessagePortAdapter<Methods, Events> {
+    private readonly initMethod: string
+    private readonly name: string
+    private readonly pollingInterval: number
     private handshake: Handshake | undefined
 
-    protected constructor(
-        private readonly initMethod: string,
-        private readonly name: string,
-        private readonly pollingInterval: number,
-        heartbeat: HeartbeatOption = false,
-    ) {
-        super(resolveHeartbeatOptions(heartbeat))
+    protected constructor(options: MessagePortInitiatorOptions) {
+        super(resolveHeartbeatOptions(options.heartbeat ?? false))
+        this.initMethod = options.initMethod
+        this.name = options.name
+        this.pollingInterval = options.pollingInterval ?? DEFAULT_POLLING_INTERVAL
     }
 
     connect(): void {

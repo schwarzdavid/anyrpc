@@ -23,20 +23,17 @@ function waitForControlMessage(port: MessagePort, method: ControlMethod): Promis
 describe(SharedWorkerPeerAdapter, () => {
     let dataChannel: MessageChannel
     let controlChannel: MessageChannel
-    let closedHandler: ReturnType<typeof vi.fn<() => void>>
     let adapter: SharedWorkerPeerAdapter<TestMethods, TestMethods>
 
     function createAdapter(heartbeat = { interval: 10, timeout: 10 }) {
         adapter = new SharedWorkerPeerAdapter({ data: dataChannel.port1, control: controlChannel.port1 }, heartbeat)
         adapter.initLogger(LogLevel.NONE)
-        adapter.closedHandler = closedHandler
         return adapter
     }
 
     beforeEach(() => {
         dataChannel = new MessageChannel()
         controlChannel = new MessageChannel()
-        closedHandler = vi.fn<() => void>()
     })
 
     afterEach(() => {
@@ -55,41 +52,31 @@ describe(SharedWorkerPeerAdapter, () => {
         expect(adapter.connectionStatus).toBe(ConnectionStatus.CONNECTED)
     })
 
-    it('should report that it is closed when the page says goodbye', async () => {
+    it('should destroy itself when the page says goodbye', async () => {
         createAdapter().connect()
         await confirmHandshake(controlChannel.port2)
 
         controlChannel.port2.postMessage(createControlMessage(ControlMethod.GOODBYE))
 
-        await vi.waitFor(() => expect(closedHandler).toHaveBeenCalledWith())
-
-        expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+        await vi.waitFor(() => expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED))
     })
 
-    it('should say goodbye and report that it is closed when the page stops answering the heartbeat', async () => {
+    it('should say goodbye and destroy itself when the page stops answering the heartbeat', async () => {
         createAdapter().connect()
         await confirmHandshake(controlChannel.port2)
         const goodbye = waitForControlMessage(controlChannel.port2, ControlMethod.GOODBYE)
 
-        await vi.waitFor(() => expect(closedHandler).toHaveBeenCalledWith())
+        await vi.waitFor(() => expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED))
 
         await expect(goodbye).resolves.toBeUndefined()
-        expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
     })
 
-    it('should report that it is closed when destroyed', () => {
-        createAdapter().connect()
-
-        adapter.destroy()
-
-        expect(closedHandler).toHaveBeenCalledWith()
-    })
-
-    it('should close without a closed handler', () => {
+    it('should work without a heartbeat', () => {
         adapter = new SharedWorkerPeerAdapter({ data: dataChannel.port1, control: controlChannel.port1 }, undefined)
 
         adapter.connect()
+        adapter.destroy()
 
-        expect(() => adapter.destroy()).not.toThrowError()
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
     })
 })

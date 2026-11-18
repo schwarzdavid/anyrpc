@@ -39,6 +39,9 @@
     "url": "git+https://github.com/schwarzdavid/anyrpc.git"
   },
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "files": [
     "dist",
     "src"

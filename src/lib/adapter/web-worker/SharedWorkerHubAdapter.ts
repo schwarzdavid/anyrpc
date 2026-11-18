@@ -77,9 +77,8 @@ export class SharedWorkerHubAdapter<
             { data: dataChannel.port1, control: controlChannel.port1 },
             this.heartbeatOptions,
         )
-        const id = this.addPeer(peer)
 
-        peer.closedHandler = () => this.removePeer(id)
+        this.addPeer(peer)
         port.postMessage(createInitResponse(data), [dataChannel.port2, controlChannel.port2])
     }
 

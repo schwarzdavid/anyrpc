@@ -244,7 +244,20 @@ describe(createRpcHub, () => {
             expect(disconnected).toHaveBeenCalledExactlyOnceWith(peer)
             expect(hub.$.peers).toStrictEqual([])
             expect(hub.$.peer(id)).toBeUndefined()
-            expect(hubSide.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+            expect(hubSide.connectionStatus).toBe(ConnectionStatus.DESTROYED)
+        })
+
+        it('should remove a peer whose adapter destroys itself', () => {
+            const hub = createRpcHub(hubAdapter)
+            const disconnected = vi.fn<(peer: TestHubPeer) => void>()
+            hub.$.on('rpc.peer.disconnected', disconnected)
+            const { id, hubSide } = connectPeer(hubAdapter, 'first')
+            const peer = hub.$.peer(id)
+
+            hubSide.destroy()
+
+            expect(disconnected).toHaveBeenCalledExactlyOnceWith(peer)
+            expect(hub.$.peers).toStrictEqual([])
         })
 
         it('should not announce the loss of a peer that never connected', () => {
@@ -499,8 +512,8 @@ describe(createRpcHub, () => {
             hub.$.destroy()
 
             expect(disconnected).toHaveBeenCalledTimes(2)
-            expect(first.hubSide.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
-            expect(second.hubSide.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+            expect(first.hubSide.connectionStatus).toBe(ConnectionStatus.DESTROYED)
+            expect(second.hubSide.connectionStatus).toBe(ConnectionStatus.DESTROYED)
             expect(hub.$.peers).toStrictEqual([])
             expect(hubAdapter.destroy).toHaveBeenCalledTimes(1)
         })

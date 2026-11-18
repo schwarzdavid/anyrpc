@@ -119,7 +119,7 @@ describe(NodeWorkerHostAdapter, () => {
         worker.emit('exit', 1)
         vi.advanceTimersByTime(3000)
 
-        expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+        expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
         expect(connectionLostHandler).toHaveBeenCalledWith()
         expect(worker.postMessage).toHaveBeenCalledTimes(1)
         expect(console.log).toHaveBeenCalledWith(

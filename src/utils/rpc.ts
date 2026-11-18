@@ -10,25 +10,27 @@ import type {
 } from '@/types/RpcMessages'
 import type { MethodMap } from '@/types/MethodMap'
 
-export const enum RpcMessageType {
-    REQUEST,
-    NOTIFICATION,
-    RESPONSE,
-}
+export const RpcMessageType = {
+    REQUEST: 'request',
+    NOTIFICATION: 'notification',
+    RESPONSE: 'response',
+} as const
+
+export type RpcMessageType = (typeof RpcMessageType)[keyof typeof RpcMessageType]
 
 export interface RpcResponseParsingResult<Methods extends MethodMap<Methods>> {
     message: RpcResponse<Methods>
-    type: RpcMessageType.RESPONSE
+    type: typeof RpcMessageType.RESPONSE
 }
 
 export interface RpcRequestParsingResult<Methods extends MethodMap<Methods>> {
     message: RpcIncomingRequest<Methods>
-    type: RpcMessageType.REQUEST
+    type: typeof RpcMessageType.REQUEST
 }
 
 export interface RpcNotificationParsingResult<Methods extends MethodMap<Methods>> {
     message: RpcIncomingNotification<Methods>
-    type: RpcMessageType.NOTIFICATION
+    type: typeof RpcMessageType.NOTIFICATION
 }
 
 export type RpcParsingResult<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> =

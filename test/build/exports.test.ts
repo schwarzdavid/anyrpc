@@ -26,8 +26,8 @@ const EXPECTED_EXPORTS: Record<string, string[]> = {
     './adapters/iframe': ['IFrameHostAdapter', 'IFrameClientAdapter'],
     './adapters/message-port': [
         'AbstractMessagePortAdapter',
-        'AbstractMessagePortHostAdapter',
-        'AbstractMessagePortClientAdapter',
+        'AbstractMessagePortResponderAdapter',
+        'AbstractMessagePortInitiatorAdapter',
     ],
     './adapters/web-worker': ['WebWorkerHostAdapter', 'WebWorkerClientAdapter', 'SharedWorkerHubAdapter'],
     './adapters/node-worker': ['NodeWorkerHostAdapter', 'NodeWorkerClientAdapter'],

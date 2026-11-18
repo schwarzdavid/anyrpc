@@ -50,7 +50,7 @@ describe.skipIf(!existsSync(DIST))(ChildProcessHostAdapter, () => {
         await channel.add(1, 1)
 
         await expect(channel.exit(3)).rejects.toMatchObject({ code: RpcErrorCode.CONNECTION_LOST })
-        expect(channel.$.status).toBe(ConnectionStatus.DISCONNECTED)
+        expect(channel.$.status).toBe(ConnectionStatus.DESTROYED)
     })
 
     it('should survive a child that destroys its channel and exits on its own', async () => {
@@ -68,7 +68,7 @@ describe.skipIf(!existsSync(DIST))(ChildProcessHostAdapter, () => {
 
         expect(child.listenerCount('error')).toBe(0)
         expect(uncaughtException).not.toHaveBeenCalled()
-        expect(channel.$.status).toBe(ConnectionStatus.DISCONNECTED)
+        expect(channel.$.status).toBe(ConnectionStatus.DESTROYED)
     })
 
     it('should reconnect on its own when the child re-creates its channel', async () => {

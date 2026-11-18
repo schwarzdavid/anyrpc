@@ -1,6 +1,8 @@
 import { AbstractRpcAdapter } from './lib/adapter/AbstractRpcAdapter'
 import { EventEmitter } from './lib/EventEmitter'
 import { HandlerRegistry } from './lib/HandlerRegistry'
+import { MessageQueue } from './lib/MessageQueue'
+import { PendingRequests } from './lib/PendingRequests'
 import {
     assertNotReserved,
     isApplicationErrorCode,
@@ -14,6 +16,7 @@ import { RpcError } from './lib/RpcError'
 import type { RpcMessageError } from './lib/RpcMessageError'
 import { uuid } from './utils/uuid'
 import { createMethodProxy } from './utils/createMethodProxy'
+import { withDefaults } from './utils/withDefaults'
 import type {
     RpcErrorResponse,
     RpcIncomingNotification,
@@ -44,30 +47,30 @@ export interface RpcChannelOptions {
     unhandledRequests: UnhandledRequestStrategy
 }
 
-interface PendingMessage {
-    resolve: (value: unknown) => void
-    reject: (error: Error) => void
-}
-
-type PendingMessageRegistry = Record<string, PendingMessage>
-
-interface QueuedMessage {
-    send(): Promise<void>
-    expire(): void
-    discard(): void
-}
-
-interface QueueEntry {
-    message: QueuedMessage
-    timeoutId: ReturnType<typeof setTimeout>
+const DEFAULT_CHANNEL_OPTIONS: RpcChannelOptions = {
+    timeout: 3000,
+    queueEnabled: false,
+    queueTimeout: 10000,
+    queueAwait: false,
+    errorIncludeStack: false,
+    logLevel: LogLevel.INFO,
+    autoConnect: true,
+    unhandledRequests: 'reject',
 }
 
 const boundAdapters = new WeakSet<object>()
+
+export function resolveChannelOptions(options: Partial<RpcChannelOptions>): RpcChannelOptions {
+    return withDefaults(DEFAULT_CHANNEL_OPTIONS, options)
+}
 
 export function createRpcChannel<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>>(
     adapter: AbstractRpcAdapter<Methods, Events> & AssertCallableMethodNames<Methods, Events>,
     options: Partial<RpcChannelOptions> = {},
 ) {
+    if (adapter.connectionStatus === ConnectionStatus.DESTROYED) {
+        throw new Error('The adapter was destroyed. Create a new adapter instance for the channel.')
+    }
     if (boundAdapters.has(adapter)) {
         throw new Error(
             'The adapter is already used by another channel. Create a separate adapter instance for each channel.',
@@ -75,19 +78,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     }
     boundAdapters.add(adapter)
 
-    const mergedOptions = Object.assign<RpcChannelOptions, Partial<RpcChannelOptions>>(
-        {
-            timeout: 3000,
-            queueEnabled: false,
-            queueTimeout: 10000,
-            queueAwait: false,
-            errorIncludeStack: false,
-            logLevel: LogLevel.INFO,
-            autoConnect: true,
-            unhandledRequests: 'reject',
-        } satisfies RpcChannelOptions,
-        options,
-    )
+    const mergedOptions = resolveChannelOptions(options)
 
     const logger = new Logger('RpcChannel', mergedOptions.logLevel)
     const reportListenerError = (error: unknown, name: PropertyKey) => {
@@ -96,9 +87,9 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     const callEvents = new EventEmitter<Events>(reportListenerError)
     const channelEvents = new EventEmitter<RpcChannelEvents>(reportListenerError)
     const handlers = new HandlerRegistry<Events>()
-    const pendingMessageRegistry: PendingMessageRegistry = {}
-    const queuedMessages: QueueEntry[] = []
-    let isProcessingQueue = false
+    const pendingRequests = new PendingRequests(mergedOptions.timeout)
+    const queue = new MessageQueue({ timeout: mergedOptions.queueTimeout, awaitEach: mergedOptions.queueAwait })
+    let lastStatus: ConnectionStatus = adapter.connectionStatus
     let isDestroyed = false
 
     const meta: RpcChannelMeta<Events> = {
@@ -120,10 +111,8 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             if (isDestroyed) {
                 return
             }
-            isDestroyed = true
-            boundAdapters.delete(adapter)
+            tearDown()
             adapter.destroy()
-            discardQueuedMessages()
         },
     }
 
@@ -151,19 +140,26 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     }
 
     adapter.connectionHandler = async function rpcChannelConnectionHandler(status) {
+        const wasConnected = lastStatus === ConnectionStatus.CONNECTED
+        lastStatus = status
         logger.debug(`Connection status changed to ${status}`)
 
+        if (status === ConnectionStatus.DESTROYED) {
+            tearDown()
+        }
         channelEvents.emit('rpc.status', [status])
 
         if (status === ConnectionStatus.CONNECTED) {
-            await processQueuedMessages()
+            await sendQueuedMessages()
             return
         }
-        channelEvents.emit('rpc.disconnected', [])
+        if (wasConnected) {
+            channelEvents.emit('rpc.disconnected', [])
+        }
     }
 
     adapter.connectionLostHandler = function rpcChannelConnectionLostHandler() {
-        rejectPendingMessages(new RpcError(RpcErrorCode.CONNECTION_LOST))
+        pendingRequests.rejectAll(new RpcError(RpcErrorCode.CONNECTION_LOST))
     }
 
     if (mergedOptions.autoConnect) {
@@ -176,6 +172,15 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         } catch (error) {
             logger.error('The adapter could not connect', error)
         }
+    }
+
+    function tearDown(): void {
+        isDestroyed = true
+        queue.discardAll()
+    }
+
+    function isConnected(): boolean {
+        return adapter.connectionStatus === ConnectionStatus.CONNECTED
     }
 
     function assertNotDestroyed(): void {
@@ -203,7 +208,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             return
         }
         logger.debug('Received successful response', message)
-        pendingMessageRegistry[String(message.id)]?.resolve(message.result)
+        pendingRequests.resolve(message.id, message.result)
     }
 
     function handleErrorResponse(message: RpcErrorResponse): void {
@@ -215,7 +220,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             return
         }
         logger.debug('Received error response', message)
-        pendingMessageRegistry[message.id]?.reject(error)
+        pendingRequests.reject(message.id, error)
     }
 
     async function handleRequest(request: RpcIncomingRequest<Events>): Promise<void> {
@@ -302,7 +307,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         assertNotReserved(method, 'call')
         assertNotDestroyed()
 
-        if (adapter.connectionStatus === ConnectionStatus.CONNECTED) {
+        if (isConnected()) {
             return sendRequest(method, params)
         }
         if (mergedOptions.queueEnabled) {
@@ -318,7 +323,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         assertNotReserved(method, 'notify')
         assertNotDestroyed()
 
-        if (adapter.connectionStatus === ConnectionStatus.CONNECTED) {
+        if (isConnected()) {
             sendNotification(method, params)
             return
         }
@@ -340,22 +345,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
             params,
             jsonrpc: '2.0',
         }
-        let timeoutId: ReturnType<typeof setTimeout> | undefined
-
-        return new Promise((resolve, reject) => {
-            timeoutId = setTimeout(() => reject(new RpcError(RpcErrorCode.TIMEOUT_ERROR)), mergedOptions.timeout)
-            pendingMessageRegistry[id] = { resolve, reject }
-
-            adapter.sendMessage(request)
-        }).finally(() => {
-            clearTimeout(timeoutId)
-            // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-            delete pendingMessageRegistry[id]
-        })
-    }
-
-    function rejectPendingMessages(error: RpcError): void {
-        Object.values(pendingMessageRegistry).forEach((pendingMessage) => pendingMessage.reject(error))
+        return pendingRequests.track(id, () => adapter.sendMessage(request))
     }
 
     async function sendQueuedRequest<Method extends keyof Methods>(
@@ -385,7 +375,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         params: Parameters<Methods[Method]>,
     ): Promise<unknown> {
         return new Promise((resolve, reject) => {
-            enqueue({
+            queue.enqueue({
                 send: () => sendQueuedRequest(method, params).then(resolve, reject),
                 expire: () => reject(new RpcError(RpcErrorCode.TIMEOUT_ERROR)),
                 discard: () => reject(new RpcError(RpcErrorCode.CONNECTION_LOST)),
@@ -399,7 +389,7 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
     ): void {
         const name = String(method)
 
-        enqueue({
+        queue.enqueue({
             send: () => {
                 sendQueuedNotification(method, params)
                 return Promise.resolve()
@@ -409,56 +399,12 @@ export function createRpcChannel<Methods extends MethodMap<Methods>, Events exte
         })
     }
 
-    function enqueue(message: QueuedMessage): void {
-        const entry: QueueEntry = {
-            message,
-            timeoutId: setTimeout(() => {
-                queuedMessages.splice(queuedMessages.indexOf(entry), 1)
-                message.expire()
-            }, mergedOptions.queueTimeout),
-        }
-
-        queuedMessages.push(entry)
+    async function sendQueuedMessages(): Promise<void> {
+        await queue.drain(isConnected, announceConnection)
     }
 
-    function takeQueuedMessage(): QueuedMessage | undefined {
-        const entry = queuedMessages.shift()
-        if (!entry) {
-            return undefined
-        }
-        clearTimeout(entry.timeoutId)
-        return entry.message
-    }
-
-    function discardQueuedMessages(): void {
-        queuedMessages.splice(0).forEach(({ message, timeoutId }) => {
-            clearTimeout(timeoutId)
-            message.discard()
-        })
-    }
-
-    async function processQueuedMessages(): Promise<void> {
-        if (isProcessingQueue) {
-            return
-        }
-        isProcessingQueue = true
-        try {
-            while (adapter.connectionStatus === ConnectionStatus.CONNECTED) {
-                const queuedMessage = takeQueuedMessage()
-                if (!queuedMessage) {
-                    break
-                }
-
-                const sending = queuedMessage.send()
-
-                if (mergedOptions.queueAwait) {
-                    await sending
-                }
-            }
-        } finally {
-            isProcessingQueue = false
-        }
-        if (adapter.connectionStatus === ConnectionStatus.CONNECTED) {
+    function announceConnection(): void {
+        if (isConnected()) {
             channelEvents.emit('rpc.connected', [])
         }
     }

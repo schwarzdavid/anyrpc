@@ -37,9 +37,6 @@ export class WebSocketHubAdapter<
     }
 
     private acceptSocket(socket: WebSocketLike): void {
-        const peer = new WebSocketPeerAdapter<Methods, Events>(socket, this.heartbeatOptions)
-        const id = this.addPeer(peer)
-
-        peer.closedHandler = () => this.removePeer(id)
+        this.addPeer(new WebSocketPeerAdapter<Methods, Events>(socket, this.heartbeatOptions))
     }
 }

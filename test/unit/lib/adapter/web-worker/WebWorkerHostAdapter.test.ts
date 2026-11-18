@@ -177,7 +177,7 @@ describe(WebWorkerHostAdapter, () => {
             adapter.destroy()
             worker.receive(initResponse, [dataChannel.port1, controlChannel.port1])
 
-            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
         })
 
         it('should not terminate the worker by default', () => {
@@ -195,7 +195,7 @@ describe(WebWorkerHostAdapter, () => {
             adapter.destroy()
 
             expect(worker.terminate).toHaveBeenCalledTimes(1)
-            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
         })
     })
 
@@ -242,7 +242,7 @@ describe(WebWorkerHostAdapter, () => {
             adapter.destroy()
             worker.receive(initResponse, [dataChannel.port1, controlChannel.port1])
 
-            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
         })
 
         it('should never try to terminate a shared worker', () => {

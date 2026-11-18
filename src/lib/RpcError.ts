@@ -2,6 +2,8 @@ import type { RpcErrorData } from '@/types/RpcMessages'
 import { RPC_ERROR_MESSAGE_MAP, RpcErrorCode } from '@/constants/JSON_RPC_ERRORS'
 
 export class RpcError extends Error implements RpcErrorData {
+    override readonly name: string = 'RpcError'
+
     readonly code: number
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

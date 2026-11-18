@@ -9,19 +9,25 @@ import {
     isInitRequest,
 } from '@/lib/adapter/message-port/utils/handshake'
 
-export abstract class AbstractMessagePortHostAdapter<
+export interface MessagePortResponderOptions {
+    initMethod: string
+    name: string
+    heartbeat?: HeartbeatOption | undefined
+}
+
+export abstract class AbstractMessagePortResponderAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
 > extends AbstractMessagePortAdapter<Methods, Events> {
+    private readonly initMethod: string
+    private readonly name: string
     private answeredInitId: RpcId | undefined
     private listenersAbortController: AbortController | undefined
 
-    protected constructor(
-        private readonly initMethodName: string,
-        private readonly adapterName: string,
-        heartbeat: HeartbeatOption,
-    ) {
-        super(resolveHeartbeatOptions(heartbeat))
+    protected constructor(options: MessagePortResponderOptions) {
+        super(resolveHeartbeatOptions(options.heartbeat ?? false))
+        this.initMethod = options.initMethod
+        this.name = options.name
     }
 
     connect(): void {
@@ -60,7 +66,7 @@ export abstract class AbstractMessagePortHostAdapter<
     }
 
     protected isExpectedInitRequest(data: unknown): data is InitRequest {
-        return isInitRequest(data, this.initMethodName, this.adapterName)
+        return isInitRequest(data, this.initMethod, this.name)
     }
 
     protected stopListening(): void {

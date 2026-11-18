@@ -1,5 +1,5 @@
 import type { MethodMap } from '@/types/MethodMap'
-import { AbstractMessagePortClientAdapter } from '@/lib/adapter/message-port/AbstractMessagePortClientAdapter'
+import { AbstractMessagePortInitiatorAdapter } from '@/lib/adapter/message-port/AbstractMessagePortInitiatorAdapter'
 import type { HeartbeatOption } from '@/lib/Heartbeat'
 import type { InitRequest } from '@/lib/adapter/message-port/utils/handshake'
 import { DEFAULT_WEB_WORKER_ADAPTER_NAME, WEB_WORKER_INIT_METHOD_NAME } from './constants/webWorkerHandshake'
@@ -30,7 +30,7 @@ function isSharedWorker(worker: WebWorkerLike | SharedWorkerLike): worker is Sha
 export class WebWorkerHostAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
-> extends AbstractMessagePortClientAdapter<Methods, Events> {
+> extends AbstractMessagePortInitiatorAdapter<Methods, Events> {
     private readonly terminateOnDestroy: boolean
     private readonly workerKind: string
     private errorListenersAbortController: AbortController | undefined
@@ -42,7 +42,12 @@ export class WebWorkerHostAdapter<
         name: string = DEFAULT_WEB_WORKER_ADAPTER_NAME,
         options?: Partial<WebWorkerHostAdapterOptions>,
     ) {
-        super(WEB_WORKER_INIT_METHOD_NAME, name, options?.pollingInterval ?? 1000, options?.heartbeat ?? false)
+        super({
+            initMethod: WEB_WORKER_INIT_METHOD_NAME,
+            name,
+            pollingInterval: options?.pollingInterval,
+            heartbeat: options?.heartbeat,
+        })
         this.terminateOnDestroy = options?.terminateOnDestroy ?? false
         this.workerKind = isSharedWorker(worker) ? 'shared worker' : 'web worker'
     }

@@ -1,5 +1,5 @@
 import type { MethodMap } from '@/types/MethodMap'
-import { AbstractMessagePortHostAdapter } from '@/lib/adapter/message-port/AbstractMessagePortHostAdapter'
+import { AbstractMessagePortResponderAdapter } from '@/lib/adapter/message-port/AbstractMessagePortResponderAdapter'
 import type { HeartbeatOption } from '@/lib/Heartbeat'
 import type { InitResponse } from '@/lib/adapter/message-port/utils/handshake'
 import { DEFAULT_IFRAME_ADAPTER_NAME, IFRAME_INIT_METHOD_NAME } from './constants/iframeHandshake'
@@ -14,7 +14,7 @@ export interface IFrameHostAdapterOptions {
 export class IFrameHostAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
-> extends AbstractMessagePortHostAdapter<Methods, Events> {
+> extends AbstractMessagePortResponderAdapter<Methods, Events> {
     private readonly reconnect: boolean
     private readonly allowedOrigin: IFrameOriginOption
 
@@ -25,7 +25,7 @@ export class IFrameHostAdapter<
     ) {
         assertValidOriginOption(options?.origin)
 
-        super(IFRAME_INIT_METHOD_NAME, name, options?.heartbeat ?? false)
+        super({ initMethod: IFRAME_INIT_METHOD_NAME, name, heartbeat: options?.heartbeat })
         this.reconnect = options?.reconnect ?? true
         this.allowedOrigin = options?.origin ?? '*'
     }

@@ -144,7 +144,7 @@ describe(AbstractSocketAdapter, () => {
             adapter.destroy()
 
             expect(adapter.send).toHaveBeenCalledWith(goodbye)
-            expect(adapter.connectionStatus).toBe(ConnectionStatus.DISCONNECTED)
+            expect(adapter.connectionStatus).toBe(ConnectionStatus.DESTROYED)
         })
 
         it('should not send control messages while closed', () => {

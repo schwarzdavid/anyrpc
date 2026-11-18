@@ -1,5 +1,5 @@
 import type { MethodMap } from '@/types/MethodMap'
-import { AbstractMessagePortClientAdapter } from '@/lib/adapter/message-port/AbstractMessagePortClientAdapter'
+import { AbstractMessagePortInitiatorAdapter } from '@/lib/adapter/message-port/AbstractMessagePortInitiatorAdapter'
 import type { HeartbeatOption } from '@/lib/Heartbeat'
 import type { InitRequest } from '@/lib/adapter/message-port/utils/handshake'
 import { DEFAULT_NODE_WORKER_ADAPTER_NAME, NODE_WORKER_INIT_METHOD_NAME } from './constants/nodeWorkerHandshake'
@@ -25,7 +25,7 @@ export interface NodeWorkerLike {
 export class NodeWorkerHostAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
-> extends AbstractMessagePortClientAdapter<Methods, Events> {
+> extends AbstractMessagePortInitiatorAdapter<Methods, Events> {
     private readonly terminateOnDestroy: boolean
     private readonly onWorkerError = (error: Error) => this.logger?.error('Uncaught error in node worker', error)
     private readonly onWorkerExit = (exitCode: number) => this.handleWorkerExit(exitCode)
@@ -35,7 +35,12 @@ export class NodeWorkerHostAdapter<
         name: string = DEFAULT_NODE_WORKER_ADAPTER_NAME,
         options?: Partial<NodeWorkerHostAdapterOptions>,
     ) {
-        super(NODE_WORKER_INIT_METHOD_NAME, name, options?.pollingInterval ?? 1000, options?.heartbeat ?? false)
+        super({
+            initMethod: NODE_WORKER_INIT_METHOD_NAME,
+            name,
+            pollingInterval: options?.pollingInterval,
+            heartbeat: options?.heartbeat,
+        })
         this.terminateOnDestroy = options?.terminateOnDestroy ?? false
     }
 
