@@ -251,7 +251,7 @@ describe(WebWorkerHostAdapter, () => {
             adapter = initLogger(new WebWorkerHostAdapter(worker, 'my-app', options))
             adapter.connect()
 
-            expect(() => adapter.destroy()).not.toThrowError()
+            expect(() => adapter.destroy()).not.toThrow()
         })
     })
 

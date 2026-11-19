@@ -49,7 +49,7 @@ describe(abortable, () => {
             abortable(controller.signal, () => {
                 throw error
             }),
-        ).toThrowError(error)
+        ).toThrow(error)
         expect(removeListener).not.toHaveBeenCalled()
     })
 

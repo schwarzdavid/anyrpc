@@ -155,7 +155,7 @@ describe(createRpcChannel, () => {
                 result: 3,
             })
 
-            await expect(call).rejects.toThrowError('cancelled')
+            await expect(call).rejects.toThrow('cancelled')
         })
 
         it('should not send a queued call that was aborted before the connection was established', async () => {
@@ -176,7 +176,7 @@ describe(createRpcChannel, () => {
             const adapter = new MockAdapter(ConnectionStatus.DISCONNECTED)
             const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
 
-            expect(() => rpcChannel.add.with({ signal: new AbortController().signal })(1, 2)).toThrowError(
+            expect(() => rpcChannel.add.with({ signal: new AbortController().signal })(1, 2)).toThrow(
                 new RpcError(RpcErrorCode.NOT_CONNECTED),
             )
         })
@@ -212,7 +212,7 @@ describe(createRpcChannel, () => {
                 })
             })
 
-            await expect(rpcChannel.add(2, 3)).rejects.toThrowError(RpcError)
+            await expect(rpcChannel.add(2, 3)).rejects.toThrow(RpcError)
         })
 
         it('should match responses to their requests regardless of the order they arrive in', async () => {
@@ -257,7 +257,7 @@ describe(createRpcChannel, () => {
             const messagePromise = rpcChannel.add(2, 3)
             vi.runAllTimers()
 
-            await expect(messagePromise).rejects.toThrowError(new RpcError(RpcErrorCode.TIMEOUT_ERROR))
+            await expect(messagePromise).rejects.toThrow(new RpcError(RpcErrorCode.TIMEOUT_ERROR))
 
             const { id } = adapter.sendMessage.mock.calls[0]![0] as RpcRequest<TestMethods>
 
@@ -285,7 +285,7 @@ describe(createRpcChannel, () => {
 
             rpcChannel.$.destroy()
 
-            expect(() => rpcChannel.add(2, 3)).toThrowError(channelDestroyedError())
+            expect(() => rpcChannel.add(2, 3)).toThrow(channelDestroyedError())
         })
 
         it('should throw if called after the channel was destroyed even if the queue is enabled', () => {
@@ -296,7 +296,7 @@ describe(createRpcChannel, () => {
 
             rpcChannel.$.destroy()
 
-            expect(() => rpcChannel.add(2, 3)).toThrowError(channelDestroyedError())
+            expect(() => rpcChannel.add(2, 3)).toThrow(channelDestroyedError())
             expect(vi.getTimerCount()).toBe(0)
         })
 
@@ -309,7 +309,7 @@ describe(createRpcChannel, () => {
             const messagePromise = rpcChannel.add(2, 3)
             vi.runAllTimers()
 
-            await expect(messagePromise).rejects.toThrowError(new RpcError(RpcErrorCode.TIMEOUT_ERROR))
+            await expect(messagePromise).rejects.toThrow(new RpcError(RpcErrorCode.TIMEOUT_ERROR))
         })
 
         it('should reject pending requests immediately when the connection is lost', async () => {
@@ -319,7 +319,7 @@ describe(createRpcChannel, () => {
             const messagePromise = rpcChannel.add(2, 3)
             adapter.triggerConnectionLost()
 
-            await expect(messagePromise).rejects.toThrowError(new RpcError(RpcErrorCode.CONNECTION_LOST))
+            await expect(messagePromise).rejects.toThrow(new RpcError(RpcErrorCode.CONNECTION_LOST))
         })
 
         it('should keep pending requests waiting while the adapter only reports a disconnect', async () => {
@@ -351,7 +351,7 @@ describe(createRpcChannel, () => {
             const adapter = new MockAdapter(ConnectionStatus.DISCONNECTED)
             const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
 
-            expect(() => rpcChannel.add(2, 3)).toThrowError(new RpcError(RpcErrorCode.NOT_CONNECTED))
+            expect(() => rpcChannel.add(2, 3)).toThrow(new RpcError(RpcErrorCode.NOT_CONNECTED))
             expect(adapter.sendMessage).not.toHaveBeenCalled()
         })
 
@@ -359,7 +359,7 @@ describe(createRpcChannel, () => {
             const adapter = new MockAdapter<Record<string, () => void>>()
             const rpcChannel = createRpcChannel(adapter) as unknown as Record<string, () => Promise<void>>
 
-            expect(() => rpcChannel['rpc.discover']?.()).toThrowError(
+            expect(() => rpcChannel['rpc.discover']?.()).toThrow(
                 'Cannot call "rpc.discover": method names starting with "rpc." are reserved by JSON-RPC 2.0',
             )
             expect(adapter.sendMessage).not.toHaveBeenCalled()
@@ -381,7 +381,7 @@ describe(createRpcChannel, () => {
             const adapter = new MockAdapter(ConnectionStatus.DISCONNECTED)
             const rpcChannel = createRpcChannel<TestMethods, TestEvents>(adapter)
 
-            expect(() => rpcChannel.log.notify('hello')).toThrowError(new RpcError(RpcErrorCode.NOT_CONNECTED))
+            expect(() => rpcChannel.log.notify('hello')).toThrow(new RpcError(RpcErrorCode.NOT_CONNECTED))
             expect(adapter.sendMessage).not.toHaveBeenCalled()
         })
 
@@ -393,7 +393,7 @@ describe(createRpcChannel, () => {
 
             rpcChannel.$.destroy()
 
-            expect(() => rpcChannel.log.notify('hello')).toThrowError(channelDestroyedError())
+            expect(() => rpcChannel.log.notify('hello')).toThrow(channelDestroyedError())
             expect(vi.getTimerCount()).toBe(0)
         })
 
@@ -405,14 +405,14 @@ describe(createRpcChannel, () => {
                 throw cloneError
             })
 
-            expect(() => rpcChannel.log.notify('hello')).toThrowError(cloneError)
+            expect(() => rpcChannel.log.notify('hello')).toThrow(cloneError)
         })
 
         it('should refuse to notify reserved rpc. methods', () => {
             const adapter = new MockAdapter<Record<string, () => void>>()
             const rpcChannel = createRpcChannel(adapter) as unknown as Record<string, { notify(): void }>
 
-            expect(() => rpcChannel['rpc.discover']?.notify()).toThrowError(
+            expect(() => rpcChannel['rpc.discover']?.notify()).toThrow(
                 'Cannot notify "rpc.discover": method names starting with "rpc." are reserved by JSON-RPC 2.0',
             )
             expect(adapter.sendMessage).not.toHaveBeenCalled()
@@ -452,7 +452,7 @@ describe(createRpcChannel, () => {
             const addPromise = rpcChannel.add(2, 3)
             vi.advanceTimersByTime(500)
 
-            await expect(addPromise).rejects.toThrowError(new RpcError(RpcErrorCode.TIMEOUT_ERROR))
+            await expect(addPromise).rejects.toThrow(new RpcError(RpcErrorCode.TIMEOUT_ERROR))
 
             adapter.triggerConnectionHandler(ConnectionStatus.CONNECTED)
 
@@ -516,7 +516,7 @@ describe(createRpcChannel, () => {
 
             expect(adapter.sendMessage).toHaveBeenCalledTimes(2)
             await expect(addPromise).resolves.toBe(5)
-            await expect(subtractPromise).rejects.toThrowError(new RpcError(RpcErrorCode.SERVER_ERROR))
+            await expect(subtractPromise).rejects.toThrow(new RpcError(RpcErrorCode.SERVER_ERROR))
         })
 
         it('should reject queued requests and drop queued notifications when the channel is destroyed', async () => {
@@ -529,7 +529,7 @@ describe(createRpcChannel, () => {
 
             rpcChannel.$.destroy()
 
-            await expect(addPromise).rejects.toThrowError(new RpcError(RpcErrorCode.CONNECTION_LOST))
+            await expect(addPromise).rejects.toThrow(new RpcError(RpcErrorCode.CONNECTION_LOST))
             expect(console.warn).toHaveBeenCalledWith(
                 '[RpcChannel]',
                 'Dropped notification "log": the channel was destroyed',
@@ -616,7 +616,7 @@ describe(createRpcChannel, () => {
             adapter.triggerConnectionHandler(ConnectionStatus.CONNECTED)
             adapter.triggerConnectionLost()
 
-            await expect(addPromise).rejects.toThrowError(new RpcError(RpcErrorCode.CONNECTION_LOST))
+            await expect(addPromise).rejects.toThrow(new RpcError(RpcErrorCode.CONNECTION_LOST))
 
             expect(adapter.sendMessage).toHaveBeenCalledTimes(1)
             expect(connectedListener).not.toHaveBeenCalled()
@@ -654,7 +654,7 @@ describe(createRpcChannel, () => {
             adapter.triggerConnectionLost()
             adapter.triggerConnectionHandler(ConnectionStatus.CONNECTED)
 
-            await expect(addPromise).rejects.toThrowError(new RpcError(RpcErrorCode.CONNECTION_LOST))
+            await expect(addPromise).rejects.toThrow(new RpcError(RpcErrorCode.CONNECTION_LOST))
             await expect(subtractPromise).resolves.toBe(2)
             expect(events).toStrictEqual(['disconnected', 'connected'])
         })
@@ -1148,7 +1148,7 @@ describe(createRpcChannel, () => {
 
             rpcChannel.$.handle('onEvent', () => true)
 
-            expect(() => rpcChannel.$.handle('onEvent', () => false)).toThrowError(
+            expect(() => rpcChannel.$.handle('onEvent', () => false)).toThrow(
                 'A handler for "onEvent" is already registered',
             )
         })
@@ -1167,7 +1167,7 @@ describe(createRpcChannel, () => {
         it('should refuse handlers for reserved rpc. methods', () => {
             const rpcChannel = createRpcChannel(new MockAdapter<TestMethods, Record<string, () => void>>())
 
-            expect(() => rpcChannel.$.handle('rpc.discover' as never, () => undefined)).toThrowError(
+            expect(() => rpcChannel.$.handle('rpc.discover' as never, () => undefined)).toThrow(
                 'Cannot handle "rpc.discover": method names starting with "rpc." are reserved by JSON-RPC 2.0',
             )
         })
@@ -1263,7 +1263,7 @@ describe(createRpcChannel, () => {
             const adapter = new MockAdapter()
             createRpcChannel(adapter)
 
-            expect(() => createRpcChannel(adapter)).toThrowError(
+            expect(() => createRpcChannel(adapter)).toThrow(
                 'The adapter is already used by another channel. Create a separate adapter instance for each channel.',
             )
         })
@@ -1274,7 +1274,7 @@ describe(createRpcChannel, () => {
 
             rpcChannel.$.destroy()
 
-            expect(() => createRpcChannel(adapter)).toThrowError(
+            expect(() => createRpcChannel(adapter)).toThrow(
                 'The adapter was destroyed. Create a new adapter instance for the channel.',
             )
         })
@@ -1312,7 +1312,7 @@ describe(createRpcChannel, () => {
             adapter.destroy()
 
             await expect(queuedCall).rejects.toStrictEqual(new RpcError(RpcErrorCode.CONNECTION_LOST))
-            expect(() => rpcChannel.add(1, 2)).toThrowError('The channel was destroyed')
+            expect(() => rpcChannel.add(1, 2)).toThrow('The channel was destroyed')
             expect(rpcChannel.$.status).toBe(ConnectionStatus.DESTROYED)
         })
     })
@@ -1372,7 +1372,7 @@ describe(createRpcChannel, () => {
             const connectError = new Error('connect failed')
             adapter.connect.mockImplementationOnce(() => failWith(connectError))
 
-            expect(() => createRpcChannel(adapter)).not.toThrowError()
+            expect(() => createRpcChannel(adapter)).not.toThrow()
 
             await vi.waitFor(() =>
                 expect(console.error).toHaveBeenCalledWith(

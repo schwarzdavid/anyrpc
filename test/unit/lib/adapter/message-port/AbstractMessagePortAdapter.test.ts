@@ -110,7 +110,7 @@ describe(AbstractMessagePortAdapter, () => {
         })
 
         it('should silently drop messages', () => {
-            expect(() => adapter.sendMessage(request)).not.toThrowError()
+            expect(() => adapter.sendMessage(request)).not.toThrow()
         })
     })
 

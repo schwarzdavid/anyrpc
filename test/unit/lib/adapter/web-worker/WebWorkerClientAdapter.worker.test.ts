@@ -41,7 +41,7 @@ describe(WebWorkerClientAdapter, () => {
     it('should refuse to be created outside of a web worker', () => {
         vi.stubGlobal('window', globalThis)
 
-        expect(() => new WebWorkerClientAdapter()).toThrowError(
+        expect(() => new WebWorkerClientAdapter()).toThrow(
             'WebWorkerClientAdapter must be created inside the web worker. ' +
                 'Use WebWorkerHostAdapter on the page that starts the worker.',
         )
@@ -53,7 +53,7 @@ describe(WebWorkerClientAdapter, () => {
     ] as const)('should refuse to be created in a %s', (scope, hint) => {
         stubGlobalScope(scope)
 
-        expect(() => new WebWorkerClientAdapter()).toThrowError(hint)
+        expect(() => new WebWorkerClientAdapter()).toThrow(hint)
     })
 
     function answeredControlPort(call = 0): MessagePort {

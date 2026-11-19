@@ -60,6 +60,7 @@ export default defineConfig(
         rules: {
             ...vitest.configs.all.rules,
             'vitest/no-hooks': 'off',
+            'vitest/no-alias-methods': 'off',
             'vitest/prefer-expect-assertions': 'off',
             '@typescript-eslint/no-explicit-any': 'off',
             '@typescript-eslint/no-unsafe-member-access': 'off',

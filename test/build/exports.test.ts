@@ -71,7 +71,7 @@ describe.skipIf(!existsSync(resolve(ROOT, 'dist')))('package exports', () => {
 
     it.each(entries)('should import other declarations of %s with a file extension', (subpath) => {
         const declarations = readFileSync(distPath(subpath, 'types'), 'utf8')
-        const relativeImports = [...declarations.matchAll(/from '(\.[^']*)'/g)].map(([, specifier]) => specifier)
+        const relativeImports = [...declarations.matchAll(/from ["'](\.[^"']*)["']/g)].map(([, specifier]) => specifier)
 
         expect(relativeImports).not.toHaveLength(0)
         expect(relativeImports.filter((specifier) => !specifier?.endsWith('.js'))).toStrictEqual([])

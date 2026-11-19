@@ -35,9 +35,9 @@ export abstract class AbstractRpcHubAdapter<Methods extends MethodMap<Methods>, 
     abstract connect(): Promisable<void>
 
     protected addPeer(adapter: AbstractRpcAdapter<Methods, Events>): string {
-        const id = uuid()
-        this.binding?.onPeer({ id, adapter })
-        return id
+        const connection = { id: uuid(), adapter }
+        this.binding?.onPeer(connection)
+        return connection.id
     }
 
     protected removePeer(id: string): void {

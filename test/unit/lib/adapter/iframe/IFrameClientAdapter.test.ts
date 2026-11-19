@@ -155,7 +155,7 @@ describe(IFrameClientAdapter, () => {
 
     describe('origin option', () => {
         it('should throw for an empty array', () => {
-            expect(() => new IFrameClientAdapter(undefined, { origin: [] })).toThrowError(
+            expect(() => new IFrameClientAdapter(undefined, { origin: [] })).toThrow(
                 'Origin option cannot be an empty array',
             )
         })

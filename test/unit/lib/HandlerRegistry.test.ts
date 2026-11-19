@@ -26,7 +26,7 @@ describe(HandlerRegistry, () => {
 
         registry.register('testEvent', vi.fn<(arg: string) => string>())
 
-        expect(() => registry.register('testEvent', vi.fn<(arg: string) => string>())).toThrowError(
+        expect(() => registry.register('testEvent', vi.fn<(arg: string) => string>())).toThrow(
             'A handler for "testEvent" is already registered. ' +
                 'Call the function returned by the previous handle() before registering a new handler.',
         )

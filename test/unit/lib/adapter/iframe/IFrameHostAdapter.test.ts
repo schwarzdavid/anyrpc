@@ -173,7 +173,7 @@ describe(IFrameHostAdapter, () => {
 
     describe('origin option', () => {
         it('should throw for an empty array', () => {
-            expect(() => new IFrameHostAdapter(iframe, undefined, { origin: [] })).toThrowError(
+            expect(() => new IFrameHostAdapter(iframe, undefined, { origin: [] })).toThrow(
                 'Origin option cannot be an empty array',
             )
         })

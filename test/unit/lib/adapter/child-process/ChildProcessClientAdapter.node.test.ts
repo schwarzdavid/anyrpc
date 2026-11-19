@@ -69,7 +69,7 @@ describe(ChildProcessClientAdapter, () => {
     it('should throw a helpful error in a process without IPC channel', () => {
         processState.current = Object.assign(new EventEmitter(), { connected: false })
 
-        expect(() => new ChildProcessClientAdapter('my-app')).toThrowError(
+        expect(() => new ChildProcessClientAdapter('my-app')).toThrow(
             'ChildProcessClientAdapter must be created in a process with an IPC channel, ' +
                 'e.g. one started with child_process.fork(). Use ChildProcessHostAdapter in the parent process.',
         )
@@ -94,7 +94,7 @@ describe(ChildProcessClientAdapter, () => {
             return false
         })
 
-        expect(() => fromParent(initRequest)).not.toThrowError()
+        expect(() => fromParent(initRequest)).not.toThrow()
         expect(console.log).toHaveBeenCalledWith(
             '[ChildProcessClientAdapter]',
             'Could not send a message to the parent process',

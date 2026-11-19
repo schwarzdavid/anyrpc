@@ -87,7 +87,7 @@ describe(SharedWorkerHubAdapter, () => {
     it('should refuse to be created outside of a shared worker', () => {
         vi.unstubAllGlobals()
 
-        expect(() => new SharedWorkerHubAdapter()).toThrowError(
+        expect(() => new SharedWorkerHubAdapter()).toThrow(
             'SharedWorkerHubAdapter must be created inside the shared worker. ' +
                 'Use WebWorkerHostAdapter on the pages that connect to the worker.',
         )

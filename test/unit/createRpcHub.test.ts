@@ -130,7 +130,7 @@ describe(createRpcHub, () => {
         it('should refuse a hub adapter that is already used by another hub', () => {
             createRpcHub(hubAdapter)
 
-            expect(() => createRpcHub(hubAdapter)).toThrowError(
+            expect(() => createRpcHub(hubAdapter)).toThrow(
                 'The hub adapter is already used by another hub. Create a separate hub adapter instance for each hub.',
             )
         })
@@ -138,7 +138,7 @@ describe(createRpcHub, () => {
         it('should allow reusing the hub adapter once the hub was destroyed', () => {
             createRpcHub(hubAdapter).$.destroy()
 
-            expect(() => createRpcHub(hubAdapter)).not.toThrowError()
+            expect(() => createRpcHub(hubAdapter)).not.toThrow()
         })
     })
 
@@ -340,14 +340,14 @@ describe(createRpcHub, () => {
             unsubscribe()
 
             await expect(client.getState('a')).rejects.toMatchObject({ code: RpcErrorCode.METHOD_NOT_FOUND })
-            expect(() => hub.$.handle('getState', () => 'other')).not.toThrowError()
+            expect(() => hub.$.handle('getState', () => 'other')).not.toThrow()
         })
 
         it('should refuse a second handler for the same method', () => {
             const hub = createRpcHub(hubAdapter)
             hub.$.handle('getState', () => 'state')
 
-            expect(() => hub.$.handle('getState', () => 'other')).toThrowError(
+            expect(() => hub.$.handle('getState', () => 'other')).toThrow(
                 'A handler for "getState" is already registered. ' +
                     'Call the function returned by the previous handle() before registering a new handler.',
             )
@@ -356,7 +356,7 @@ describe(createRpcHub, () => {
         it('should refuse to handle reserved rpc. methods', () => {
             const hub = createRpcHub(hubAdapter)
 
-            expect(() => hub.$.handle('rpc.discover' as 'getState', () => 'state')).toThrowError(
+            expect(() => hub.$.handle('rpc.discover' as 'getState', () => 'state')).toThrow(
                 'Cannot handle "rpc.discover": method names starting with "rpc." are reserved by JSON-RPC 2.0',
             )
         })
@@ -496,10 +496,10 @@ describe(createRpcHub, () => {
             const hub = createRpcHub(hubAdapter)
             const reserved = (hub as unknown as Record<string, typeof hub.refresh>)['rpc.discover']
 
-            expect(() => reserved?.()).toThrowError(
+            expect(() => reserved?.()).toThrow(
                 'Cannot call "rpc.discover": method names starting with "rpc." are reserved by JSON-RPC 2.0',
             )
-            expect(() => reserved?.notify()).toThrowError(
+            expect(() => reserved?.notify()).toThrow(
                 'Cannot notify "rpc.discover": method names starting with "rpc." are reserved by JSON-RPC 2.0',
             )
         })
@@ -538,8 +538,8 @@ describe(createRpcHub, () => {
 
             hub.$.destroy()
 
-            expect(() => hub.getName()).toThrowError(destroyedError)
-            expect(() => hub.refresh.notify()).toThrowError(destroyedError)
+            expect(() => hub.getName()).toThrow(destroyedError)
+            expect(() => hub.refresh.notify()).toThrow(destroyedError)
         })
 
         it('should destroy peers that arrive after the hub was destroyed', () => {

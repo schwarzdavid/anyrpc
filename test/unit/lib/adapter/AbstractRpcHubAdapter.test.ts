@@ -64,7 +64,7 @@ describe(AbstractRpcHubAdapter, () => {
     it('should not fail when peers come and go before any handler is set', () => {
         const hubAdapter = new TestHubAdapter()
 
-        expect(() => hubAdapter.leave(hubAdapter.join(new TestPeerAdapter()))).not.toThrowError()
+        expect(() => hubAdapter.leave(hubAdapter.join(new TestPeerAdapter()))).not.toThrow()
     })
 
     it('should create a logger with a generic name by default', () => {

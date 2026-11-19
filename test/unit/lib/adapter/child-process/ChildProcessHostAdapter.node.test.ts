@@ -105,7 +105,7 @@ describe(ChildProcessHostAdapter, () => {
             return false
         })
 
-        expect(() => adapter.connect()).not.toThrowError()
+        expect(() => adapter.connect()).not.toThrow()
         expect(console.log).toHaveBeenCalledWith(
             '[ChildProcessHostAdapter]',
             'Could not send a message to the child process',

@@ -56,7 +56,7 @@ describe(NodeWorkerClientAdapter, () => {
     it('should throw a helpful error outside of a worker thread', () => {
         workerThreads.parentPort = null
 
-        expect(() => new NodeWorkerClientAdapter('my-app')).toThrowError(
+        expect(() => new NodeWorkerClientAdapter('my-app')).toThrow(
             'NodeWorkerClientAdapter must be created inside a worker thread. ' +
                 'Use NodeWorkerHostAdapter in the thread that starts the worker.',
         )

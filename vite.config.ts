@@ -1,68 +1,47 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
-import { existsSync } from 'node:fs'
-import { dirname, relative, resolve } from 'node:path'
-import dts from 'vite-plugin-dts'
+import { resolve } from 'node:path'
+import { dts } from 'rolldown-plugin-dts'
 import { playwright } from '@vitest/browser-playwright'
 
 const WORKER_SCOPE_TESTS = 'test/unit/**/*.worker.test.ts'
 const WORKER_SCOPE_TYPE_TESTS = 'test/unit/**/*.worker.test-d.ts'
 const NODE_SCOPE_TESTS = 'test/unit/**/*.node.test.ts'
 
-const SRC_DIR = resolve(__dirname, 'src')
-const DIST_DIR = resolve(__dirname, 'dist')
-const RELATIVE_SPECIFIER = /(from\s+|import\()(['"])(\.{1,2}\/[^'"]*)\2/g
-
-function withJsExtension(declarationFile: string, specifier: string): string {
-    const sourceDir = resolve(SRC_DIR, relative(DIST_DIR, dirname(declarationFile)))
-    const isDirectory = existsSync(resolve(sourceDir, specifier, 'index.ts'))
-
-    return isDirectory ? `${specifier}/index.js` : `${specifier}.js`
-}
-
-function addJsExtensions(declarationFile: string, content: string): string {
-    if (!declarationFile.endsWith('.d.ts')) {
-        return content
-    }
-    return content.replace(
-        RELATIVE_SPECIFIER,
-        (_match, keyword: string, quote: string, specifier: string) =>
-            `${keyword}${quote}${withJsExtension(declarationFile, specifier)}${quote}`,
-    )
-}
-
 export default defineConfig({
-    plugins: [
-        dts({
-            tsconfigPath: './tsconfig.lib.json',
-            include: ['src'],
-            exclude: ['node_modules/**'],
-            compilerOptions: { types: ['vite/client', 'node'] },
-            beforeWriteFile: (filePath, content) => ({ filePath, content: addJsExtensions(filePath, content) }),
-        }),
-    ],
+    oxc: {
+        exclude: [/\.js$/, /\.d\.[cm]?ts$/],
+    },
     resolve: {
         alias: {
-            '@': resolve(__dirname, 'src'),
+            '@': resolve(import.meta.dirname, 'src'),
         },
     },
     build: {
+        sourcemap: true,
         lib: {
             entry: {
-                index: resolve(__dirname, 'src/index.ts'),
-                iframe: resolve(__dirname, 'src/lib/adapter/iframe/index.ts'),
-                'message-port': resolve(__dirname, 'src/lib/adapter/message-port/index.ts'),
-                'web-worker': resolve(__dirname, 'src/lib/adapter/web-worker/index.ts'),
-                'node-worker': resolve(__dirname, 'src/lib/adapter/node-worker/index.ts'),
-                'child-process': resolve(__dirname, 'src/lib/adapter/child-process/index.ts'),
-                socket: resolve(__dirname, 'src/lib/adapter/socket/index.ts'),
-                websocket: resolve(__dirname, 'src/lib/adapter/websocket/index.ts'),
+                index: resolve(import.meta.dirname, 'src/index.ts'),
+                iframe: resolve(import.meta.dirname, 'src/lib/adapter/iframe/index.ts'),
+                'message-port': resolve(import.meta.dirname, 'src/lib/adapter/message-port/index.ts'),
+                'web-worker': resolve(import.meta.dirname, 'src/lib/adapter/web-worker/index.ts'),
+                'node-worker': resolve(import.meta.dirname, 'src/lib/adapter/node-worker/index.ts'),
+                'child-process': resolve(import.meta.dirname, 'src/lib/adapter/child-process/index.ts'),
+                socket: resolve(import.meta.dirname, 'src/lib/adapter/socket/index.ts'),
+                websocket: resolve(import.meta.dirname, 'src/lib/adapter/websocket/index.ts'),
             },
             formats: ['es'],
         },
-        rollupOptions: {
-            external: [/^node:/],
+        rolldownOptions: {
+            external: [/^node:/, 'type-fest'],
             output: { chunkFileNames: 'chunks/[name]-[hash].js' },
+            plugins: [
+                dts({
+                    tsconfig: './tsconfig.lib.json',
+                    tsc: { eager: true },
+                    compilerOptions: { types: ['vite/client', 'node'] },
+                }),
+            ],
         },
     },
     test: {

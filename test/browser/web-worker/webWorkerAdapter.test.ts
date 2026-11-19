@@ -171,7 +171,7 @@ describe(WebWorkerHostAdapter, () => {
         const blockingCall = channel.block(500)
         await vi.waitFor(() => expect(channel.$.status).toBe(ConnectionStatus.DISCONNECTED))
 
-        expect(() => channel.echo('busy')).toThrowError(new RpcError(RpcErrorCode.NOT_CONNECTED))
+        expect(() => channel.echo('busy')).toThrow(new RpcError(RpcErrorCode.NOT_CONNECTED))
         await expect(blockingCall).resolves.toBeNull()
     })
 

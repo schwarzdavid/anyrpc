@@ -15,11 +15,11 @@ export class RpcError extends Error implements RpcErrorData {
         errorCode: RpcErrorCode | RpcErrorData,
         private readonly includeStack = false,
     ) {
+        super(typeof errorCode === 'number' ? RPC_ERROR_MESSAGE_MAP[errorCode] : errorCode.message)
+
         if (typeof errorCode === 'number') {
-            super(RPC_ERROR_MESSAGE_MAP[errorCode])
             this.code = errorCode
         } else {
-            super(errorCode.message)
             this.code = errorCode.code
             this.message = errorCode.message
             this.data = errorCode.data

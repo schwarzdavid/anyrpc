@@ -76,10 +76,10 @@ describe(allowsAnyOrigin, () => {
 
 describe(assertValidOriginOption, () => {
     it('should throw for an empty array', () => {
-        expect(() => assertValidOriginOption([])).toThrowError('Origin option cannot be an empty array')
+        expect(() => assertValidOriginOption([])).toThrow('Origin option cannot be an empty array')
     })
 
     it.each(validOptions)('should accept %s', (_, option) => {
-        expect(() => assertValidOriginOption(option)).not.toThrowError()
+        expect(() => assertValidOriginOption(option)).not.toThrow()
     })
 })

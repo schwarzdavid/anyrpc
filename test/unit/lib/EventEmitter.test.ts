@@ -39,7 +39,7 @@ describe(EventEmitter, () => {
     it('should not fail when emitting an event without listeners', () => {
         const { eventEmitter } = createEmitter()
 
-        expect(() => eventEmitter.emit('testEvent', ['arg'])).not.toThrowError()
+        expect(() => eventEmitter.emit('testEvent', ['arg'])).not.toThrow()
     })
 
     it('should stop calling a listener after unsubscribing', () => {
