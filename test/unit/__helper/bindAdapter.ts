@@ -24,15 +24,19 @@ export function bindAdapter(adapter: BindableAdapter, binding: Partial<RpcAdapte
     adapter.bind(mergedBinding)
 }
 
-export function bindHubAdapter<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>>(
-    hubAdapter: AbstractRpcHubAdapter<Methods, Events>,
-    binding: Partial<RpcHubAdapterBinding<Methods, Events>>,
+export function bindHubAdapter<
+    Methods extends MethodMap<Methods>,
+    Events extends MethodMap<Events>,
+    Context = undefined,
+>(
+    hubAdapter: AbstractRpcHubAdapter<Methods, Events, Context>,
+    binding: Partial<RpcHubAdapterBinding<Methods, Events, Context>>,
 ): void {
-    const mergedBinding: RpcHubAdapterBinding<Methods, Events> = {
+    const mergedBinding: RpcHubAdapterBinding<Methods, Events, Context> = {
         onPeer: () => undefined,
         onPeerLost: () => undefined,
         logLevel: LogLevel.NONE,
-        ...(hubAdapterBindings.get(hubAdapter) as Partial<RpcHubAdapterBinding<Methods, Events>> | undefined),
+        ...(hubAdapterBindings.get(hubAdapter) as Partial<RpcHubAdapterBinding<Methods, Events, Context>> | undefined),
         ...binding,
     }
 

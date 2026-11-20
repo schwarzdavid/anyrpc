@@ -30,7 +30,9 @@ because class names do not survive minification. Options of a single call (`time
 `channel.method.with(options)(...args)`, never as an extra argument.
 The WebSocket adapters live in `src/lib/adapter/websocket/`. One-to-many transports (e.g. a `SharedWorker` serving many
 tabs) use `createRpcHub` with an adapter that extends `AbstractRpcHubAdapter`
-(`src/lib/adapter/AbstractRpcHubAdapter.ts`): the hub adapter reports peers via `addPeer(adapter)`/`removePeer(id)`, and
+(`src/lib/adapter/AbstractRpcHubAdapter.ts`): the hub adapter reports peers via `addPeer(adapter, context)`/`removePeer(id)`, where the typed `context` (third,
+invariant type parameter `Context`, default `undefined`; e.g. the upgrade request of a WebSocket) ends up as
+`peer.context`, and
 the hub wraps every peer adapter in a regular channel, so the channel core stays 1:1. Channel and hub share the same
 proxy shape (`createMethodProxy`): methods on the object, everything else under `$`. Enumerations are `as const` objects
 with a same-named union type, never `enum`, so they stay usable for consumers with `isolatedModules`.

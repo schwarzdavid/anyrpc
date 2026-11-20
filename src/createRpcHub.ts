@@ -15,13 +15,13 @@ import { createMethodProxy } from './utils/createMethodProxy'
 import type { RpcHub, RpcHubEvents, RpcHubMeta, RpcPeer, RpcPeerPromise } from './types/RpcHub'
 import type { RpcCallOptions, RpcHandleableName } from './types/RpcChannel'
 
-type PeerSubscription<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> = (
-    peer: RpcPeer<Methods, Events>,
+type PeerSubscription<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>, Context> = (
+    peer: RpcPeer<Methods, Events, Context>,
 ) => Unsubscribe
 
-interface PeerEntry<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>> {
-    readonly peer: RpcPeer<Methods, Events>
-    readonly detachments: Map<PeerSubscription<Methods, Events>, Unsubscribe>
+interface PeerEntry<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>, Context> {
+    readonly peer: RpcPeer<Methods, Events, Context>
+    readonly detachments: Map<PeerSubscription<Methods, Events, Context>, Unsubscribe>
     joined: boolean
 }
 
@@ -34,10 +34,23 @@ type UntypedRemoteMethod = UntypedCall & {
 
 const boundHubAdapters = new WeakSet<object>()
 
+export function createRpcHub<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>, Context>(
+    hubAdapter: AbstractRpcHubAdapter<Methods, Events, Context> & AssertCallableMethodNames<Methods, Events>,
+    options?: Partial<RpcChannelOptions>,
+): RpcHub<Methods, Events, Context>
 export function createRpcHub<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>>(
     hubAdapter: AbstractRpcHubAdapter<Methods, Events> & AssertCallableMethodNames<Methods, Events>,
+    options?: Partial<RpcChannelOptions>,
+): RpcHub<Methods, Events>
+export function createRpcHub<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    hubAdapter: AbstractRpcHubAdapter<Methods, Events, any> & AssertCallableMethodNames<Methods, Events>,
+    options?: Partial<RpcChannelOptions>,
+): RpcHub<Methods, Events, unknown>
+export function createRpcHub<Methods extends MethodMap<Methods>, Events extends MethodMap<Events>, Context>(
+    hubAdapter: AbstractRpcHubAdapter<Methods, Events, Context> & AssertCallableMethodNames<Methods, Events>,
     options: Partial<RpcChannelOptions> = {},
-): RpcHub<Methods, Events> {
+): RpcHub<Methods, Events, Context> {
     if (boundHubAdapters.has(hubAdapter)) {
         throw new Error(
             'The hub adapter is already used by another hub. Create a separate hub adapter instance for each hub.',
@@ -47,12 +60,12 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
 
     const hubOptions = resolveChannelOptions(options)
     const logger = new Logger('RpcHub', hubOptions.logLevel)
-    const hubEvents = new EventEmitter<RpcHubEvents<Methods, Events>>((error, name) => {
+    const hubEvents = new EventEmitter<RpcHubEvents<Methods, Events, Context>>((error, name) => {
         logger.error(`Listener for "${name}" threw an error`, error)
     })
     const handlers = new HandlerRegistry<Record<PropertyKey, MethodFn>>()
-    const entries = new Map<string, PeerEntry<Methods, Events>>()
-    const subscriptions = new Set<PeerSubscription<Methods, Events>>()
+    const entries = new Map<string, PeerEntry<Methods, Events, Context>>()
+    const subscriptions = new Set<PeerSubscription<Methods, Events, Context>>()
     let isDestroyed = false
 
     hubAdapter.bind({
@@ -73,7 +86,7 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
         }
     }
 
-    async function addPeer({ id, adapter }: RpcPeerConnection<Methods, Events>): Promise<void> {
+    async function addPeer({ id, adapter, context }: RpcPeerConnection<Methods, Events, Context>): Promise<void> {
         if (isDestroyed) {
             logger.warn(`Rejected peer "${id}": the hub was destroyed`)
             adapter.destroy()
@@ -83,7 +96,11 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
             adapter as AbstractRpcAdapter<Methods, Events> & AssertCallableMethodNames<Methods, Events>,
             { ...hubOptions, autoConnect: false },
         )
-        const entry: PeerEntry<Methods, Events> = { peer: { id, channel }, detachments: new Map(), joined: false }
+        const entry: PeerEntry<Methods, Events, Context> = {
+            peer: { id, channel, context },
+            detachments: new Map(),
+            joined: false,
+        }
 
         entries.set(id, entry)
         subscriptions.forEach((subscription) => attach(entry, subscription))
@@ -108,7 +125,7 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
         }
     }
 
-    function join(entry: PeerEntry<Methods, Events>): void {
+    function join(entry: PeerEntry<Methods, Events, Context>): void {
         if (entry.joined) {
             return
         }
@@ -131,15 +148,18 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
         }
     }
 
-    function joinedPeers(): RpcPeer<Methods, Events>[] {
+    function joinedPeers(): RpcPeer<Methods, Events, Context>[] {
         return [...entries.values()].filter((entry) => entry.joined).map((entry) => entry.peer)
     }
 
-    function attach(entry: PeerEntry<Methods, Events>, subscription: PeerSubscription<Methods, Events>): void {
+    function attach(
+        entry: PeerEntry<Methods, Events, Context>,
+        subscription: PeerSubscription<Methods, Events, Context>,
+    ): void {
         entry.detachments.set(subscription, subscription(entry.peer))
     }
 
-    function subscribe(subscription: PeerSubscription<Methods, Events>): Unsubscribe {
+    function subscribe(subscription: PeerSubscription<Methods, Events, Context>): Unsubscribe {
         subscriptions.add(subscription)
         entries.forEach((entry) => attach(entry, subscription))
 
@@ -158,12 +178,12 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
         }
     }
 
-    function remoteMethodOf(peer: RpcPeer<Methods, Events>, method: string): UntypedRemoteMethod {
+    function remoteMethodOf(peer: RpcPeer<Methods, Events, Context>, method: string): UntypedRemoteMethod {
         return Reflect.get(peer.channel as object, method) as UntypedRemoteMethod
     }
 
     function callPeer(
-        peer: RpcPeer<Methods, Events>,
+        peer: RpcPeer<Methods, Events, Context>,
         method: string,
         params: unknown[],
         options: RpcCallOptions,
@@ -176,11 +196,11 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
     }
 
     function createPeerPromise(
-        peer: RpcPeer<Methods, Events>,
+        peer: RpcPeer<Methods, Events, Context>,
         method: string,
         params: unknown[],
         options: RpcCallOptions,
-    ): RpcPeerPromise<Methods, Events, unknown> {
+    ): RpcPeerPromise<Methods, Events, unknown, Context> {
         const promise = callPeer(peer, method, params, options)
 
         promise.catch((error: unknown) => {
@@ -189,7 +209,7 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
         return Object.assign(promise, { peer })
     }
 
-    function notifyPeer(peer: RpcPeer<Methods, Events>, method: string, params: unknown[]): void {
+    function notifyPeer(peer: RpcPeer<Methods, Events, Context>, method: string, params: unknown[]): void {
         try {
             remoteMethodOf(peer, method).notify(...params)
         } catch (error) {
@@ -213,7 +233,7 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
         return Object.assign(callWith({}), { notify, with: callWith })
     }
 
-    const meta: RpcHubMeta<Methods, Events> = {
+    const meta: RpcHubMeta<Methods, Events, Context> = {
         get peers() {
             return joinedPeers()
         },
@@ -236,7 +256,7 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
         },
         on(name: PropertyKey, listener: RpcListener<MethodFn>): Unsubscribe {
             if (isReservedMethodName(name)) {
-                return hubEvents.on(name as keyof RpcHubEvents<Methods, Events>, listener)
+                return hubEvents.on(name as keyof RpcHubEvents<Methods, Events, Context>, listener)
             }
             return subscribe((peer) =>
                 peer.channel.$.on(name as RpcHandleableName<Events>, (...params) => listener({ peer }, ...params)),
@@ -255,5 +275,5 @@ export function createRpcHub<Methods extends MethodMap<Methods>, Events extends 
         },
     }
 
-    return createMethodProxy(meta, createBroadcastMethod) as RpcHub<Methods, Events>
+    return createMethodProxy(meta, createBroadcastMethod) as RpcHub<Methods, Events, Context>
 }

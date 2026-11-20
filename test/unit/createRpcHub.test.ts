@@ -57,6 +57,23 @@ class TestHubAdapter extends AbstractRpcHubAdapter<HubToPeer, PeerToHub> {
     }
 }
 
+interface Session {
+    user: string
+}
+
+class ContextHubAdapter extends AbstractRpcHubAdapter<HubToPeer, PeerToHub, Session> {
+    connect = vi.fn<() => void | Promise<void>>()
+    destroy = vi.fn<() => void>()
+
+    join(adapter: AbstractRpcAdapter<HubToPeer, PeerToHub>, context: Session): string {
+        return this.addPeer(adapter, context)
+    }
+
+    leave(id: string): void {
+        this.removePeer(id)
+    }
+}
+
 interface TestPeer {
     id: string
     hubSide: LoopbackAdapter<HubToPeer, PeerToHub>
@@ -73,6 +90,18 @@ function connectPeer(hubAdapter: TestHubAdapter, name: string, getName: () => st
     client.$.handle('getName', getName)
 
     return { id: hubAdapter.join(hubSide), hubSide, client }
+}
+
+function connectContextPeer(hubAdapter: ContextHubAdapter, context: Session): TestPeer {
+    const hubSide = new LoopbackAdapter<HubToPeer, PeerToHub>()
+    const clientSide = new LoopbackAdapter<PeerToHub, HubToPeer>()
+    hubSide.remote = clientSide
+    clientSide.remote = hubSide
+
+    const client = createRpcChannel<PeerToHub, HubToPeer>(clientSide)
+    client.$.handle('getName', () => context.user)
+
+    return { id: hubAdapter.join(hubSide, context), hubSide, client }
 }
 
 async function flush(): Promise<void> {
@@ -553,6 +582,89 @@ describe(createRpcHub, () => {
             expect(destroy).toHaveBeenCalledTimes(1)
             expect(hubSide.connect).not.toHaveBeenCalled()
             expect(console.warn).toHaveBeenCalledWith('[RpcHub]', `Rejected peer "${id}": the hub was destroyed`)
+        })
+    })
+
+    describe('peer context', () => {
+        let contextHubAdapter: ContextHubAdapter
+        let context: Session
+
+        beforeEach(() => {
+            contextHubAdapter = new ContextHubAdapter()
+            context = { user: 'ada' }
+        })
+
+        it('should expose the context on the peers of the hub', () => {
+            const hub = createRpcHub(contextHubAdapter)
+
+            const { id } = connectContextPeer(contextHubAdapter, context)
+
+            expect(hub.$.peers[0]?.context).toBe(context)
+            expect(hub.$.peer(id)?.context).toBe(context)
+        })
+
+        it('should pass the context to handlers and listeners', async () => {
+            const hub = createRpcHub(contextHubAdapter)
+            const listener = vi.fn<(callContext: { peer: { context: Session } }, value: number) => void>()
+            hub.$.handle('getState', ({ peer }) => peer.context.user)
+            hub.$.on('report', listener)
+            const { client } = connectContextPeer(contextHubAdapter, context)
+
+            client.report.notify(1)
+
+            await expect(client.getState('key')).resolves.toBe('ada')
+            expect(listener).toHaveBeenCalledExactlyOnceWith({ peer: expect.objectContaining({ context }) }, 1)
+        })
+
+        it('should pass the same context object on every call', async () => {
+            const hub = createRpcHub(contextHubAdapter)
+            const seen: Session[] = []
+            hub.$.handle('getState', ({ peer }) => {
+                seen.push(peer.context)
+                return peer.context.user
+            })
+            const { client } = connectContextPeer(contextHubAdapter, context)
+
+            await client.getState('a')
+            await client.getState('b')
+
+            expect(seen).toHaveLength(2)
+            expect(seen[0]).toBe(context)
+            expect(seen[1]).toBe(context)
+        })
+
+        it('should pass the context to the peer events', () => {
+            const hub = createRpcHub(contextHubAdapter)
+            const connected = vi.fn<(peer: { context: Session }) => void>()
+            const disconnected = vi.fn<(peer: { context: Session }) => void>()
+            hub.$.on('rpc.peer.connected', connected)
+            hub.$.on('rpc.peer.disconnected', disconnected)
+
+            const { id } = connectContextPeer(contextHubAdapter, context)
+            contextHubAdapter.leave(id)
+
+            expect(connected.mock.calls[0]?.[0].context).toBe(context)
+            expect(disconnected.mock.calls[0]?.[0].context).toBe(context)
+        })
+
+        it('should attach the peer with its context to broadcast promises', async () => {
+            const hub = createRpcHub(contextHubAdapter)
+            connectContextPeer(contextHubAdapter, context)
+
+            const [call] = hub.getName()
+
+            expect(call?.peer.context).toBe(context)
+            await expect(call).resolves.toBe('ada')
+        })
+
+        it('should give peers of an adapter without context an undefined context', () => {
+            const hub = createRpcHub(hubAdapter)
+
+            connectPeer(hubAdapter, 'first')
+            const [peer] = hub.$.peers
+
+            expect(peer?.context).toBeUndefined()
+            expect(peer && 'context' in peer).toBe(true)
         })
     })
 })

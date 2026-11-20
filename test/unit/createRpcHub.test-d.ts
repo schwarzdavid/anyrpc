@@ -1,10 +1,11 @@
 import { assertType, describe, expectTypeOf, it, vi } from 'vitest'
 import { createRpcHub } from '@/createRpcHub'
-import { AbstractRpcHubAdapter } from '@/lib/adapter/AbstractRpcHubAdapter'
+import { AbstractRpcHubAdapter, type RpcPeerContextArgument } from '@/lib/adapter/AbstractRpcHubAdapter'
+import type { AbstractRpcAdapter } from '@/lib/adapter/AbstractRpcAdapter'
 import type { MethodMap } from '@/types/MethodMap'
 import type { Unsubscribe } from '@/types/EventEmitter'
 import type { RpcChannel } from '@/types/RpcChannel'
-import type { RpcCallContext, RpcPeer, RpcPeerPromise } from '@/types/RpcHub'
+import type { RpcCallContext, RpcHub, RpcPeer, RpcPeerPromise } from '@/types/RpcHub'
 
 interface HubToPeer {
     getName(): string
@@ -22,6 +23,27 @@ class TestHubAdapter<
     M extends MethodMap<M> = HubToPeer,
     E extends MethodMap<E> = PeerToHub,
 > extends AbstractRpcHubAdapter<M, E> {
+    connect = vi.fn<() => void>()
+    destroy = vi.fn<() => void>()
+}
+
+interface Session {
+    user: string
+}
+
+class ContextHubAdapter<
+    M extends MethodMap<M> = HubToPeer,
+    E extends MethodMap<E> = PeerToHub,
+> extends AbstractRpcHubAdapter<M, E, Session> {
+    connect = vi.fn<() => void>()
+    destroy = vi.fn<() => void>()
+
+    join(adapter: AbstractRpcAdapter<M, E>, context: Session): string {
+        return this.addPeer(adapter, context)
+    }
+}
+
+class OptionalContextHubAdapter extends AbstractRpcHubAdapter<HubToPeer, PeerToHub, Session | undefined> {
     connect = vi.fn<() => void>()
     destroy = vi.fn<() => void>()
 }
@@ -131,6 +153,89 @@ describe(createRpcHub, () => {
         it('should refuse hub adapters whose methods cannot be called', () => {
             // @ts-expect-error
             assertType(createRpcHub(new TestHubAdapter<{ then(): void }>()))
+        })
+    })
+
+    describe('peer context', () => {
+        const contextHub = createRpcHub(new ContextHubAdapter())
+
+        it('should infer the context from the hub adapter', () => {
+            expectTypeOf(contextHub).toEqualTypeOf<RpcHub<HubToPeer, PeerToHub, Session>>()
+            expectTypeOf(contextHub.$.peers).toEqualTypeOf<readonly RpcPeer<HubToPeer, PeerToHub, Session>[]>()
+            expectTypeOf(contextHub.$.peer('id')).toEqualTypeOf<RpcPeer<HubToPeer, PeerToHub, Session> | undefined>()
+        })
+
+        it('should type the context in handlers, listeners, events and broadcasts', () => {
+            contextHub.$.handle('getState', ({ peer }) => {
+                expectTypeOf(peer.context).toEqualTypeOf<Session>()
+
+                return 1
+            })
+            contextHub.$.on('report', ({ peer }) => {
+                expectTypeOf(peer.context).toEqualTypeOf<Session>()
+            })
+            contextHub.$.on('rpc.peer.connected', (peer) => {
+                expectTypeOf(peer.context).toEqualTypeOf<Session>()
+            })
+            contextHub.$.on('rpc.peer.disconnected', (peer) => {
+                expectTypeOf(peer.context).toEqualTypeOf<Session>()
+            })
+
+            expectTypeOf(contextHub.getName()).toEqualTypeOf<RpcPeerPromise<HubToPeer, PeerToHub, string, Session>[]>()
+        })
+
+        it('should accept the context as third explicit type argument', () => {
+            expectTypeOf(createRpcHub<HubToPeer, PeerToHub, Session>(new ContextHubAdapter())).toEqualTypeOf<
+                RpcHub<HubToPeer, PeerToHub, Session>
+            >()
+        })
+
+        it('should leave the context unknown when an adapter with a context gets only two type arguments', () => {
+            const untypedHub = createRpcHub<HubToPeer, PeerToHub>(new ContextHubAdapter())
+
+            expectTypeOf(untypedHub).toEqualTypeOf<RpcHub<HubToPeer, PeerToHub, unknown>>()
+
+            untypedHub.$.handle('getState', ({ peer }) => {
+                expectTypeOf(peer.context).toBeUnknown()
+
+                return 1
+            })
+        })
+
+        it('should leave the context unknown when an optional context gets only two type arguments', () => {
+            expectTypeOf(createRpcHub<HubToPeer, PeerToHub>(new OptionalContextHubAdapter())).toEqualTypeOf<
+                RpcHub<HubToPeer, PeerToHub, unknown>
+            >()
+            expectTypeOf(createRpcHub(new OptionalContextHubAdapter())).toEqualTypeOf<
+                RpcHub<HubToPeer, PeerToHub, Session | undefined>
+            >()
+        })
+
+        it('should keep the context undefined for adapters without one', () => {
+            expectTypeOf(hub).toEqualTypeOf<RpcHub<HubToPeer, PeerToHub>>()
+            expectTypeOf(createRpcHub<HubToPeer, PeerToHub>(new TestHubAdapter())).toEqualTypeOf<
+                RpcHub<HubToPeer, PeerToHub>
+            >()
+            expectTypeOf<RpcPeer<HubToPeer, PeerToHub>['context']>().toEqualTypeOf<undefined>()
+        })
+
+        it('should still reject forbidden method names in every call form', () => {
+            interface Thenable {
+                then(): void
+            }
+
+            // @ts-expect-error
+            assertType(createRpcHub(new TestHubAdapter<Thenable>()))
+            // @ts-expect-error
+            assertType(createRpcHub<Thenable, PeerToHub>(new TestHubAdapter()))
+            // @ts-expect-error
+            assertType(createRpcHub<Thenable, PeerToHub, Session>(new ContextHubAdapter()))
+        })
+
+        it('should require the context argument only when the context cannot be undefined', () => {
+            expectTypeOf<RpcPeerContextArgument<Session>>().toEqualTypeOf<[context: Session]>()
+            expectTypeOf<RpcPeerContextArgument<undefined>>().toEqualTypeOf<[context?: undefined]>()
+            expectTypeOf<RpcPeerContextArgument<string | undefined>>().toEqualTypeOf<[context?: string | undefined]>()
         })
     })
 })

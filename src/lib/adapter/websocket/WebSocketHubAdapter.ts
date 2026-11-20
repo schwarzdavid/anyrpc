@@ -3,9 +3,18 @@ import { AbstractRpcHubAdapter } from '@/lib/adapter/AbstractRpcHubAdapter'
 import { type HeartbeatOption, type HeartbeatOptions, resolveHeartbeatOptions } from '@/lib/Heartbeat'
 import { type WebSocketLike, WebSocketPeerAdapter } from './WebSocketPeerAdapter'
 
-export interface WebSocketServerLike {
-    on(event: 'connection', listener: (socket: WebSocketLike) => void): unknown
-    off(event: 'connection', listener: (socket: WebSocketLike) => void): unknown
+export interface WebSocketRequestLike {
+    readonly headers: Readonly<Record<string, string | string[] | undefined>>
+    readonly url?: string | undefined
+}
+
+export interface WebSocketPeerContext<Request = WebSocketRequestLike> {
+    readonly request: Request
+}
+
+export interface WebSocketServerLike<Request = WebSocketRequestLike> {
+    on(event: 'connection', listener: (socket: WebSocketLike, request: Request) => void): unknown
+    off(event: 'connection', listener: (socket: WebSocketLike, request: Request) => void): unknown
 }
 
 export interface WebSocketHubAdapterOptions {
@@ -15,13 +24,14 @@ export interface WebSocketHubAdapterOptions {
 export class WebSocketHubAdapter<
     Methods extends MethodMap<Methods>,
     Events extends MethodMap<Events>,
-> extends AbstractRpcHubAdapter<Methods, Events> {
+    Request = WebSocketRequestLike,
+> extends AbstractRpcHubAdapter<Methods, Events, WebSocketPeerContext<Request>> {
     protected override readonly logName = 'WebSocketHubAdapter'
     private readonly heartbeatOptions: HeartbeatOptions | undefined
-    private readonly onConnection = (socket: WebSocketLike) => this.acceptSocket(socket)
+    private readonly onConnection = (socket: WebSocketLike, request: Request) => this.acceptSocket(socket, request)
 
     constructor(
-        private readonly server: WebSocketServerLike,
+        private readonly server: WebSocketServerLike<Request>,
         options?: Partial<WebSocketHubAdapterOptions>,
     ) {
         super()
@@ -37,7 +47,7 @@ export class WebSocketHubAdapter<
         this.server.off('connection', this.onConnection)
     }
 
-    private acceptSocket(socket: WebSocketLike): void {
-        this.addPeer(new WebSocketPeerAdapter<Methods, Events>(socket, this.heartbeatOptions))
+    private acceptSocket(socket: WebSocketLike, request: Request): void {
+        this.addPeer(new WebSocketPeerAdapter<Methods, Events>(socket, this.heartbeatOptions), { request })
     }
 }

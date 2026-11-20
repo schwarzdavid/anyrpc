@@ -1,16 +1,20 @@
 import { once } from 'node:events'
+import type { IncomingMessage } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { WebSocketServer } from 'ws'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createRpcChannel } from '@/createRpcChannel'
 import { createRpcHub } from '@/createRpcHub'
-import { WebSocketClientAdapter, WebSocketHubAdapter } from '@/lib/adapter/websocket'
+import { WebSocketClientAdapter, WebSocketHubAdapter, type WebSocketPeerContext } from '@/lib/adapter/websocket'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
 import type { RpcHub } from '@/types/RpcHub'
 
 interface ClientToServer {
     add(a: number, b: number): number
+    whoAmI(): string
 }
+
+type TestHub = RpcHub<ServerToClient, ClientToServer, WebSocketPeerContext<IncomingMessage>>
 
 interface ServerToClient {
     whoAreYou(): string
@@ -18,7 +22,7 @@ interface ServerToClient {
 
 describe('webSocket adapters', () => {
     let server: WebSocketServer
-    let hub: RpcHub<ServerToClient, ClientToServer>
+    let hub: TestHub
 
     beforeEach(async () => {
         server = new WebSocketServer({ port: 0 })
@@ -31,16 +35,16 @@ describe('webSocket adapters', () => {
         await new Promise((resolve) => server.close(resolve))
     })
 
-    function startHub(): RpcHub<ServerToClient, ClientToServer> {
-        const created = createRpcHub<ServerToClient, ClientToServer>(new WebSocketHubAdapter(server))
+    function startHub(): TestHub {
+        const created = createRpcHub(new WebSocketHubAdapter<ServerToClient, ClientToServer, IncomingMessage>(server))
         created.$.handle('add', (_context, a, b) => a + b)
         return created
     }
 
-    function startClient() {
+    function startClient(path = '') {
         const { port } = server.address() as AddressInfo
         return createRpcChannel<ClientToServer, ServerToClient>(
-            new WebSocketClientAdapter(`ws://localhost:${String(port)}`),
+            new WebSocketClientAdapter(`ws://localhost:${String(port)}${path}`),
             { queueEnabled: true },
         )
     }
@@ -49,6 +53,18 @@ describe('webSocket adapters', () => {
         const channel = startClient()
 
         await expect(channel.add(2, 3)).resolves.toBe(5)
+
+        channel.$.destroy()
+    })
+
+    it('should let a handler read the upgrade request of the calling peer', async () => {
+        hub.$.handle('whoAmI', ({ peer }) => {
+            const url = new URL(peer.context.request.url ?? '', 'ws://localhost')
+            return url.searchParams.get('user') ?? ''
+        })
+        const channel = startClient('/?user=ada')
+
+        await expect(channel.whoAmI()).resolves.toBe('ada')
 
         channel.$.destroy()
     })

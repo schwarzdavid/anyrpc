@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
-import { WebSocketHubAdapter } from '@/lib/adapter/websocket/WebSocketHubAdapter'
+import { WebSocketHubAdapter, type WebSocketPeerContext } from '@/lib/adapter/websocket/WebSocketHubAdapter'
 import { WebSocketPeerAdapter, type WebSocketLike } from '@/lib/adapter/websocket/WebSocketPeerAdapter'
 import type { PeerHandler } from '@/lib/adapter/AbstractRpcHubAdapter'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
@@ -13,21 +13,23 @@ interface TestMethods {
 }
 
 class FakeServer extends EventEmitter {
-    accept(socket: WebSocketLike): void {
-        this.emit('connection', socket)
+    accept(socket: WebSocketLike, request?: object): void {
+        this.emit('connection', socket, request)
     }
 }
 
 describe(WebSocketHubAdapter, () => {
     let server: FakeServer
     let hubAdapter: WebSocketHubAdapter<TestMethods, TestMethods>
-    let peerHandler: Mock<PeerHandler<TestMethods, TestMethods>>
+    let peerHandler: Mock<PeerHandler<TestMethods, TestMethods, WebSocketPeerContext>>
 
     beforeEach(() => {
         vi.useFakeTimers()
         server = new FakeServer()
         hubAdapter = new WebSocketHubAdapter(server)
-        peerHandler = vi.fn<PeerHandler<TestMethods, TestMethods>>(({ adapter }) => void adapter.connect())
+        peerHandler = vi.fn<PeerHandler<TestMethods, TestMethods, WebSocketPeerContext>>(
+            ({ adapter }) => void adapter.connect(),
+        )
         bindHubAdapter(hubAdapter, { onPeer: peerHandler })
     })
 
@@ -41,7 +43,30 @@ describe(WebSocketHubAdapter, () => {
 
         server.accept(new FakeSocket())
 
-        expect(peerHandler).toHaveBeenCalledWith({ id: expect.any(String), adapter: expect.any(WebSocketPeerAdapter) })
+        expect(peerHandler).toHaveBeenCalledWith({
+            id: expect.any(String),
+            adapter: expect.any(WebSocketPeerAdapter),
+            context: { request: undefined },
+        })
+    })
+
+    it('should pass the upgrade request as context of the peer', () => {
+        const request = { headers: { authorization: 'Bearer token' }, url: '/rpc?room=1' }
+        hubAdapter.connect()
+
+        server.accept(new FakeSocket(), request)
+
+        expect(peerHandler.mock.calls[0]?.[0].context).toStrictEqual({ request })
+        expect(peerHandler.mock.calls[0]?.[0].context.request).toBe(request)
+    })
+
+    it('should add the peer with an undefined request when the server emits none', () => {
+        hubAdapter.connect()
+
+        server.accept(new FakeSocket())
+
+        expect(peerHandler).toHaveBeenCalledTimes(1)
+        expect(peerHandler.mock.calls[0]?.[0].context).toStrictEqual({ request: undefined })
     })
 
     it('should destroy the adapter of a peer once its socket closes', () => {

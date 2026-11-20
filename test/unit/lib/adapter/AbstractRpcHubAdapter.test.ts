@@ -31,6 +31,19 @@ class TestHubAdapter extends AbstractRpcHubAdapter<TestMethods, TestMethods> {
     }
 }
 
+interface TestContext {
+    user: string
+}
+
+class ContextHubAdapter extends AbstractRpcHubAdapter<TestMethods, TestMethods, TestContext> {
+    connect = vi.fn<() => void>()
+    destroy = vi.fn<() => void>()
+
+    join(adapter: TestPeerAdapter, context: TestContext): string {
+        return this.addPeer(adapter, context)
+    }
+}
+
 describe(AbstractRpcHubAdapter, () => {
     afterEach(() => {
         vi.restoreAllMocks()
@@ -49,6 +62,30 @@ describe(AbstractRpcHubAdapter, () => {
         expect(firstId).not.toBe(secondId)
         expect(peerHandler).toHaveBeenNthCalledWith(1, { id: firstId, adapter: firstAdapter })
         expect(peerHandler).toHaveBeenNthCalledWith(2, { id: secondId, adapter: secondAdapter })
+    })
+
+    it('should hand the context of a peer to the peer handler', () => {
+        const hubAdapter = new ContextHubAdapter()
+        const peerHandler = vi.fn<PeerHandler<TestMethods, TestMethods, TestContext>>()
+        const adapter = new TestPeerAdapter()
+        const context = { user: 'ada' }
+        bindHubAdapter(hubAdapter, { onPeer: peerHandler })
+
+        const id = hubAdapter.join(adapter, context)
+
+        expect(peerHandler.mock.calls[0]?.[0]).toStrictEqual({ id, adapter, context })
+        expect(peerHandler.mock.calls[0]?.[0].context).toBe(context)
+    })
+
+    it('should hand an undefined context to the peer handler when the adapter has none', () => {
+        const hubAdapter = new TestHubAdapter()
+        const peerHandler = vi.fn<PeerHandler<TestMethods, TestMethods>>()
+        const adapter = new TestPeerAdapter()
+        bindHubAdapter(hubAdapter, { onPeer: peerHandler })
+
+        const id = hubAdapter.join(adapter)
+
+        expect(peerHandler.mock.calls[0]?.[0]).toStrictEqual({ id, adapter, context: undefined })
     })
 
     it('should report a lost peer by its id', () => {

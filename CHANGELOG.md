@@ -13,6 +13,11 @@ All notable changes to this project are documented in this file. The format is b
   the call with an `AbortSignal`. Hubs support the same through `hub.method.with(options)`.
 - Connection status `destroyed`. It is final: an adapter whose transport can never connect again destroys itself, the
   channel rejects everything that is still waiting, and a hub removes the peer.
+- `peer.context` on hub peers: transport-specific information about a peer, typed through a third type parameter
+  `Context` on `AbstractRpcHubAdapter`, `createRpcHub` and the hub types. Custom hub adapters pass it with
+  `this.addPeer(adapter, context)`.
+- `WebSocketHubAdapter` exposes the upgrade request as `peer.context.request`. New types `WebSocketPeerContext` and
+  `WebSocketRequestLike`; `WebSocketHubAdapter` and `WebSocketServerLike` take the request type as type parameter.
 - `logName` on adapters, so log prefixes survive minification.
 - Types `RpcCall`, `RpcCallOptions`, `RpcConfigurable`, `RpcBroadcast`, `RpcAdapterBinding` and `RpcHubAdapterBinding`
   are exported from the package entry, `MessagePortInitiatorOptions` and `MessagePortResponderOptions` from
@@ -29,6 +34,17 @@ All notable changes to this project are documented in this file. The format is b
   `AbstractMessagePortClientAdapter` to `AbstractMessagePortInitiatorAdapter`. Both take a single options object.
 - **Breaking:** the package entry exports an explicit list instead of everything from `createRpcChannel` and
   `createRpcHub`. Internal helpers that were exported by accident are no longer available.
+- **Breaking:** the `connection` listener of `WebSocketServerLike` takes the upgrade request as second argument. `ws`
+  servers and servers with an untyped `on` (e.g. an `EventEmitter`) are not affected. A custom server type whose
+  listener only declares the socket no longer matches; declare the second argument there. A server that does not
+  pass a request at runtime still works, `peer.context.request` is `undefined` then.
+- **Breaking:** the hub of a `WebSocketHubAdapter` is no longer an `RpcHub<Methods, Events>`, because its peers have a
+  context. `createRpcHub<Methods, Events>(new WebSocketHubAdapter(server))` still compiles, but returns
+  `RpcHub<Methods, Events, unknown>`. Write the type arguments on the adapter instead,
+  `createRpcHub(new WebSocketHubAdapter<Methods, Events>(server))`, and add the context to annotations of your own:
+  `RpcHub<Methods, Events, WebSocketPeerContext>`, `RpcPeer<Methods, Events, WebSocketPeerContext>`.
+- `RpcPeer` and `RpcPeerConnection` have a required `context` property. Code that builds such objects by hand, e.g. in
+  tests, has to add it (`context: undefined` for hubs without a context).
 - The entry points `adapters/socket` and `adapters/message-port` are documented as unstable.
 - The license is MPL-2.0 (before: ISC).
 - `package.json` declares `engines.node >= 22`.

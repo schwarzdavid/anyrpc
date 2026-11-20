@@ -286,8 +286,8 @@ import { createRpcHub } from '@schwarzdavid/anyrpc'
 import { SharedWorkerHubAdapter } from '@schwarzdavid/anyrpc/adapters/web-worker'
 import type { PageToWorker, WorkerToPage } from './messages'
 
-// createRpcHub<MethodsOfEveryPeer, MethodsICanHandle>
-const hub = createRpcHub<WorkerToPage, PageToWorker>(new SharedWorkerHubAdapter('my-app'))
+// SharedWorkerHubAdapter<MethodsOfEveryPeer, MethodsICanHandle>
+const hub = createRpcHub(new SharedWorkerHubAdapter<WorkerToPage, PageToWorker>('my-app'))
 
 // Handlers and listeners receive the calling peer as first argument
 hub.$.handle('getState', ({ peer }, key) => store.get(peer.id, key))
@@ -309,11 +309,13 @@ const fastest = await Promise.any(hub.getTitle())
 | `hub.$.handle(name, (context, ...args) => result)`              | Answers calls of `name` from every peer. `context.peer` is the calling peer. One handler per method.                                                                                                              |
 | `hub.$.on(name, (context, ...args) => void)`                    | Observes calls and notifications of `name` from every peer.                                                                                                                                                       |
 | `hub.$.on('rpc.peer.connected' \| 'rpc.peer.disconnected', fn)` | Called with the peer when it connects or leaves.                                                                                                                                                                  |
-| `hub.$.peers` / `hub.$.peer(id)`                                | The connected peers. Each peer has an `id` and its own `channel` to call it individually: `peer.channel.method()`.                                                                                                |
+| `hub.$.peers` / `hub.$.peer(id)`                                | The connected peers. Each peer has an `id`, its own `channel` to call it individually (`peer.channel.method()`) and a `context`.                                                                                  |
 | `hub.$.destroy()`                                               | Disconnects all peers and stops accepting new ones.                                                                                                                                                               |
 
 - A peer appears in `hub.$.peers` and `rpc.peer.connected` once its channel is connected, so you can call it right away. It stays a peer while its connection briefly drops and recovers.
 - A peer leaves when its side destroys the channel, or when the hub adapter detects that it is gone (e.g. a missed heartbeat). Its channel is then `destroyed` and its pending calls reject with `-31003`. A peer that comes back is a new peer with a new id.
+- `peer.context` holds what the transport knows about the peer: the upgrade request for [WebSockets](#websocket-adapter), `undefined` for SharedWorkers. The hub never changes it. For state of your own per peer, such as the user after a login call, keep a `WeakMap<RpcPeer, State>`.
+- Write the type arguments on the hub adapter, as above, so that the type of `peer.context` is inferred. `createRpcHub<Methods, Events>(adapter)` works as well, but TypeScript cannot infer the remaining type then: for an adapter with a context, `peer.context` is `unknown` and the hub is an `RpcHub<Methods, Events, unknown>`.
 - Promises of a broadcast that you never await do not cause unhandled rejections; failures are logged at `DEBUG` level.
 - The hub accepts the same options as `createRpcChannel` and applies them to every peer channel. `autoConnect` controls whether the hub adapter starts accepting peers right away.
 
@@ -432,12 +434,16 @@ const channel = createRpcChannel<ChildToParent, ParentToChild>(new ChildProcessC
 
 ```ts
 // server.ts
+import type { IncomingMessage } from 'node:http'
 import { WebSocketServer } from 'ws'
 import { createRpcHub } from '@schwarzdavid/anyrpc'
 import { WebSocketHubAdapter } from '@schwarzdavid/anyrpc/adapters/websocket'
 
 const server = new WebSocketServer({ port: 8081 })
-const hub = createRpcHub<ServerToClient, ClientToServer>(new WebSocketHubAdapter(server))
+const hub = createRpcHub(new WebSocketHubAdapter<ServerToClient, ClientToServer, IncomingMessage>(server))
+
+// Every peer carries the HTTP request that opened its connection
+hub.$.handle('getProfile', ({ peer }) => loadProfile(readSession(peer.context.request.headers.cookie)))
 ```
 
 ```ts
@@ -448,6 +454,8 @@ import { WebSocketClientAdapter } from '@schwarzdavid/anyrpc/adapters/websocket'
 const channel = createRpcChannel<ClientToServer, ServerToClient>(new WebSocketClientAdapter('wss://example.com/rpc'))
 ```
 
+- `peer.context.request` is the upgrade request of the peer, with its headers (cookies, `Authorization`), URL and remote address. The third type argument of `WebSocketHubAdapter` is its type; without it, the request is typed as `WebSocketRequestLike`, which only has `headers` and `url`. The server has to pass the request as second argument of its `connection` event, as `ws` does.
+- anyrpc has no option to reject a connection. Do that before the connection becomes a peer, with the means of your server: `new WebSocketServer({ port, verifyClient: ({ req }) => isAllowed(req) })`, or `noServer` together with `handleUpgrade`.
 - Only text frames are exchanged, binary frames are dropped.
 - The client reconnects with a backoff from 1 s up to 30 s when the connection drops, when the server closes it or when the server says goodbye. Socket errors on the server side are logged.
 - The heartbeat is off for the client and on for the hub. If the other side does not run anyrpc, leave the heartbeat of the client off. The hub removes clients that do not answer `anyrpc::ping`, so set `heartbeat: false` on the hub when its clients do not run anyrpc.
@@ -540,7 +548,7 @@ Transports that hand over `MessagePort`s after a handshake, like the iframe and 
 
 The base classes accept any port that matches `MessagePortLike` (`postMessage`, `addEventListener`, `start`, `close`), including Node.js `worker_threads` ports. Transports that cannot deliver the handshake ports as `event.ports`, such as Node.js workers that only transfer ports inside the message itself, pass them to `this.acceptInitResponseData(data, ports)` instead of calling `this.acceptInitResponse(event)`. Implementations may declare `transfer` in `postInitResponse` as their transport's own type, e.g. `Transferable[]` in the browser or `MessagePort[]` from `node:worker_threads`.
 
-For one-to-many transports, extend `AbstractRpcHubAdapter` instead. Implement `connect()` and `destroy()`, and for every new peer create a regular adapter for its connection and pass it to `this.addPeer(adapter)`, which returns the peer's id. The hub connects that adapter and wraps it in a channel. A peer is removed as soon as its adapter is destroyed, so a peer adapter only has to call its own `destroy()` when the connection is gone. To remove a peer for another reason, call `this.removePeer(id)`.
+For one-to-many transports, extend `AbstractRpcHubAdapter` instead. Implement `connect()` and `destroy()`, and for every new peer create a regular adapter for its connection and pass it to `this.addPeer(adapter)`, which returns the peer's id. The hub connects that adapter and wraps it in a channel. To tell consumers something about a peer, declare its type as third type argument, `AbstractRpcHubAdapter<Methods, Events, Context>`, and pass the value with `this.addPeer(adapter, context)`; it becomes `peer.context`. The argument is only required if `Context` cannot be `undefined`. Give your adapter class a fixed context type rather than a type parameter with a default: `createRpcHub<Methods, Events>(new MyHubAdapter())` would infer such a parameter as `undefined` instead of using the default. A peer is removed as soon as its adapter is destroyed, so a peer adapter only has to call its own `destroy()` when the connection is gone. To remove a peer for another reason, call `this.removePeer(id)`.
 
 `ConnectionStatus`, `LogLevel` and `RpcErrorCode` are plain `as const` objects with a same-named union type, so `status === 'connected'` and `code === -31001` type-check as well.
 
@@ -582,7 +590,7 @@ npm run build      # Build the ESM bundles and type declarations into dist/
 **Protocol and behavior**
 
 - [x] Support request cancellation (e.g. via `AbortSignal`)
-- [ ] Give hub peers a connection context (e.g. the upgrade request of a WebSocket), see [docs/todo/hub-peer-context.md](docs/todo/hub-peer-context.md)
+- [x] Give hub peers a connection context (e.g. the upgrade request of a WebSocket)
 - [x] Warn when `IFrameClientAdapter` allows any origin (`origin: true`)
 
 **Project**

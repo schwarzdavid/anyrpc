@@ -41,4 +41,5 @@ export {
     type PeerLostHandler,
     type RpcHubAdapterBinding,
     type RpcPeerConnection,
+    type RpcPeerContextArgument,
 } from './lib/adapter/AbstractRpcHubAdapter'
