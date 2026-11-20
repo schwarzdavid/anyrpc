@@ -50,9 +50,12 @@ with a same-named union type, never `enum`, so they stay usable for consumers wi
   conceivable. Two options that configure nearly the same thing are a design smell. When in doubt, pick a sensible
   fixed behavior and leave the option out.
 - Treat everything reachable through `package.json` `exports` as public API. Changing it is a breaking change; call it
-  out explicitly and record it in `CHANGELOG.md` under `Unreleased`. The subpaths `adapters/socket` and
-  `adapters/message-port` are documented as unstable (README, "Stability"): they may change in a minor release, but
-  the change still has to be called out and recorded.
+  out explicitly. The subpaths `adapters/socket` and `adapters/message-port` are documented as unstable (README,
+  "Stability"): they may change in a minor release, but the change still has to be called out.
+- **Every change a consumer can notice goes into `CHANGELOG.md`** under `Unreleased`, in the same change that makes
+  it: new features, changed or removed behavior, fixes, dependency and runtime requirements. Use the sections `Added`,
+  `Changed`, `Removed` and `Fixed`, and start breaking changes with `**Breaking:**`. Pure refactorings, tests and
+  tooling need no entry.
 
 ## Code style
 
@@ -90,7 +93,8 @@ npm run build      # ESM bundles and d.ts into dist/
 npm run dev        # Vite dev server, live demo at /examples/iframe/
 ```
 
-Before reporting work as done, run `npm run coverage`, `npm run check`, `npm run lint` and `npm run format`.
+Before reporting work as done, run `npm run coverage`, `npm run check`, `npm run lint` and `npm run format`, and make
+sure `CHANGELOG.md` has an entry for the change.
 
 ## Adding an adapter
 
