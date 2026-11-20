@@ -1,5 +1,5 @@
 import type { MethodFn } from './MethodMap'
-import type { Promisable } from 'type-fest'
+import type { Promisable } from './Promisable'
 
 export type Unsubscribe = () => void
 

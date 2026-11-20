@@ -1,4 +1,4 @@
-import type { Promisable } from 'type-fest'
+import type { Promisable } from './Promisable'
 import type { MethodFn, MethodMap } from './MethodMap'
 import type { RpcListener, Unsubscribe } from './EventEmitter'
 import type { UncallableMethodName } from './MethodName'

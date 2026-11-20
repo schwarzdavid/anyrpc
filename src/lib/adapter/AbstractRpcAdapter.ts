@@ -1,7 +1,7 @@
 import type { RpcMessage } from '@/types/RpcMessages'
 import type { MethodMap } from '@/types/MethodMap'
 import { ConnectionStatus } from '@/types/ConnectionStatus'
-import type { Promisable } from 'type-fest'
+import type { Promisable } from '@/types/Promisable'
 import { Logger } from '@/lib/Logger'
 import { ConnectionLifecycle } from '@/lib/ConnectionLifecycle'
 import type { LogLevel } from '@/types/LogLevel'

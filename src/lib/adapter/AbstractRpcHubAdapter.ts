@@ -1,4 +1,4 @@
-import type { Promisable } from 'type-fest'
+import type { Promisable } from '@/types/Promisable'
 import type { MethodMap } from '@/types/MethodMap'
 import type { LogLevel } from '@/types/LogLevel'
 import type { AbstractRpcAdapter } from '@/lib/adapter/AbstractRpcAdapter'

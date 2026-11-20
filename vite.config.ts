@@ -33,7 +33,7 @@ export default defineConfig({
             formats: ['es'],
         },
         rolldownOptions: {
-            external: [/^node:/, 'type-fest'],
+            external: [/^node:/],
             output: { chunkFileNames: 'chunks/[name]-[hash].js' },
             plugins: [
                 dts({

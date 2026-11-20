@@ -55,7 +55,13 @@ anyrpc takes care of all of this. You describe both directions of communication 
 npm install @schwarzdavid/anyrpc
 ```
 
-> anyrpc is still in alpha: the API may change with every release until 1.0.0. The package is ESM only; CommonJS code can load it with `require()` on Node.js 22.12 or newer. The Node.js adapters and the WebSocket client need Node.js 22 or newer.
+> The package is ESM only; CommonJS code can load it with `require()` on Node.js 22.12 or newer. The Node.js adapters and the WebSocket client need Node.js 22 or newer.
+
+### Stability
+
+Releases before 1.0.0 may change the API at any time. From 1.0.0 on, anyrpc follows [semantic versioning](https://semver.org/), and every change is listed in the [changelog](CHANGELOG.md).
+
+Two entry points are excluded from that promise and marked as **unstable**: `@schwarzdavid/anyrpc/adapters/socket` and `@schwarzdavid/anyrpc/adapters/message-port`. They contain the base classes for writing your own adapters and may change in a minor release. Such changes are called out in the changelog. If you build on them, pin the minor version (`~1.0.0`). The ready-made adapters built on top of them are stable.
 
 ### 1. Define your API contract
 
@@ -526,6 +532,8 @@ class MyWebSocketAdapter<
 
 This example only illustrates the contract; use `@schwarzdavid/anyrpc/adapters/websocket` for WebSockets in production.
 
+> ⚠️ The two entry points described next, `@schwarzdavid/anyrpc/adapters/socket` and `@schwarzdavid/anyrpc/adapters/message-port`, are **unstable** and may change in a minor release, see [Stability](#stability). `AbstractRpcAdapter` and `AbstractRpcHubAdapter` from the package entry are stable.
+
 For transports with a single bidirectional channel (TCP, IPC, …) extend `AbstractSocketAdapter` from `@schwarzdavid/anyrpc/adapters/socket`. Implement `connect()` and `send(message)`, call `this.opened()` and `this.closed()` when the transport opens and closes, and pass incoming strings or objects to `this.receive(data)`. Heartbeat and goodbye messages travel in-band. `receive()` ignores data until `opened()` was called, so handle a handshake before passing data to `receive()` and answer it via `this.send(...)` directly. `send()` is called for RPC messages regardless of the connection state, so it must ignore writes to a closed transport itself; control messages are only sent while the transport is open.
 
 Transports that hand over `MessagePort`s after a handshake, like the iframe and Web Worker adapters, build on `@schwarzdavid/anyrpc/adapters/message-port` instead. Extend `AbstractMessagePortInitiatorAdapter` for the side that starts the handshake and polls until it is answered, and `AbstractMessagePortResponderAdapter` for the side that answers it and creates the `MessageChannel`s. Both take one options object in their constructor: `initMethod` (the name of your handshake message), `name` (the channel name both sides share) and optionally `heartbeat`, plus `pollingInterval` for the initiator. Implement only how handshake messages are listened for and posted; ports, heartbeat, goodbye notifications and reconnects come with the base classes. Which side starts the handshake depends on the transport: an iframe asks its parent, because the parent cannot know when the iframe has loaded, while a page asks its worker. The answering side reports `connected` only after the other side answered the first ping on the control port.
@@ -580,8 +588,8 @@ npm run build      # Build the ESM bundles and type declarations into dist/
 **Project**
 
 - [ ] Add API documentation and more examples
-- [ ] Set up CI (lint, type check, test, build)
-- [ ] Add a changelog
+- [x] Set up CI (lint, type check, test, build)
+- [x] Add a changelog
 
 ## License
 

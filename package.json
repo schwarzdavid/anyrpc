@@ -10,7 +10,7 @@
     "check": "tsc --build --force",
     "build": "vite build",
     "dev": "vite",
-    "preversion": "concurrently npm:format npm:lint npm:check",
+    "preversion": "concurrently npm:format npm:lint npm:check npm:coverage",
     "prepublishOnly": "npm run build",
     "test": "vitest run --typecheck",
     "test:watch": "vitest",
@@ -102,9 +102,6 @@
     "vite": "^8.3.8",
     "vitest": "4.1.12",
     "ws": "^8.22.0"
-  },
-  "dependencies": {
-    "type-fest": "^5.10.0"
   },
   "publishConfig": {
     "access": "public"
